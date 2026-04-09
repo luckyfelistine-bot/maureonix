@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="YOUR_LOGO_URL" alt="Maureonix WhatsApp Bot" width="300" />
+<img src="https://ibb.co/wFbC6xJm" alt="Maureonix WhatsApp Bot" width="300" />
 
 # 🧬🌐 MAUREONIX 🌐🧬 WhatsApp Bot
 
