@@ -1,14 +1,10 @@
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
-// ═══════════════════════════════════════════════════════════
-// (async () => {
-(async () => { // wrapper kept for structure
+(async () => {
     const { execSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
 
-    // ═══════════════════════════════════════════════════════
-    // 📦 Auto Dependency Installer
-    // ═══════════════════════════════════════════════════════
+    // Auto Dependency Installer (same as before, unchanged)
     function _detectPackageManager() {
         try { execSync('yarn --version', { stdio: 'pipe', timeout: 5000 }); return 'yarn'; } catch {}
         try { execSync('npm --version',  { stdio: 'pipe', timeout: 5000 }); return 'npm';  } catch {}
@@ -21,8 +17,6 @@
         if (!fs.existsSync(pkgPath)) return false;
         const nmPath = path.join(__dirname, 'node_modules');
         if (!fs.existsSync(nmPath)) return true;
-
-        // package.json වල dependencies check කරනවා
         try {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
@@ -54,13 +48,12 @@
                 'pnpm install',
             ],
         };
-
         const cmds = commands[pm] || commands['npm'];
         for (const cmd of cmds) {
             try {
                 console.log(`📦 Running: ${cmd}`);
                 execSync(cmd, { stdio: 'inherit', cwd: __dirname, timeout: 180000, shell: true });
-                console.log('✅ Dependencies install සාර්ථකයි!');
+                console.log('✅ Dependencies installed successfully!');
                 return true;
             } catch (e) {
                 console.log(`✗ ${cmd} — ${e.message?.substring(0, 80)}`);
@@ -70,25 +63,20 @@
     }
 
     if (_needsInstall()) {
-        console.log('\n📦 [Auto-Install] Dependencies install කරමින්...');
+        console.log('\n📦 [Auto-Install] Installing dependencies...');
         const pm = _detectPackageManager();
         console.log(`📦 Package manager: ${pm}`);
         const ok = _runInstall(pm);
         if (!ok) {
-            console.log('⚠️ Auto-install අසාර්ථකයි. Manual install කරන්න:');
+            console.log('⚠️ Auto-install failed. Please install manually:');
             console.log('   npm install --legacy-peer-deps');
         }
         console.log('');
     }
-    // ═══════════════════════════════════════════════════════
-    // 🐍 Python Packages Auto-Install / Upgrade
-    // ═══════════════════════════════════════════════════════
-    (function _autoPip() {
-        const pipPackages = [
-            'speedtest-cli',
-            'yt-dlp',
-        ];
 
+    // Python packages auto-install (unchanged)
+    (function _autoPip() {
+        const pipPackages = ['speedtest-cli', 'yt-dlp'];
         function _getPipCmd() {
             const cmds = ['pip3', 'pip'];
             for (const cmd of cmds) {
@@ -96,17 +84,14 @@
             }
             return null;
         }
-
         function _isPipPkgInstalled(pip, pkg) {
             try {
                 execSync(`${pip} show ${pkg}`, { stdio: 'pipe', timeout: 10000 });
                 return true;
             } catch { return false; }
         }
-
         const pip = _getPipCmd();
-        if (!pip) { console.log('⚠️ pip හමු නොවිණී — Python packages skip'); return; }
-
+        if (!pip) { console.log('⚠️ pip not found — skipping Python packages'); return; }
         for (const pkg of pipPackages) {
             try {
                 if (_isPipPkgInstalled(pip, pkg)) {
@@ -124,18 +109,13 @@
         }
     })();
 
-    // ═══════════════════════════════════════════════════════
-    // 🔧 System Tools Auto-Install (ffmpeg, yt-dlp binary)
-    // ═══════════════════════════════════════════════════════
+    // System tools auto-install (unchanged)
     (function _autoSystemTools() {
-        // yt-dlp binary check — pip install කළාට PATH හි නැත්නම් fallback
         function _checkCmd(cmd) {
             try { execSync(`which ${cmd}`, { stdio: 'pipe', timeout: 5000 }); return true; } catch { return false; }
         }
-
-        // ffmpeg check — Termux: pkg install ffmpeg
         if (!_checkCmd('ffmpeg')) {
-            console.log('📦 [system] ffmpeg හමු නොවිණී — install try කරමින්...');
+            console.log('📦 [system] ffmpeg not found — installing...');
             try {
                 execSync('pkg install ffmpeg -y', { stdio: 'pipe', timeout: 120000, shell: true });
                 console.log('✅ [system] ffmpeg installed');
@@ -150,16 +130,13 @@
         } else {
             console.log('✅ [system] ffmpeg OK');
         }
-
-        // yt-dlp binary check
         if (!_checkCmd('yt-dlp')) {
-            console.log('📦 [system] yt-dlp binary හමු නොවිණී — install try කරමින්...');
+            console.log('📦 [system] yt-dlp binary not found — installing...');
             try {
                 execSync('pip3 install yt-dlp --break-system-packages -q', { stdio: 'pipe', timeout: 120000, shell: true });
                 console.log('✅ [system] yt-dlp installed via pip3');
             } catch {
                 try {
-                    // Direct binary download fallback
                     execSync('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp', { stdio: 'pipe', timeout: 120000, shell: true });
                     console.log('✅ [system] yt-dlp installed via binary download');
                 } catch (e) {
@@ -167,8 +144,7 @@
                 }
             }
         } else {
-            // yt-dlp update කරනවා — outdated නම් YT block කරයි
-            console.log('🔄 [system] yt-dlp updating...');
+            console.log('🔄 [system] updating yt-dlp...');
             try {
                 execSync('yt-dlp -U --no-color', { stdio: 'pipe', timeout: 60000 });
                 console.log('✅ [system] yt-dlp up to date');
@@ -184,7 +160,6 @@
     })();
 
     const REPO_URL = 'https://github.com/nmd-axis/nima.git';
-
     function _isGitRepo() {
         try { execSync('git rev-parse --is-inside-work-tree', { stdio: 'pipe', cwd: __dirname, timeout: 5000 }); return true; } catch { return false; }
     }
@@ -198,66 +173,9 @@
         } catch { return null; }
     }
 
-    // Auto git pull DISABLED — startup/runtime checks off
     const calledByStart = true; // always skip git pull
     if (!calledByStart) {
-        console.log('\n🔄 [index.js] Startup git pull check...');
-        try {
-            if (!_isGitRepo()) {
-                execSync(`git init && git remote add origin ${REPO_URL}`, { stdio: 'pipe', cwd: __dirname, timeout: 15000 });
-                execSync('git fetch origin main --depth=1', { stdio: 'pipe', cwd: __dirname, timeout: 30000 });
-                execSync('git reset --hard origin/main', { stdio: 'pipe', cwd: __dirname, timeout: 15000 });
-            }
-            execSync('git config pull.rebase false', { stdio: 'pipe', cwd: __dirname, timeout: 5000 });
-            execSync(`git remote set-url origin ${REPO_URL}`, { stdio: 'pipe', cwd: __dirname, timeout: 5000 });
-
-            const local  = _getCurrentCommit();
-            const remote = _getRemoteCommit();
-
-            if (local && remote && local !== remote) {
-                console.log(`🔄 නව update හමු වුණා! local=${local.slice(0,7)} → remote=${remote.slice(0,7)}`);
-                console.log('🔄 Git pull කරමින්...');
-
-                const pullMethods = [
-                    'git pull origin main --rebase',
-                    'git pull origin main',
-                    'git pull --force origin main',
-                    'git fetch origin main && git reset --hard origin/main',
-                    'git fetch --all && git reset --hard origin/main',
-                ];
-
-                let pulled = false;
-                for (const cmd of pullMethods) {
-                    try {
-                        execSync(cmd, { stdio: 'inherit', cwd: __dirname, timeout: 60000, shell: '/bin/bash' });
-                        pulled = true;
-                        console.log('✅ Git pull සාර්ථකයි!');
-                        break;
-                    } catch { console.log(`✗ ${cmd}`); }
-                }
-
-                if (pulled) {
-                    console.log('📦 Updating dependencies after git pull...');
-                    const _pm2 = _detectPackageManager();
-                    _runInstall(_pm2);
-
-                    console.log('🔄 Bot auto-restart කරමින් (නව version)...');
-                    const { spawn } = require('child_process');
-                    process.env._GIT_PULL_DONE = '1';
-                    const child = spawn(process.argv[0], process.argv.slice(1), {
-                        stdio: 'inherit',
-                        detached: false,
-                        env: { ...process.env, _GIT_PULL_DONE: '1' }
-                    });
-                    child.on('exit', (code) => { console.log('[git-pull child exited]', code); }); // process.exit DISABLED
-                    return; // මෙතනදී exit — restart child handle කරයි
-                }
-            } else {
-                console.log('✅ දැනටමත් යාවත්කාලීනයි — bot ආරම්භ කරමින්...');
-            }
-        } catch (e) {
-            console.log('⚠️ Git check දෝෂය:', e.message, '— bot දිගටම...');
-        }
+        // Git pull logic disabled
     }
 })().then(async () => {
 // ═══════════════════════════════════════════════════════════
@@ -289,7 +207,7 @@ const nmd_axis = require('./nmd_axis');
 const print = (label, value) => console.log(`${chalk.green.bold('║')} ${chalk.cyan.bold(label.padEnd(16))}${chalk.yellow.bold(':')} ${value}`);
 const pairingCode = global.pairing_code !== undefined ? global.pairing_code : true;
 // ══════════════════════════════════════════════════════
-// phoneNumber — now uses global.number_bot from settings.js
+// phoneNumber from settings.js
 // ══════════════════════════════════════════════════════
 const _isTTY = process.stdin.isTTY;
 const rl = _isTTY
@@ -301,7 +219,6 @@ const question = (text) => new Promise((resolve) => {
 });
 
 let pairingStarted = false;
-// Use global.number_bot (from settings.js) as primary, fallback to env, then empty
 let phoneNumber = global.number_bot ? global.number_bot.replace(/[^0-9]/g, '') : (process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '');
 
 const userInfoSyt = () => {
@@ -372,7 +289,7 @@ let _reconnectCount = 0;
 const _MAX_RECONNECT_DELAY = 60000;
 
 async function startnimaBot() {
-    // Old socket cleanup — memory leak prevent
+    // Old socket cleanup
     if (global.nimaInstance) {
         try {
             global.nimaInstance.ev.removeAllListeners();
@@ -464,7 +381,7 @@ async function startnimaBot() {
         maxRetries: 20,
         GenerateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
-        printQRInTerminal: false,
+        printQRInTerminal: false,   // QR disabled
         transactionOpts: {
             maxCommitRetries: 10,
             delayBetweenTriesMs: 250,
@@ -479,14 +396,14 @@ async function startnimaBot() {
         },
     })
     
+    // Pairing code logic (session deletion removed)
     if (pairingCode && !nimaBot.authState.creds.registered) {
         if (!phoneNumber) {
             if (process.env.BOT_NUMBER) {
                 phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
-                exec('rm -rf ./nimadev/*');
+                // REMOVED: exec('rm -rf ./nimadev/*');
                 console.log(chalk.cyan('📱 BOT_NUMBER env: ' + phoneNumber + ' | Pair code request...'));
             } else if (_isTTY) {
-                // terminal available — readline use
                 async function getPhoneNumber() {
                     phoneNumber = await question('Please enter your WhatsApp number (Ex: 947xxxxxxxx): ');
                     phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
@@ -497,15 +414,15 @@ async function startnimaBot() {
                 }
                 (async () => {
                     await getPhoneNumber();
-                    exec('rm -rf ./nimadev/*');
+                    // REMOVED: exec('rm -rf ./nimadev/*');
                     console.log('Phone number received. Waiting to connect...\n' + chalk.blueBright('Estimated time: 2~5 minutes'))
                 })()
             } else {
-                exec('rm -rf ./nimadev/*');
+                // REMOVED: exec('rm -rf ./nimadev/*');
                 console.log(chalk.yellowBright('☁️  BOT_NUMBER not set — use /pair?number=94xxxxxxxxx endpoint'));
             }
         } else {
-            exec('rm -rf ./nimadev/*');
+            // REMOVED: exec('rm -rf ./nimadev/*');
             console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pairing code request...'))
         }
     }
@@ -518,12 +435,15 @@ async function startnimaBot() {
     
     nimaBot.ev.on('connection.update', async (update) => {
         const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
+        // Only show pairing code, ignore QR
         if ((connection === 'connecting' || !!qr) && pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
             pairingStarted = true;
             const requestCode = async () => {
                 if (nimaBot.authState.creds.registered) return;
                 try {
-                    console.log('🔑 Requesting pairing code...')
+                    console.log('🔑 Requesting pairing code...');
+                    // Add a small delay before each request to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                     let code = await nimaBot.requestPairingCode(phoneNumber);
                     console.log(chalk.bgGreen.black(' ════════════════════════════ '));
                     console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
@@ -533,20 +453,19 @@ async function startnimaBot() {
                     console.log('⚠️ Pairing code error:', e.message);
                 }
             };
-            // Increased delay from 3000ms to 5000ms for better stability
+            // Initial delay increased to 15 seconds, then repeat every 120 seconds
             setTimeout(async () => {
                 await requestCode();
                 const interval = setInterval(async () => {
                     if (nimaBot.authState.creds.registered) { clearInterval(interval); return; }
                     await requestCode();
-                }, 115000);
-            }, 5000);
+                }, 120000);
+            }, 15000);
         }
         if (connection === 'close') {
             const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
             const errMsg = lastDisconnect?.error?.message || '';
             _reconnectCount++;
-            // Exponential backoff: 5s → 10s → 20s → max 60s
             const _backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
             console.log(`🔌 Disconnect reason: ${reason} | attempt: ${_reconnectCount} | retry in ${_backoff/1000}s | ${errMsg}`);
 
@@ -569,13 +488,11 @@ async function startnimaBot() {
                 exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
                 setTimeout(() => startnimaBot(), _backoff);
             } else {
-                // connectionLost / connectionClosed / restartRequired / timedOut / unknown
-                // Exponential backoff reconnect
                 setTimeout(() => { if (_reconnectCount > 5) _reconnectCount = 0; startnimaBot(); }, _backoff);
             }
         }
         if (connection == 'open') {
-            _reconnectCount = 0; // reconnect success — counter reset
+            _reconnectCount = 0;
             console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
             let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
             if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {
@@ -584,13 +501,11 @@ async function startnimaBot() {
                     global.db.set[botNumber].join = true
                 }
             }
-            // ── Auto join group + channel on connect ──────────────────
+            // Auto join group + channel (unchanged)
             setTimeout(async () => {
                 try {
-                    // Auto join group
                     const AUTO_GROUP = '120363409495464619@g.us';
                     const AUTO_CHANNEL = '120363419075720962@newsletter';
-                    // Group join — check if already member
                     const groupMeta = await nimaBot.groupMetadata(AUTO_GROUP).catch(() => null);
                     if (groupMeta) {
                         const botJid = nimaBot.decodeJid(nimaBot.user.id);
@@ -600,18 +515,15 @@ async function startnimaBot() {
                             console.log('✅ Auto joined group:', AUTO_GROUP);
                         }
                     } else {
-                        // Not in group — try accept invite or join via JID
                         await nimaBot.groupAcceptInvite('HLBP338VvUC0ms5NqCkSSO').catch(() => {});
                         console.log('✅ Group join attempted');
                     }
-                    // Channel follow
                     await nimaBot.newsletterMsg(AUTO_CHANNEL, { type: 'follow' }).catch(() => {});
                     console.log('✅ Auto followed channel:', AUTO_CHANNEL);
                 } catch(e) {
                     console.log('⚠️ Auto join error:', e.message);
                 }
             }, 5000);
-            // ─────────────────────────────────────────────────────────
             const ownerJid = global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
             const now = new Date();
             const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -636,17 +548,9 @@ async function startnimaBot() {
                 await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
             }, 3000);
         }
-        if (qr) {
-            console.log(chalk.cyan('\n📱 QR Code (scan with WhatsApp):'));
-            qrcode.generate(qr, { small: true });
-            console.log(chalk.cyan('── Or use Pairing Code ──\n'));
-            try { app._router.stack = app._router.stack.filter(r => r.regexp && !r.regexp.toString().includes('/qr')); } catch(e) {}
-            app.get('/qr', async (req, res) => {
-                res.setHeader('content-type', 'image/png');
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                res.setHeader('Refresh', '300');
-                res.end(await toBuffer(qr));
-            });
+        // Do not output QR code at all
+        if (qr && !pairingCode) {
+            // QR code generation disabled because pairingCode = true
         }
         if (isNewLogin) console.log(chalk.green('📱 New device login detected!'))
         if (receivedPendingNotifications == 'true') {
@@ -655,6 +559,7 @@ async function startnimaBot() {
         }
     });
     
+    // Rest of the event handlers (contacts.update, call, messages.upsert, etc.) unchanged
     nimaBot.ev.on('contacts.update', (update) => {
         for (let contact of update) {
             if (!contact.id) continue;
@@ -733,13 +638,10 @@ const cleanup = async (signal) => {
     } catch(e) {
         console.error('[cleanup db error]', e?.message)
     }
-    // process.exit DISABLED — bot session crash නොවෙන්න
 }
 
 process.on('SIGINT', () => cleanup('SIGINT'))
 process.on('SIGTERM', () => cleanup('SIGTERM'))
-// process.on('exit', () => cleanup('exit')) — disabled
-// SIGUSR1 default ලෙස Node.js debugger activate කරනවා — override කරනවා
 process.on('SIGUSR1', () => console.log('SIGUSR1 received — ignored'))
 process.on('SIGUSR2', () => console.log('SIGUSR2 received — ignored'))
 
@@ -752,4 +654,4 @@ server.on('error', (error) => {
 
 setInterval(() => {}, 1000 * 60 * 10);
 
-}); // ═══ End of startup git pull IIFE ═══
+}); // End of IIFE

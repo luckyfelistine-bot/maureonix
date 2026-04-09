@@ -13,8 +13,8 @@ global.listprefix = ['+','!','.']
 global.listv = ['•','●','■','✿','▲','➩','➢','➣','➤','✦','✧','△','❀','○','□','♤','♡','◇','♧','々','〆']
 global.tempatDB = 'database.json'
 global.tempatStore = 'baileys_store.json'
-global.pairing_code = false 
-global.number_bot = '254116903500'
+global.pairing_code = true   // ← already true, keep this
+global.number_bot = '254116903500'   // your number
 
 global.fake = {
 	anonim: 'https://ibb.co/rKyYj3Rr',
@@ -25,12 +25,13 @@ global.fake = {
 }
 
 global.my = {
-	tt: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/', // keep or remove as you like
+	tt: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/',
 	gh: 'https://github.com/luckyfelistine-bot',
-	gc: 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h',   // new channel
-	group: 'https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a',     // new group invite
+	gc: 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h',
+	group: 'https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a',
 	ch: SecureConfig.groupJid,
 }
+
 global.limit = {
 	free: 20,
 	premium: 999,
@@ -44,17 +45,17 @@ global.money = {
 }
 
 global.mess = {
-	key: 'ඔබගේ API යතුර කල් ඉකුත් වී ඇත. කරුණාකර https://nima.biz.id වෙත පිවිසෙන්න',
-	owner: 'අයිති කරුට පමණක් වලංගු වේ',
+	key: 'Your API key has expired. Please visit https://nima.biz.id',
+	owner: 'Only owner can use this command',
 	admin: SecureConfig.ownerName,
 	botAdmin: SecureConfig.ownerName,
-	group: 'කණ්ඩායම් වල පමණක් භාවිතා කරන්න!',
-	private: 'පුද්ගලික කතාබස් වල පමණක් භාවිතා කරන්න!',
-	limit: 'ඔබගේ සීමාව අවසන් වී ඇත!',
-	prem: 'වාරික පරිශීලකයින් සඳහා පමණි!',
-	wait: 'පූරණය වෙමින් පවතී...',
-	error: 'දෝෂයක්!',
-	done: 'නිමයි'
+	group: 'Use this command in groups only!',
+	private: 'Use this command in private chat only!',
+	limit: 'Your limit has been exhausted!',
+	prem: 'Only for premium users!',
+	wait: 'Processing...',
+	error: 'Error!',
+	done: 'Done'
 }
 
 global.APIs = {
