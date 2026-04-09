@@ -1,7 +1,6 @@
 <div align="center">
 
-<img src="https://ibb.co/wFbC6xJm" alt="Maureonix WhatsApp Bot" width="300" />
-
+<img src="https://i.ibb.co/wFbC6xJm/image.png" alt="Maureonix WhatsApp Bot" width="300" />
 # 🧬🌐 MAUREONIX 🌐🧬 WhatsApp Bot
 
 > A powerful, multi-device WhatsApp bot built with Node.js and Baileys
