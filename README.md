@@ -1,262 +1,168 @@
 <div align="center">
 
-<img src="https://i.ibb.co/99ppnpMg/1774405153533.png" alt="🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬" />
+<img src="YOUR_LOGO_URL" alt="Maureonix WhatsApp Bot" width="300" />
 
-# 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬 WhatsApp Bot
+# 🧬🌐 MAUREONIX 🌐🧬 WhatsApp Bot
 
-> Node.js සහ Baileys මත ගොඩනගන ලද ශ්‍රී ලාංකික WhatsApp Bot එකක්
+> A powerful, multi-device WhatsApp bot built with Node.js and Baileys
 
-<a href="https://github.com/nima-axis/nmd-axis/watchers"><img src="https://img.shields.io/github/watchers/nima-axis/nmd-axis?label=Watchers&color=green&style=flat-square"/></a>
-<a href="https://github.com/nima-axis/nmd-axis/network/members"><img src="https://img.shields.io/github/forks/nima-axis/nmd-axis?label=Forks&color=blue&style=flat-square"/></a>
-<a href="https://github.com/nima-axis/nmd-axis/stargazers"><img src="https://img.shields.io/github/stars/nima-axis/nmd-axis?label=Stars&color=yellow&style=flat-square"/></a>
-<a href="https://github.com/nima-axis/nmd-axis/issues"><img src="https://img.shields.io/github/issues/nima-axis/nmd-axis?label=Issues&color=success&style=flat-square"/></a>
-<a href="https://github.com/nima-axis/nmd-axis/pulls"><img src="https://img.shields.io/github/issues-pr/nima-axis/nmd-axis?label=PullRequest&color=success&style=flat-square"/></a>
+<a href="https://github.com/luckyfelistine-bot/maureonix/watchers"><img src="https://img.shields.io/github/watchers/luckyfelistine-bot/maureonix?label=Watchers&color=green&style=flat-square"/></a>
+<a href="https://github.com/luckyfelistine-bot/maureonix/network/members"><img src="https://img.shields.io/github/forks/luckyfelistine-bot/maureonix?label=Forks&color=blue&style=flat-square"/></a>
+<a href="https://github.com/luckyfelistine-bot/maureonix/stargazers"><img src="https://img.shields.io/github/stars/luckyfelistine-bot/maureonix?label=Stars&color=yellow&style=flat-square"/></a>
+<a href="https://github.com/luckyfelistine-bot/maureonix/issues"><img src="https://img.shields.io/github/issues/luckyfelistine-bot/maureonix?label=Issues&color=success&style=flat-square"/></a>
+<a href="https://github.com/luckyfelistine-bot/maureonix/pulls"><img src="https://img.shields.io/github/issues-pr/luckyfelistine-bot/maureonix?label=PullRequest&color=success&style=flat-square"/></a>
 
-[![WhatsApp Channel](https://img.shields.io/badge/WhatsApp%20Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029Vb68g1c3LdQLQDkbAQ3M)
+[![WhatsApp Channel](https://img.shields.io/badge/WhatsApp%20Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h)
+[![WhatsApp Group](https://img.shields.io/badge/WhatsApp%20Group-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a)
+[![TikTok](https://img.shields.io/badge/TikTok-000000?style=for-the-badge&logo=tiktok&logoColor=white)](https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://choosealicense.com/licenses/mit/)
 
 </div>
 
 ---
 
-## ✨ විශේෂාංග (Features)
+## ✨ Features
 
-| කොටස | විස්තරය |
-|------|---------|
-| 🤖 Bot | Auto reply, pairing code, QR login |
+| Category | Description |
+|----------|-------------|
+| 🤖 Bot | Auto-reply, pairing code, QR login |
 | 👥 Group | Admin tools, anti-spam, welcome messages |
-| 🔍 Search | Google, Wikipedia, weather සහ තවත් |
-| 📥 Download | **YouTube MP3/MP4** (16MB limit සමග), TikTok, Instagram |
+| 🔍 Search | Google, Wikipedia, weather, and more |
+| 📥 Download | **YouTube MP3/MP4** (16MB limit), TikTok, Instagram |
 | 🛠️ Tools | Sticker maker, image editor, QR generator |
 | 🧠 AI | ChatGPT, image generation |
-| 🎮 Game | TicTacToe, Chess, Quiz සහ තවත් |
+| 🎮 Games | TicTacToe, Chess, Quiz, and more |
 | 😄 Fun | Memes, jokes, random content |
 | 👑 Owner | Full bot control commands |
 
 ---
 
-## 📋 අවශ්‍යතා (Requirements)
+## 📋 Requirements
 
 | Software | Version |
 |----------|---------|
-| **Node.js** | v20 හෝ ඊට ඉහළ |
-| **Git** | ඕනෑම version |
-| **yt-dlp** | නවතම version (YouTube download සඳහා) |
-| **ffmpeg** | ඕනෑම version |
-| **Python 3** | yt-dlp සඳහා |
+| **Node.js** | v20 or higher |
+| **Git** | Any version |
+| **yt-dlp** | Latest (for YouTube downloads) |
+| **ffmpeg** | Any version |
+| **Python 3** | Required for yt-dlp |
 
 ---
 
-## 🚀 ස්ථාපනය (Installation)
+## 🚀 Installation
 
-### 📱 Termux (Android) — නිර්දේශිතයි
+### 📱 Termux (Android) — Recommended
 
 ```bash
-# 1. Packages update කරන්න
 pkg update && pkg upgrade -y
-
-# 2. අවශ්‍ය packages install කරන්න
 pkg install git nodejs-lts python ffmpeg imagemagick -y
-
-# 3. yt-dlp install කරන්න (YouTube download සඳහා අත්‍යවශ්‍යයි)
 pip install yt-dlp
-
-# 4. Repository clone කරන්න (username/password නොඉල්ලයි)
-git clone https://github.com/nima-axis/nmd-axis.git
-cd nmd-axis
-
-# 5. Node packages install කරන්න
+git clone https://github.com/luckyfelistine-bot/maureonix.git
+cd maureonix
 npm install --legacy-peer-deps
-
-# 6. Bot start කරන්න
 node start.js
-```
 
-> ⚠️ **`git clone` username/password ඉල්ලනවා නම්:**
-> Repository එක **Public** කරන්න — GitHub → Settings → General → Danger Zone → Change visibility → Public
-> හෝ HTTPS වෙනුවට token use කරන්න:
-> ```bash
-> git clone https://<your-token>@github.com/nima-axis/nmd-axis.git
-> ```
+Update if already installed
 
-#### 🔄 දැනටමත් install කළා නම් (update කිරීමට):
-
-```bash
-cd ~/nmd-axis
+cd ~/maureonix
 git pull origin main
 pip install -U yt-dlp
 node start.js
-```
 
-#### 📵 Termux background එකේ රඳවා ගැනීමට:
+Keep Termux running in background
+Disable battery optimization for Termux (Settings → Apps → Termux → Battery → Unrestricted)
 
-```bash
-# Battery optimization off කරන්න
-# Settings → Apps → Termux → Battery → Unrestricted
+Use wake lock: termux-wake-lock
 
-# Wake lock (phone sleep වැටුනත් run වෙනවා)
-termux-wake-lock
-node start.js
-```
+💻 Ubuntu / VPS / SSH
 
----
-
-### 💻 Ubuntu / VPS / SSH
-
-```bash
-# 1. System packages install කරන්න
 sudo apt update && sudo apt upgrade -y
 sudo apt install git nodejs npm python3 python3-pip ffmpeg imagemagick -y
-
-# 2. yt-dlp install කරන්න
 pip3 install yt-dlp
-
-# 3. Repository clone කරන්න
-git clone https://github.com/nima-axis/nmd-axis.git
-cd nmd-axis
-
-# 4. Node packages install කරන්න
+git clone https://github.com/luckyfelistine-bot/maureonix.git
+cd maureonix
 npm install
-
-# 5. Bot start කරන්න
 npm start
-```
 
----
+🤖 Auto Install
 
-### 🤖 ස්වයංක්‍රීය ස්ථාපනය (Auto Install)
-
-```bash
-git clone https://github.com/nima-axis/nmd-axis.git
-cd nmd-axis
+git clone https://github.com/luckyfelistine-bot/maureonix.git
+cd maureonix
 bash install.sh
-```
 
-> `install.sh` මගින් ඔබේ OS හඳුනාගෙන සියලු dependencies ස්වයංක්‍රීයව install කරනු ලැබේ.
+☁️ Railway Deploy
+https://railway.app/button.svg
 
----
+⚙️ Configuration
+All settings are in config.js and settings.js.
 
-### ☁️ Heroku Deploy
+// Owner number (with country code)
+ownerNumber: ['254116903500']
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/nima-axis/nmd-axis)
+// Bot name and author
+botName: 'Maureonix'
+ownerName: 'Infinite Vybeflix'
 
-| Buildpack | Link |
-|-----------|------|
-| Node.js | `heroku/nodejs` |
-| FFmpeg | [jonathanong/heroku-buildpack-ffmpeg-latest](https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest) |
-| ImageMagick | [DuckyTeam/heroku-buildpack-imagemagick](https://github.com/DuckyTeam/heroku-buildpack-imagemagick) |
-
----
-
-## ⚙️ වින්‍යාස කිරීම (Configuration)
-
-සියලු settings පිහිටා ඇත්තේ **[`settings.js`](settings.js)** හි.
-
-```js
-// අයිතිකරු අංකය (94 සමග දේශ කේතය)
-global.owner = ['947xxxxxxxxxx']
-
-// Bot නම
-global.botname = '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬'
-global.author = 'Nimesha'
-
-// Command prefix
+// Command prefixes (in settings.js)
 global.listprefix = ['!', '.', '+']
 
-// Pairing Code (true = pairing code, false = QR code)
+// Pairing code (true = pairing code, false = QR code)
 global.pairing_code = true
-global.number_bot = '947xxxxxxxxxx'
 
-// Free user limits
-global.limit.free = 20
-global.money.free = 10000
-```
+Changes apply automatically without restart.
 
-> ⚡ `settings.js` හි කරන වෙනස්කම් bot restart නොකර **ස්වයංක්‍රීයව** apply වේ.
+▶️ Running the Bot
 
----
-
-## ▶️ Bot ක්‍රියාත්මක කිරීම
-
-```bash
 npm start
-# හෝ
+# or
 yarn start
-```
 
-Bot start වූ පසු **QR Code** ස්කෑන් කරන්න හෝ **Pairing Code** භාවිතා කරන්න.
+After start, scan the QR code or use the pairing code.
 
----
+🗂️ Project Structure
 
-## 🗂️ Project Structure
-
-```
-nmd-axis/
+maureonix/
 ├── index.js          # WhatsApp connection & event handler
-├── nima.js           # සියලු commands (main bot logic)
-├── settings.js       # Bot configuration
+├── nima.js           # All commands (main bot logic)
+├── config.js         # Plain-text configuration
+├── settings.js       # Additional settings
 ├── start.js          # Entry point
-├── install.sh        # Auto installer script
-├── lib/
-│   ├── scraper.js    # YouTube/media downloader (yt-dlp)
-│   ├── converter.js  # Media conversion (ffmpeg)
-│   ├── function.js   # Helper functions
-│   ├── uploader.js   # File uploader
-│   └── ...
-├── src/
-│   ├── message.js    # Message handler
-│   ├── database.js   # Database manager
-│   ├── antispam.js   # Anti-spam system
-│   └── server.js     # Express web server
-└── database/
-    └── temp/         # Temporary download files
-```
+├── lib/              # Helper libraries
+├── src/              # Core modules
+└── database/         # Temporary files and data
 
----
+🧩 Adding a New Command
+Inside nima.js, under switch (command):
 
-## 🧩 නව Command එකක් එක් කිරීම
-
-`nima.js` හි `switch (command)` කොටස ඇතුළේ:
-
-```js
 case 'ping': {
   m.reply('pong 🏓')
 }
 break
-```
 
----
+⚠️ YouTube Download Note
+Uses yt-dlp for downloading.
 
-## ⚠️ YouTube Download ගැන සටහන
+WhatsApp audio limit: 16MB (larger files will show an error)
 
-YouTube MP3/MP4 download සඳහා **`yt-dlp`** භාවිතා කෙරේ.
+Region-blocked videos use tv_embedded client
 
-- ✅ WhatsApp audio limit: **16MB** (ඊට වැඩි නම් error message එකක් ලැබේ)
-- ✅ Region-blocked videos සඳහා `tv_embedded` client use කෙරේ
-- 🔄 yt-dlp update කිරීමට: `pip install -U yt-dlp`
+Update yt-dlp: pip install -U yt-dlp
 
----
+👥 Contributors
+Name	Role
+Infinite Vybeflix	Creator & Lead Developer
+📞 Support
+💬 WhatsApp Group
 
-## 👥 දායකත්වය (Contributors)
+📢 WhatsApp Channel
 
-| නම | භූමිකාව |
-|----|---------|
-| [Nimesha](https://github.com/nima-axis) | නිර්මාණකරු සහ ප්‍රධාන developer |
-| [Shashikala](https://github.com/nima-axis) | API සේවා |
+🐙 GitHub Repository
 
----
-
-## 📞 සහාය (Support)
-
-- 💬 [WhatsApp](https://wa.me/94726800969)
-- 📢 [WhatsApp Channel](https://whatsapp.com/channel/0029Vb68g1c3LdQLQDkbAQ3M)
-
----
+🎵 TikTok
 
 <div align="center">
+Created with ❤️ by Infinite Vybeflix
 
-**නිර්මාණය කළේ [Nimesha Madhushan](https://github.com/nima-axis) විසිනි**
+License: MIT
 
-බලපත්‍රය: [MIT](LICENSE)
-
-</div>
+</div> ```
