@@ -287,9 +287,9 @@ const nima = require('./nima');
 const nmd_axis = require('./nmd_axis');
 
 const print = (label, value) => console.log(`${chalk.green.bold('║')} ${chalk.cyan.bold(label.padEnd(16))}${chalk.yellow.bold(':')} ${value}`);
-const pairingCode = true;
+const pairingCode = global.pairing_code !== undefined ? global.pairing_code : true;
 // ══════════════════════════════════════════════════════
-// phoneNumber hardcoded — readline crash නොවෙන සේ safe
+// phoneNumber — now uses global.number_bot from settings.js
 // ══════════════════════════════════════════════════════
 const _isTTY = process.stdin.isTTY;
 const rl = _isTTY
@@ -301,14 +301,15 @@ const question = (text) => new Promise((resolve) => {
 });
 
 let pairingStarted = false;
-let phoneNumber = process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '94726800969';
+// Use global.number_bot (from settings.js) as primary, fallback to env, then empty
+let phoneNumber = global.number_bot ? global.number_bot.replace(/[^0-9]/g, '') : (process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '');
 
 const userInfoSyt = () => {
-	try {
-		return os.userInfo().username
-	} catch (e) {
-		return process.env.USER || process.env.USERNAME || 'unknown';
-	}
+    try {
+        return os.userInfo().username
+    } catch (e) {
+        return process.env.USER || process.env.USERNAME || 'unknown';
+    }
 }
 
 global.fetchApi = async (path='/', data={}, options={}) => {
@@ -349,10 +350,10 @@ const database = dataBase(global.tempatDB);
 const msgRetryCounterCache = new NodeCache();
 
 assertInstalled(process.platform === 'win32' ? 'where ffmpeg' : 'command -v ffmpeg', 'FFmpeg', 0);
-console.log(chalk.greenBright('✅ අයිතිකරු නිමේෂගේ දුරකථනය හරහා සම්බන්ධ විය'));
+console.log(chalk.greenBright('✅ Bot owner connected via phone number'));
 console.log(chalk.green.bold(`╔═════[${`${chalk.cyan(userInfoSyt())}@${chalk.cyan(os.hostname())}`}]═════`));
 print('OS', `${os.platform()} ${os.release()} ${os.arch()}`);
-print('Uptime', `${Math.floor(os.uptime() / 3600)} පැය ${Math.floor((os.uptime() % 3600) / 60)} විනාඩි`);
+print('Uptime', `${Math.floor(os.uptime() / 3600)} hours ${Math.floor((os.uptime() % 3600) / 60)} minutes`);
 print('Shell', process.env.SHELL || process.env.COMSPEC || 'unknown');
 print('CPU', os.cpus()[0]?.model.trim() || 'unknown');
 print('Memory', `${(os.freemem()/1024/1024).toFixed(0)} MiB / ${(os.totalmem()/1024/1024).toFixed(0)} MiB`);
@@ -363,7 +364,7 @@ print('Date & Time', new Date().toLocaleString('en-US', { timeZone: 'Asia/Colomb
 console.log(chalk.green.bold('╚' + ('═'.repeat(30))));
 
 server.listen(PORT, () => {
-	console.log('🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬 [MINI BOT] ක්‍රියාකාරී වී ඇත!');
+    console.log('🧬🌐 MAUREONIX 🌐🧬 [BOT] is now active!');
 });
 
 // reconnect attempt counter
@@ -371,371 +372,368 @@ let _reconnectCount = 0;
 const _MAX_RECONNECT_DELAY = 60000;
 
 async function startnimaBot() {
-	// Old socket cleanup — memory leak prevent
-	if (global.nimaInstance) {
-		try {
-			global.nimaInstance.ev.removeAllListeners();
-			global.nimaInstance.ws?.close?.();
-		} catch(_) {}
-		global.nimaInstance = null;
-	}
-	pairingStarted = false;
-	phoneNumber = global.number_bot || null;
+    // Old socket cleanup — memory leak prevent
+    if (global.nimaInstance) {
+        try {
+            global.nimaInstance.ev.removeAllListeners();
+            global.nimaInstance.ws?.close?.();
+        } catch(_) {}
+        global.nimaInstance = null;
+    }
+    pairingStarted = false;
+    phoneNumber = global.number_bot ? global.number_bot.replace(/[^0-9]/g, '') : (process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '');
 
-	try {
-		const loadData = await database.read()
-		const storeLoadData = await storeDB.read()
-		if (!loadData || Object.keys(loadData).length === 0) {
-			global.db = {
-				hit: {},
-				set: {},
-				cmd: {},
-				store: {},
-				users: {},
-				game: {},
-				groups: {},
-				database: {},
-				premium: [],
-				sewa: [],
-				...(loadData || {}),
-			}
-			await database.write(global.db)
-		} else {
-			global.db = loadData
-		}
-		if (!storeLoadData || Object.keys(storeLoadData).length === 0) {
-			global.store = {
-				contacts: {},
-				presences: {},
-				messages: {},
-				groupMetadata: {},
-				...(storeLoadData || {}),
-			}
-			await storeDB.write(global.store)
-		} else {
-			global.store = storeLoadData
-		}
-		
-		global.loadMessage = function (remoteJid, id) {
-			const messages = store.messages?.[remoteJid]?.array;
-			if (!messages) return null;
-			return messages.find(msg => msg?.key?.id === id) || null;
-		}
-		
-		if (!global._dbInterval) {
-			global._dbInterval = setInterval(async () => {
-				if (global.db) await database.write(global.db)
-				if (global.store) await storeDB.write(global.store)
-			}, 30 * 1000)
-		}
-	} catch (e) {
-		console.log('[startnimaBot error]', e)
-		console.log('🔄 30s කින් නැවත try කරමින්...')
-		setTimeout(() => startnimaBot(), 30000)
-		return
-	}
-	
-	const level = pino({ level: 'silent' });
-	const { version } = await fetchLatestWaWebVersion();
-	const { state, saveCreds } = await useMultiFileAuthState('nimadev');
-	const getMessage = async (key) => {
-		if (global.store) {
-			const msg = await global.loadMessage(key.remoteJid, key.id);
-			return msg?.message || ''
-		}
-		return {
-			conversation: 'Hello nima Bot'
-		}
-	}
-	
-	global.nimaInstance = null;
-	const nimaBot = WAConnection({
-		version,
-		logger: level,
-		getMessage,
-		syncFullHistory: false,
-		maxMsgRetryCount: 15,
-		msgRetryCounterCache,
-		retryRequestDelayMs: 250,
-		defaultQueryTimeoutMs: 60000,
-		connectTimeoutMs: 60000,
-		keepAliveIntervalMs: 25000,
-		maxRetries: 20,
-		GenerateHighQualityLinkPreview: false,
-		markOnlineOnConnect: false,
-		printQRInTerminal: false,
-		transactionOpts: {
-			maxCommitRetries: 10,
-			delayBetweenTriesMs: 250,
-		},
-		appStateMacVerification: {
-			patch: true,
-			snapshot: true,
-		},
-		auth: {
-			creds: state.creds,
-			keys: makeCacheableSignalKeyStore(state.keys, level),
-		},
-	})
-	
-	if (pairingCode && !nimaBot.authState.creds.registered) {
-		// BOT_NUMBER env var හෝ readline — Railway/cloud හිදී env var use
-		if (!phoneNumber) {
-			// phoneNumber hardcoded — මෙතැනට නොआना
-			if (process.env.BOT_NUMBER) {
-				phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
-				exec('rm -rf ./nimadev/*');
-				console.log(chalk.cyan('📱 BOT_NUMBER env: ' + phoneNumber + ' | Pair code request...'));
-			} else if (_isTTY) {
-				// terminal available — readline use
-				async function getPhoneNumber() {
-					phoneNumber = await question('කරුණාකර ඔබගේ WhatsApp අංකය ඇතුළත් කරන්න (Ex: 947xxxxxxxx): ');
-					phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
-					if (!parsePhoneNumber('+' + phoneNumber).valid && phoneNumber.length < 6) {
-						console.log(chalk.bgBlack(chalk.redBright('ඔබේ රටේ කේතය (Country Code) සමඟ අංකය ආරම්භ කරන්න.') + chalk.whiteBright(',') + chalk.greenBright(' උදාහරණ : 947xxxxxxxx')));
-						await getPhoneNumber()
-					}
-				}
-				(async () => {
-					await getPhoneNumber();
-					exec('rm -rf ./nimadev/*');
-					console.log('දුරකතන අංකය ලබා ගත්තා. සම්බන්ධ වන තෙක් රැඳී සිටින්න...\n' + chalk.blueBright('ඇස්තමේන්තුගත කාලය: මිනිත්තු 2 ~ 5 පමණ'))
-				})()
-			} else {
-				// cloud + number නෑ — /pair endpoint
-				exec('rm -rf ./nimadev/*');
-				console.log(chalk.yellowBright('☁️  BOT_NUMBER නැත — /pair?number=94xxxxxxxxx use කරන්න'));
-			}
-		} else {
-			exec('rm -rf ./nimadev/*');
-			console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Pair code request සඳහා සූදානම්...'))
-		}
-	}
-	
-	global.nimaInstance = nimaBot;
+    try {
+        const loadData = await database.read()
+        const storeLoadData = await storeDB.read()
+        if (!loadData || Object.keys(loadData).length === 0) {
+            global.db = {
+                hit: {},
+                set: {},
+                cmd: {},
+                store: {},
+                users: {},
+                game: {},
+                groups: {},
+                database: {},
+                premium: [],
+                sewa: [],
+                ...(loadData || {}),
+            }
+            await database.write(global.db)
+        } else {
+            global.db = loadData
+        }
+        if (!storeLoadData || Object.keys(storeLoadData).length === 0) {
+            global.store = {
+                contacts: {},
+                presences: {},
+                messages: {},
+                groupMetadata: {},
+                ...(storeLoadData || {}),
+            }
+            await storeDB.write(global.store)
+        } else {
+            global.store = storeLoadData
+        }
+        
+        global.loadMessage = function (remoteJid, id) {
+            const messages = store.messages?.[remoteJid]?.array;
+            if (!messages) return null;
+            return messages.find(msg => msg?.key?.id === id) || null;
+        }
+        
+        if (!global._dbInterval) {
+            global._dbInterval = setInterval(async () => {
+                if (global.db) await database.write(global.db)
+                if (global.store) await storeDB.write(global.store)
+            }, 30 * 1000)
+        }
+    } catch (e) {
+        console.log('[startnimaBot error]', e)
+        console.log('🔄 Retrying in 30 seconds...')
+        setTimeout(() => startnimaBot(), 30000)
+        return
+    }
+    
+    const level = pino({ level: 'silent' });
+    const { version } = await fetchLatestWaWebVersion();
+    const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+    const getMessage = async (key) => {
+        if (global.store) {
+            const msg = await global.loadMessage(key.remoteJid, key.id);
+            return msg?.message || ''
+        }
+        return {
+            conversation: 'Hello Maureonix Bot'
+        }
+    }
+    
+    global.nimaInstance = null;
+    const nimaBot = WAConnection({
+        version,
+        logger: level,
+        getMessage,
+        syncFullHistory: false,
+        maxMsgRetryCount: 15,
+        msgRetryCounterCache,
+        retryRequestDelayMs: 250,
+        defaultQueryTimeoutMs: 60000,
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        maxRetries: 20,
+        GenerateHighQualityLinkPreview: false,
+        markOnlineOnConnect: false,
+        printQRInTerminal: false,
+        transactionOpts: {
+            maxCommitRetries: 10,
+            delayBetweenTriesMs: 250,
+        },
+        appStateMacVerification: {
+            patch: true,
+            snapshot: true,
+        },
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, level),
+        },
+    })
+    
+    if (pairingCode && !nimaBot.authState.creds.registered) {
+        if (!phoneNumber) {
+            if (process.env.BOT_NUMBER) {
+                phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
+                exec('rm -rf ./nimadev/*');
+                console.log(chalk.cyan('📱 BOT_NUMBER env: ' + phoneNumber + ' | Pair code request...'));
+            } else if (_isTTY) {
+                // terminal available — readline use
+                async function getPhoneNumber() {
+                    phoneNumber = await question('Please enter your WhatsApp number (Ex: 947xxxxxxxx): ');
+                    phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+                    if (!parsePhoneNumber('+' + phoneNumber).valid && phoneNumber.length < 6) {
+                        console.log(chalk.bgBlack(chalk.redBright('Start with your country code (e.g., 94 for Sri Lanka).') + chalk.whiteBright(',') + chalk.greenBright(' Example: 947xxxxxxxx')));
+                        await getPhoneNumber()
+                    }
+                }
+                (async () => {
+                    await getPhoneNumber();
+                    exec('rm -rf ./nimadev/*');
+                    console.log('Phone number received. Waiting to connect...\n' + chalk.blueBright('Estimated time: 2~5 minutes'))
+                })()
+            } else {
+                exec('rm -rf ./nimadev/*');
+                console.log(chalk.yellowBright('☁️  BOT_NUMBER not set — use /pair?number=94xxxxxxxxx endpoint'));
+            }
+        } else {
+            exec('rm -rf ./nimadev/*');
+            console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pairing code request...'))
+        }
+    }
+    
+    global.nimaInstance = nimaBot;
 
-	await Solving(nimaBot, global.store)
-	
-	nimaBot.ev.on('creds.update', saveCreds)
-	
-	nimaBot.ev.on('connection.update', async (update) => {
-		const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
-		if ((connection === 'connecting' || !!qr) && pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
-			pairingStarted = true;
-			const requestCode = async () => {
-				if (nimaBot.authState.creds.registered) return;
-				try {
-					console.log('🔑 Pairing Code ලබා ගනිමින්...')
-					let code = await nimaBot.requestPairingCode(phoneNumber);
-					console.log(chalk.bgGreen.black(' ════════════════════════════ '));
-					console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
-					console.log(chalk.yellow('⏰ _මිනිත්තු 2කින් නව code එකක් ලැබේ_'));
-					console.log(chalk.bgGreen.black(' ════════════════════════════ '));
-				} catch(e) {
-					console.log('⚠️ Pairing code error:', e.message);
-				}
-			};
-			setTimeout(async () => {
-				await requestCode();
-				const interval = setInterval(async () => {
-					if (nimaBot.authState.creds.registered) { clearInterval(interval); return; }
-					await requestCode();
-				}, 115000);
-			}, 3000);
-		}
-		if (connection === 'close') {
-			const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-			const errMsg = lastDisconnect?.error?.message || '';
-			_reconnectCount++;
-			// Exponential backoff: 5s → 10s → 20s → max 60s
-			const _backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
-			console.log(`🔌 Disconnect reason: ${reason} | attempt: ${_reconnectCount} | retry in ${_backoff/1000}s | ${errMsg}`);
+    await Solving(nimaBot, global.store)
+    
+    nimaBot.ev.on('creds.update', saveCreds)
+    
+    nimaBot.ev.on('connection.update', async (update) => {
+        const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
+        if ((connection === 'connecting' || !!qr) && pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
+            pairingStarted = true;
+            const requestCode = async () => {
+                if (nimaBot.authState.creds.registered) return;
+                try {
+                    console.log('🔑 Requesting pairing code...')
+                    let code = await nimaBot.requestPairingCode(phoneNumber);
+                    console.log(chalk.bgGreen.black(' ════════════════════════════ '));
+                    console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
+                    console.log(chalk.yellow('⏰ _New code every 2 minutes_'));
+                    console.log(chalk.bgGreen.black(' ════════════════════════════ '));
+                } catch(e) {
+                    console.log('⚠️ Pairing code error:', e.message);
+                }
+            };
+            // Increased delay from 3000ms to 5000ms for better stability
+            setTimeout(async () => {
+                await requestCode();
+                const interval = setInterval(async () => {
+                    if (nimaBot.authState.creds.registered) { clearInterval(interval); return; }
+                    await requestCode();
+                }, 115000);
+            }, 5000);
+        }
+        if (connection === 'close') {
+            const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+            const errMsg = lastDisconnect?.error?.message || '';
+            _reconnectCount++;
+            // Exponential backoff: 5s → 10s → 20s → max 60s
+            const _backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
+            console.log(`🔌 Disconnect reason: ${reason} | attempt: ${_reconnectCount} | retry in ${_backoff/1000}s | ${errMsg}`);
 
-			if (reason === DisconnectReason.loggedOut) {
-				// loggedOut — session file clear කරලා reconnect (Railway volume reset handle)
-				console.log('🚪 Logged Out — session clear + reconnect...');
-				exec('find ./nimadev -name "*.json" -delete', () => {});
-				setTimeout(() => { _reconnectCount = 0; startnimaBot(); }, 5000);
-			} else if (reason === DisconnectReason.badSession) {
-				console.log('❌ Bad session — keys clear + reconnect...');
-				exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
-				setTimeout(() => startnimaBot(), 3000);
-			} else if (reason === DisconnectReason.forbidden) {
-				console.log('❌ Forbidden — 60s...');
-				setTimeout(() => startnimaBot(), 60000);
-			} else if (reason === DisconnectReason.connectionReplaced) {
-				console.log('⚠️ Connection replaced — 45s...');
-				setTimeout(() => startnimaBot(), 45000);
-			} else if (reason === DisconnectReason.multideviceMismatch) {
-				console.log('⚠️ Multi-device mismatch — session keys clear + reconnect...');
-				exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
-				setTimeout(() => startnimaBot(), _backoff);
-			} else {
-				// connectionLost / connectionClosed / restartRequired / timedOut / unknown
-				// Exponential backoff reconnect
-				setTimeout(() => { if (_reconnectCount > 5) _reconnectCount = 0; startnimaBot(); }, _backoff);
-			}
-		}
-		if (connection == 'open') {
-			_reconnectCount = 0; // reconnect success — counter reset
-			console.log('✅ සාර්ථකව connected: ' + JSON.stringify(nimaBot.user, null, 2));
-			let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
-			if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {
-				if (global.my.ch.length > 0 && global.my.ch.includes('@newsletter')) {
-					if (global.my.ch) await nimaBot.newsletterMsg(global.my.ch, { type: 'follow' }).catch(e => {})
-					global.db.set[botNumber].join = true
-				}
-			}
-			// ── Auto join group + channel on connect ──────────────────
-			setTimeout(async () => {
-				try {
-					// Auto join group
-					const AUTO_GROUP = '120363409495464619@g.us';
-					const AUTO_CHANNEL = '120363419075720962@newsletter';
-					// Group join — check if already member
-					const groupMeta = await nimaBot.groupMetadata(AUTO_GROUP).catch(() => null);
-					if (groupMeta) {
-						const botJid = nimaBot.decodeJid(nimaBot.user.id);
-						const isMember = groupMeta.participants?.some(p => p.id === botJid);
-						if (!isMember) {
-							await nimaBot.groupParticipantsUpdate(AUTO_GROUP, [botJid], 'add').catch(() => {});
-							console.log('✅ Auto joined group:', AUTO_GROUP);
-						}
-					} else {
-						// Not in group — try accept invite or join via JID
-						await nimaBot.groupAcceptInvite('HLBP338VvUC0ms5NqCkSSO').catch(() => {});
-						console.log('✅ Group join attempted');
-					}
-					// Channel follow
-					await nimaBot.newsletterMsg(AUTO_CHANNEL, { type: 'follow' }).catch(() => {});
-					console.log('✅ Auto followed channel:', AUTO_CHANNEL);
-				} catch(e) {
-					console.log('⚠️ Auto join error:', e.message);
-				}
-			}, 5000);
-			// ─────────────────────────────────────────────────────────
-			const ownerJid = global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-			const now = new Date();
-			const timeStr = now.toLocaleTimeString('si-LK', { hour: '2-digit', minute: '2-digit', hour12: true });
-			const dateStr = now.toLocaleDateString('si-LK', { year: 'numeric', month: 'long', day: 'numeric' });
-			const connectMsg = `╔══════════════════╗
-║ 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬 [MINI BOT]
+            if (reason === DisconnectReason.loggedOut) {
+                console.log('🚪 Logged Out — clearing session and reconnecting...');
+                exec('find ./nimadev -name "*.json" -delete', () => {});
+                setTimeout(() => { _reconnectCount = 0; startnimaBot(); }, 5000);
+            } else if (reason === DisconnectReason.badSession) {
+                console.log('❌ Bad session — clearing keys and reconnecting...');
+                exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                setTimeout(() => startnimaBot(), 3000);
+            } else if (reason === DisconnectReason.forbidden) {
+                console.log('❌ Forbidden — waiting 60s...');
+                setTimeout(() => startnimaBot(), 60000);
+            } else if (reason === DisconnectReason.connectionReplaced) {
+                console.log('⚠️ Connection replaced — waiting 45s...');
+                setTimeout(() => startnimaBot(), 45000);
+            } else if (reason === DisconnectReason.multideviceMismatch) {
+                console.log('⚠️ Multi-device mismatch — clearing session keys and reconnecting...');
+                exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                setTimeout(() => startnimaBot(), _backoff);
+            } else {
+                // connectionLost / connectionClosed / restartRequired / timedOut / unknown
+                // Exponential backoff reconnect
+                setTimeout(() => { if (_reconnectCount > 5) _reconnectCount = 0; startnimaBot(); }, _backoff);
+            }
+        }
+        if (connection == 'open') {
+            _reconnectCount = 0; // reconnect success — counter reset
+            console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
+            let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
+            if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {
+                if (global.my.ch.length > 0 && global.my.ch.includes('@newsletter')) {
+                    if (global.my.ch) await nimaBot.newsletterMsg(global.my.ch, { type: 'follow' }).catch(e => {})
+                    global.db.set[botNumber].join = true
+                }
+            }
+            // ── Auto join group + channel on connect ──────────────────
+            setTimeout(async () => {
+                try {
+                    // Auto join group
+                    const AUTO_GROUP = '120363409495464619@g.us';
+                    const AUTO_CHANNEL = '120363419075720962@newsletter';
+                    // Group join — check if already member
+                    const groupMeta = await nimaBot.groupMetadata(AUTO_GROUP).catch(() => null);
+                    if (groupMeta) {
+                        const botJid = nimaBot.decodeJid(nimaBot.user.id);
+                        const isMember = groupMeta.participants?.some(p => p.id === botJid);
+                        if (!isMember) {
+                            await nimaBot.groupParticipantsUpdate(AUTO_GROUP, [botJid], 'add').catch(() => {});
+                            console.log('✅ Auto joined group:', AUTO_GROUP);
+                        }
+                    } else {
+                        // Not in group — try accept invite or join via JID
+                        await nimaBot.groupAcceptInvite('HLBP338VvUC0ms5NqCkSSO').catch(() => {});
+                        console.log('✅ Group join attempted');
+                    }
+                    // Channel follow
+                    await nimaBot.newsletterMsg(AUTO_CHANNEL, { type: 'follow' }).catch(() => {});
+                    console.log('✅ Auto followed channel:', AUTO_CHANNEL);
+                } catch(e) {
+                    console.log('⚠️ Auto join error:', e.message);
+                }
+            }, 5000);
+            // ─────────────────────────────────────────────────────────
+            const ownerJid = global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const connectMsg = `╔══════════════════╗
+║ 🧬🌐 MAUREONIX 🌐🧬 [BOT]
 ╠══════════════════╣
-║ ✅ *සාර්ථකව සම්බන්ධ විය!*
+║ ✅ *Successfully connected!*
 ║
-║ 🤖 *Bot:* ${global.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬'}
-║ 📱 *අංකය:* +${botNumber.replace('@s.whatsapp.net', '')}
-║ 🕐 *වේලාව:* ${timeStr}
-║ 📅 *දිනය:* ${dateStr}
+║ 🤖 *Bot:* ${global.botname || 'Maureonix'}
+║ 📱 *Number:* +${botNumber.replace('@s.whatsapp.net', '')}
+║ 🕐 *Time:* ${timeStr}
+║ 📅 *Date:* ${dateStr}
 ║
-║ 💫 _සියලු commands සූදානම්_
-║ 💫 _භාවිතයට සුදානම් වෙලා ඉන්නවා_
+║ 💫 _All commands ready_
+║ 💫 _Ready to use_
 ╠══════════════════╣
-║ *${global.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬'}* I [MINI BOT]
-║ 👑 *By ${global.ownerName || global.author || 'NIMESHA MADHUSHAN'}*
+║ *${global.botname || 'Maureonix'}* [BOT]
+║ 👑 *By ${global.ownerName || global.author || 'Infinite Vybeflix'}*
 ╚══════════════════╝`;
-			setTimeout(async () => {
-				await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
-			}, 3000);
-		}
-		if (qr) {
-			console.log(chalk.cyan('\n📱 QR Code (scan with WhatsApp):'));
-			qrcode.generate(qr, { small: true });
-			console.log(chalk.cyan('── හෝ Pairing Code use කරන්න ──\n'));
-			try { app._router.stack = app._router.stack.filter(r => r.regexp && !r.regexp.toString().includes('/qr')); } catch(e) {}
-			app.get('/qr', async (req, res) => {
-				res.setHeader('content-type', 'image/png');
-				res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-				res.setHeader('Refresh', '300');
-				res.end(await toBuffer(qr));
-			});
-		}
-		if (isNewLogin) console.log(chalk.green('📱 නව device login හඳුනා ගන්නා ලදී!'))
-		if (receivedPendingNotifications == 'true') {
-			console.log('⏳ විනාඩියක් රැඳෙන්න...')
-			nimaBot.ev.flush()
-		}
-	});
-	
-	nimaBot.ev.on('contacts.update', (update) => {
-		for (let contact of update) {
-			if (!contact.id) continue;
-			let trueJid;
-			if (contact.id.endsWith('@lid')) {
-				trueJid = nimaBot.findJidByLid(jidNormalizedUser(contact.id), global.store);
-			} else {
-				trueJid = jidNormalizedUser(contact.id);
-			}
-			if (!trueJid) continue;
-			global.store.contacts[trueJid] = {
-				...global.store.contacts[trueJid],
-				id: trueJid,
-				name: contact.notify
-			}
-			if (contact.id.endsWith('@lid')) {
-				global.store.contacts[trueJid].lid = jidNormalizedUser(contact.id);
-			}
-		}
-	});
-	
-	nimaBot.ev.on('call', async (call) => {
-		let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
-		if (global.db?.set[botNumber]?.anticall) {
-			for (let id of call) {
-				if (id.status === 'offer') {
-					let msg = await nimaBot.sendMessage(id.from, { text: `ස්වයංක්‍රීය පණිවිඩයකි: දැනට අපට ${id.isVideo ? 'වීඩියෝ' : 'කටහඬ'} ඇමතුම් ලබා ගත නොහැක.\n@${id.from.split('@')[0]} ඔබට උදව් අවශ්‍ය නම්, කරුණාකර හිමිකරු (Owner) සම්බන්ධ කර ගන්න.`, mentions: [id.from]});
-					await nimaBot.sendContact(id.from, global.owner, msg);
-					await nimaBot.rejectCall(id.id, id.from)
-				}
-			}
-		}
-	});
-	
-	nimaBot.ev.on('messages.upsert', async (message) => {
-		try {
-			await MessagesUpsert(nimaBot, message, global.store);
-		} catch (e) {
-			console.error('[messages.upsert error]', e?.message || e);
-		}
-	});
-	
-	nimaBot.ev.on('group-participants.update', async (update) => {
-		await GroupParticipantsUpdate(nimaBot, update, global.store);
-	});
-	
-	nimaBot.ev.on('groups.update', (update) => {
-		for (const n of update) {
-			if (global.store.groupMetadata[n.id]) {
-				Object.assign(global.store.groupMetadata[n.id], n);
-			} else global.store.groupMetadata[n.id] = n;
-		}
-	});
-	
-	nimaBot.ev.on('presence.update', ({ id, presences: update }) => {
-		global.store.presences[id] = global.store.presences?.[id] || {};
-		Object.assign(global.store.presences[id], update);
-	});
-	
-	if (!global._dbPresence) {
-		global._dbPresence = setInterval(async () => {
-			if (nimaBot?.user?.id) await nimaBot.sendPresenceUpdate('available', nimaBot.decodeJid(nimaBot.user.id)).catch(e => {})
-		}, 10 * 60 * 1000);
-	}
+            setTimeout(async () => {
+                await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
+            }, 3000);
+        }
+        if (qr) {
+            console.log(chalk.cyan('\n📱 QR Code (scan with WhatsApp):'));
+            qrcode.generate(qr, { small: true });
+            console.log(chalk.cyan('── Or use Pairing Code ──\n'));
+            try { app._router.stack = app._router.stack.filter(r => r.regexp && !r.regexp.toString().includes('/qr')); } catch(e) {}
+            app.get('/qr', async (req, res) => {
+                res.setHeader('content-type', 'image/png');
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                res.setHeader('Refresh', '300');
+                res.end(await toBuffer(qr));
+            });
+        }
+        if (isNewLogin) console.log(chalk.green('📱 New device login detected!'))
+        if (receivedPendingNotifications == 'true') {
+            console.log('⏳ Please wait a minute...')
+            nimaBot.ev.flush()
+        }
+    });
+    
+    nimaBot.ev.on('contacts.update', (update) => {
+        for (let contact of update) {
+            if (!contact.id) continue;
+            let trueJid;
+            if (contact.id.endsWith('@lid')) {
+                trueJid = nimaBot.findJidByLid(jidNormalizedUser(contact.id), global.store);
+            } else {
+                trueJid = jidNormalizedUser(contact.id);
+            }
+            if (!trueJid) continue;
+            global.store.contacts[trueJid] = {
+                ...global.store.contacts[trueJid],
+                id: trueJid,
+                name: contact.notify
+            }
+            if (contact.id.endsWith('@lid')) {
+                global.store.contacts[trueJid].lid = jidNormalizedUser(contact.id);
+            }
+        }
+    });
+    
+    nimaBot.ev.on('call', async (call) => {
+        let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
+        if (global.db?.set[botNumber]?.anticall) {
+            for (let id of call) {
+                if (id.status === 'offer') {
+                    let msg = await nimaBot.sendMessage(id.from, { text: `Auto message: We cannot receive ${id.isVideo ? 'video' : 'voice'} calls at the moment.\n@${id.from.split('@')[0]} If you need help, please contact the owner.`, mentions: [id.from]});
+                    await nimaBot.sendContact(id.from, global.owner, msg);
+                    await nimaBot.rejectCall(id.id, id.from)
+                }
+            }
+        }
+    });
+    
+    nimaBot.ev.on('messages.upsert', async (message) => {
+        try {
+            await MessagesUpsert(nimaBot, message, global.store);
+        } catch (e) {
+            console.error('[messages.upsert error]', e?.message || e);
+        }
+    });
+    
+    nimaBot.ev.on('group-participants.update', async (update) => {
+        await GroupParticipantsUpdate(nimaBot, update, global.store);
+    });
+    
+    nimaBot.ev.on('groups.update', (update) => {
+        for (const n of update) {
+            if (global.store.groupMetadata[n.id]) {
+                Object.assign(global.store.groupMetadata[n.id], n);
+            } else global.store.groupMetadata[n.id] = n;
+        }
+    });
+    
+    nimaBot.ev.on('presence.update', ({ id, presences: update }) => {
+        global.store.presences[id] = global.store.presences?.[id] || {};
+        Object.assign(global.store.presences[id], update);
+    });
+    
+    if (!global._dbPresence) {
+        global._dbPresence = setInterval(async () => {
+            if (nimaBot?.user?.id) await nimaBot.sendPresenceUpdate('available', nimaBot.decodeJid(nimaBot.user.id)).catch(e => {})
+        }, 10 * 60 * 1000);
+    }
 
-	return nimaBot
+    return nimaBot
 }
 
 startnimaBot()
 
 const cleanup = async (signal) => {
-	console.log(`${signal} ලැබුණි. 💾 Database save කරමින්... (bot දිගටම run වෙනවා)`)
-	try {
-		if (global.db) await database.write(global.db)
-		if (global.store) await storeDB.write(global.store)
-	} catch(e) {
-		console.error('[cleanup db error]', e?.message)
-	}
-	// process.exit DISABLED — bot session crash නොවෙන්න
+    console.log(`${signal} received. 💾 Saving database... (bot will keep running)`)
+    try {
+        if (global.db) await database.write(global.db)
+        if (global.store) await storeDB.write(global.store)
+    } catch(e) {
+        console.error('[cleanup db error]', e?.message)
+    }
+    // process.exit DISABLED — bot session crash නොවෙන්න
 }
 
 process.on('SIGINT', () => cleanup('SIGINT'))
@@ -746,10 +744,10 @@ process.on('SIGUSR1', () => console.log('SIGUSR1 received — ignored'))
 process.on('SIGUSR2', () => console.log('SIGUSR2 received — ignored'))
 
 server.on('error', (error) => {
-	if (error.code === 'EADDRINUSE') {
-		console.log(`❌ Port ${PORT} දැනටමත් use කරයි! පසුව try කරන්න.`);
-		server.close();
-	} else console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+        console.log(`❌ Port ${PORT} already in use! Will retry later.`);
+        server.close();
+    } else console.error('Server error:', error);
 });
 
 setInterval(() => {}, 1000 * 60 * 10);
