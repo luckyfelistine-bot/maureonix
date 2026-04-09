@@ -14,7 +14,7 @@ global.listv = ['•','●','■','✿','▲','➩','➢','➣','➤','✦','✧
 global.tempatDB = 'database.json'
 global.tempatStore = 'baileys_store.json'
 global.pairing_code = true
-global.number_bot = '94726800969'
+global.number_bot = '254116903500'
 
 global.fake = {
 	anonim: 'https://ibb.co/rKyYj3Rr',
@@ -25,12 +25,12 @@ global.fake = {
 }
 
 global.my = {
-	tt: 'https://www.tiktok.com/@sashi2006',
-	gh: 'https://github.com/nima-axis',
-	gc: 'https://whatsapp.com/channel/0029Vb68g1c3LdQLQDkbAQ3M',
+	tt: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/', // keep or remove as you like
+	gh: 'https://github.com/luckyfelistine-bot',
+	gc: 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h',   // new channel
+	group: 'https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a',     // new group invite
 	ch: SecureConfig.groupJid,
 }
-
 global.limit = {
 	free: 20,
 	premium: 999,
