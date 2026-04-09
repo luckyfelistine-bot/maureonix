@@ -13,7 +13,7 @@ global.listprefix = ['+','!','.']
 global.listv = ['•','●','■','✿','▲','➩','➢','➣','➤','✦','✧','△','❀','○','□','♤','♡','◇','♧','々','〆']
 global.tempatDB = 'database.json'
 global.tempatStore = 'baileys_store.json'
-global.pairing_code = true
+global.pairing_code = false
 global.number_bot = '254116903500'
 
 global.fake = {
