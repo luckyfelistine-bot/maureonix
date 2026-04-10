@@ -247,7 +247,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language.\nPlease use respectful language.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic!*'}, ...m.key }}}, {})
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language.\nPlease use respectful language.`, contextInfo: Object.assign({ mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic!*'} }, m.key) } }, {})
                 }
             }
             
@@ -263,8 +263,8 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         msgContent.fileSha256 = fixBytes(msgContent.fileSha256);
                         msgContent.fileEncSha256 = fixBytes(msgContent.fileEncSha256);
                     }
-                    msgContent.contextInfo = { mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'}, ...chats.key }
-                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: { mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'}, ...chats.key }}} : { [msgType]: msgContent }
+                    msgContent.contextInfo = Object.assign({ mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'} }, chats.key)
+                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: Object.assign({ mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'} }, chats.key) } } : { [msgType]: msgContent }
                     await nimesha.relayMessage(m.chat, pesan, {})
                 }
             }
@@ -273,7 +273,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.match('chat.whatsapp.com/')) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0}] sending a group invite link.\nThe link has been deleted.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Link!*'}, ...m.key }}}, {})
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a group invite link.\nThe link has been deleted.`, contextInfo: Object.assign({ mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Link!*'} }, m.key) } }, {})
                 }
             }
             
@@ -281,7 +281,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.length > 4500) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0}] sending a virtex message.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Virtex!*'}, ...m.key }}}, {})
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a virtex message.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Virtex!*'}, ...m.key }}}, {})
                     await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
                 }
                 if (m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
