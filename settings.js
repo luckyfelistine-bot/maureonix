@@ -27,9 +27,9 @@ global.fake = {
 global.my = {
     tt: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/',
     gh: 'https://github.com/luckyfelistine-bot',
-    gc: 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h',
-    group: 'https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a',
-    ch: SecureConfig.groupJid,
+    gc: 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h',      // Channel invite link
+    group: 'https://chat.whatsapp.com/B61mO6noiJG3wVzgkDZd4a',        // Group invite link
+    ch: '120363426431427396@newsletter',                              // Your channel JID
 }
 
 global.limit = {

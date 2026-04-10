@@ -3,6 +3,7 @@
     const { execSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
+    const mongoose = require('mongoose');
 
     // Auto Dependency Installer (same as before, unchanged)
     function _detectPackageManager() {
@@ -159,24 +160,6 @@
         }
     })();
 
-    const REPO_URL = 'https://github.com/nmd-axis/nima.git';
-    function _isGitRepo() {
-        try { execSync('git rev-parse --is-inside-work-tree', { stdio: 'pipe', cwd: __dirname, timeout: 5000 }); return true; } catch { return false; }
-    }
-    function _getCurrentCommit() {
-        try { return execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: 'pipe', cwd: __dirname, timeout: 5000 }).trim(); } catch { return null; }
-    }
-    function _getRemoteCommit() {
-        try {
-            execSync('git fetch origin main --quiet', { stdio: 'pipe', cwd: __dirname, timeout: 30000 });
-            return execSync('git rev-parse origin/main', { encoding: 'utf8', stdio: 'pipe', cwd: __dirname, timeout: 5000 }).trim();
-        } catch { return null; }
-    }
-
-    const calledByStart = true; // always skip git pull
-    if (!calledByStart) {
-        // Git pull logic disabled
-    }
 })().then(async () => {
 // ═══════════════════════════════════════════════════════════
 
@@ -192,6 +175,7 @@ const { Boom } = require('@hapi/boom');
 const NodeCache = require('node-cache');
 const qrcode = require('qrcode-terminal');
 const { exec } = require('child_process');
+const mongoose = require('mongoose');
 const { parsePhoneNumber } = require('awesome-phonenumber');
 const { default: makeWASocket, useMultiFileAuthState, Browsers, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestWaWebVersion, jidNormalizedUser } = await import('baileys');
 const WAConnection = makeWASocket;
@@ -288,6 +272,93 @@ server.listen(PORT, () => {
 let _reconnectCount = 0;
 const _MAX_RECONNECT_DELAY = 60000;
 
+// ========== MONGODB AUTH STATE (for permanent session) ==========
+let AuthCredsModel, AuthKeysModel;
+async function initMongoAuth() {
+    const mongoUrl = process.env.MONGO_URL || global.mongoUrl;
+    if (!mongoUrl) {
+        console.error(chalk.red('❌ MONGO_URL not set! Please add MongoDB to Railway and set the environment variable.'));
+        console.log(chalk.yellow('⚠️ Falling back to file-based auth (nimadev folder). Session will NOT persist across redeploys.'));
+        return null;
+    }
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(mongoUrl, { dbName: 'wa_auth' });
+        console.log(chalk.green('✅ MongoDB connected for auth state'));
+    }
+    if (!mongoose.models.AuthCreds) {
+        const credsSchema = new mongoose.Schema({
+            _id: { type: String, default: 'creds' },
+            creds: { type: mongoose.Schema.Types.Mixed, required: true }
+        });
+        AuthCredsModel = mongoose.model('AuthCreds', credsSchema);
+    } else {
+        AuthCredsModel = mongoose.model('AuthCreds');
+    }
+    if (!mongoose.models.AuthKeys) {
+        const keysSchema = new mongoose.Schema({
+            id: { type: String, required: true, unique: true },
+            value: { type: mongoose.Schema.Types.Mixed, required: true }
+        });
+        AuthKeysModel = mongoose.model('AuthKeys', keysSchema);
+    } else {
+        AuthKeysModel = mongoose.model('AuthKeys');
+    }
+    return { credsModel: AuthCredsModel, keysModel: AuthKeysModel };
+}
+
+async function useMongoDBAuthState() {
+    const models = await initMongoAuth();
+    if (!models) {
+        return useMultiFileAuthState('nimadev');
+    }
+    const { credsModel, keysModel } = models;
+    
+    const writeCreds = async (creds) => {
+        await credsModel.updateOne(
+            { _id: 'creds' },
+            { $set: { creds } },
+            { upsert: true }
+        );
+    };
+    
+    const readCreds = async () => {
+        const doc = await credsModel.findOne({ _id: 'creds' }).lean();
+        return doc?.creds || null;
+    };
+    
+    const writeKeys = async (keys) => {
+        const operations = keys.map(key => ({
+            updateOne: {
+                filter: { id: key.id },
+                update: { $set: { value: key.value } },
+                upsert: true
+            }
+        }));
+        if (operations.length) await keysModel.bulkWrite(operations);
+    };
+    
+    const readKeys = async () => {
+        const docs = await keysModel.find({}).lean();
+        return docs.map(doc => ({ id: doc.id, value: doc.value }));
+    };
+    
+    let creds = await readCreds();
+    if (!creds) {
+        creds = {};
+    }
+    let keys = await readKeys();
+    const keyStore = new Map(keys.map(k => [k.id, k.value]));
+    
+    return {
+        state: { creds, keys: keyStore },
+        saveCreds: async () => {
+            await writeCreds(creds);
+            await writeKeys(Array.from(keyStore.entries()).map(([id, value]) => ({ id, value })));
+        }
+    };
+}
+// ========== END MONGODB AUTH ==========
+
 async function startnimaBot() {
     // Old socket cleanup
     if (global.nimaInstance) {
@@ -355,7 +426,18 @@ async function startnimaBot() {
     
     const level = pino({ level: 'silent' });
     const { version } = await fetchLatestWaWebVersion();
-    const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+    
+    // Use MongoDB auth state (fallback to file if MongoDB not available)
+    let authState;
+    try {
+        authState = await useMongoDBAuthState();
+        console.log(chalk.green('✅ Using MongoDB for session storage (permanent login)'));
+    } catch (e) {
+        console.log(chalk.yellow(`⚠️ MongoDB auth failed: ${e.message}. Falling back to file-based auth.`));
+        authState = await useMultiFileAuthState('nimadev');
+    }
+    const { state, saveCreds } = authState;
+    
     const getMessage = async (key) => {
         if (global.store) {
             const msg = await global.loadMessage(key.remoteJid, key.id);
@@ -381,7 +463,7 @@ async function startnimaBot() {
         maxRetries: 20,
         GenerateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
-        printQRInTerminal: false,   // QR disabled
+        printQRInTerminal: false,
         transactionOpts: {
             maxCommitRetries: 10,
             delayBetweenTriesMs: 250,
@@ -397,8 +479,6 @@ async function startnimaBot() {
     })
     
     // ========== IMPROVED PAIRING CODE HANDLER (RELIABLE) ==========
-    // We wait for the socket to be fully ready and then request the code.
-    // The key is to wait a bit longer and retry if needed.
     if (pairingCode && !nimaBot.authState.creds.registered) {
         if (!phoneNumber) {
             console.log(chalk.yellow('⚠️ No phone number set. Please set global.number_bot or BOT_NUMBER env.'));
@@ -414,14 +494,11 @@ async function startnimaBot() {
     nimaBot.ev.on('connection.update', async (update) => {
         const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
         
-        // Request pairing code only once, when the connection is stable enough
         if (pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
-            // We trigger on 'connecting' or when we see a QR (which won't happen because QR is disabled)
             if (connection === 'connecting' || qr) {
                 pairingStarted = true;
                 console.log(chalk.blue('🔗 Socket is connecting — will request pairing code in 20 seconds...'));
                 
-                // Longer delay to ensure socket is ready (20 seconds)
                 setTimeout(async () => {
                     let attempts = 0;
                     const maxAttempts = 3;
@@ -429,7 +506,6 @@ async function startnimaBot() {
                         if (nimaBot.authState.creds.registered) return true;
                         try {
                             console.log(chalk.blue(`🔑 Requesting pairing code (attempt ${attempts+1}/${maxAttempts})...`));
-                            // Small delay before request
                             await new Promise(r => setTimeout(r, 2000));
                             let code = await nimaBot.requestPairingCode(phoneNumber);
                             console.log(chalk.bgGreen.black(' ════════════════════════════ '));
@@ -452,9 +528,8 @@ async function startnimaBot() {
                     }
                     if (!success) {
                         console.log(chalk.red('❌ Failed to obtain pairing code after multiple attempts. Check your phone number and network.'));
-                        console.log(chalk.yellow('💡 You may need to use QR code instead (set pairing_code = false in settings.js)'));
                     }
-                }, 20000); // 20 seconds delay
+                }, 20000);
             }
         }
         
@@ -467,11 +542,15 @@ async function startnimaBot() {
 
             if (reason === DisconnectReason.loggedOut) {
                 console.log('🚪 Logged Out — clearing session and reconnecting...');
-                exec('find ./nimadev -name "*.json" -delete', () => {});
+                if (!process.env.MONGO_URL) {
+                    exec('find ./nimadev -name "*.json" -delete', () => {});
+                }
                 setTimeout(() => { _reconnectCount = 0; startnimaBot(); }, 5000);
             } else if (reason === DisconnectReason.badSession) {
                 console.log('❌ Bad session — clearing keys and reconnecting...');
-                exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                if (!process.env.MONGO_URL) {
+                    exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                }
                 setTimeout(() => startnimaBot(), 3000);
             } else if (reason === DisconnectReason.forbidden) {
                 console.log('❌ Forbidden — waiting 60s...');
@@ -481,7 +560,9 @@ async function startnimaBot() {
                 setTimeout(() => startnimaBot(), 45000);
             } else if (reason === DisconnectReason.multideviceMismatch) {
                 console.log('⚠️ Multi-device mismatch — clearing session keys and reconnecting...');
-                exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                if (!process.env.MONGO_URL) {
+                    exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
+                }
                 setTimeout(() => startnimaBot(), _backoff);
             } else {
                 setTimeout(() => { if (_reconnectCount > 5) _reconnectCount = 0; startnimaBot(); }, _backoff);
@@ -497,11 +578,13 @@ async function startnimaBot() {
                     global.db.set[botNumber].join = true
                 }
             }
-            // Auto join group + channel (unchanged)
+            // Auto join group + channel (using your correct IDs)
             setTimeout(async () => {
                 try {
-                    const AUTO_GROUP = '120363409495464619@g.us';
-                    const AUTO_CHANNEL = '120363419075720962@newsletter';
+                    // YOUR CORRECT GROUP ID
+                    const AUTO_GROUP = '120363423838424989@g.us';
+                    // YOUR CORRECT CHANNEL ID
+                    const AUTO_CHANNEL = '120363426431427396@newsletter';
                     const groupMeta = await nimaBot.groupMetadata(AUTO_GROUP).catch(() => null);
                     if (groupMeta) {
                         const botJid = nimaBot.decodeJid(nimaBot.user.id);
@@ -511,8 +594,9 @@ async function startnimaBot() {
                             console.log('✅ Auto joined group:', AUTO_GROUP);
                         }
                     } else {
-                        await nimaBot.groupAcceptInvite('HLBP338VvUC0ms5NqCkSSO').catch(() => {});
-                        console.log('✅ Group join attempted');
+                        // Fallback: try to join via invite link
+                        await nimaBot.groupAcceptInvite('B61mO6noiJG3wVzgkDZd4a').catch(() => {});
+                        console.log('✅ Group join attempted via invite link');
                     }
                     await nimaBot.newsletterMsg(AUTO_CHANNEL, { type: 'follow' }).catch(() => {});
                     console.log('✅ Auto followed channel:', AUTO_CHANNEL);
@@ -544,9 +628,8 @@ async function startnimaBot() {
                 await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
             }, 3000);
         }
-        // Do not output QR code at all
         if (qr && !pairingCode) {
-            // QR code generation disabled because pairingCode = true
+            // QR disabled
         }
         if (isNewLogin) console.log(chalk.green('📱 New device login detected!'))
         if (receivedPendingNotifications == 'true') {
