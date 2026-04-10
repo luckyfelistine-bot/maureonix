@@ -159,7 +159,24 @@
         }
     })();
 
-    // Git pull disabled (as per user request)
+    const REPO_URL = 'https://github.com/nmd-axis/nima.git';
+    function _isGitRepo() {
+        try { execSync('git rev-parse --is-inside-work-tree', { stdio: 'pipe', cwd: __dirname, timeout: 5000 }); return true; } catch { return false; }
+    }
+    function _getCurrentCommit() {
+        try { return execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: 'pipe', cwd: __dirname, timeout: 5000 }).trim(); } catch { return null; }
+    }
+    function _getRemoteCommit() {
+        try {
+            execSync('git fetch origin main --quiet', { stdio: 'pipe', cwd: __dirname, timeout: 30000 });
+            return execSync('git rev-parse origin/main', { encoding: 'utf8', stdio: 'pipe', cwd: __dirname, timeout: 5000 }).trim();
+        } catch { return null; }
+    }
+
+    const calledByStart = true; // always skip git pull
+    if (!calledByStart) {
+        // Git pull logic disabled
+    }
 })().then(async () => {
 // ═══════════════════════════════════════════════════════════
 
@@ -379,63 +396,68 @@ async function startnimaBot() {
         },
     })
     
-    // ========== IMPROVED PAIRING CODE HANDLER ==========
-    // This ensures we only request the code when the socket is ready,
-    // and retries if the first request fails.
-    let pairRequestInterval = null;
-    let pairRetryCount = 0;
-    const MAX_PAIR_RETRIES = 3;
-
+    // ========== IMPROVED PAIRING CODE HANDLER (RELIABLE) ==========
+    // We wait for the socket to be fully ready and then request the code.
+    // The key is to wait a bit longer and retry if needed.
+    if (pairingCode && !nimaBot.authState.creds.registered) {
+        if (!phoneNumber) {
+            console.log(chalk.yellow('⚠️ No phone number set. Please set global.number_bot or BOT_NUMBER env.'));
+        } else {
+            console.log(chalk.cyan(`📱 Number set: ${phoneNumber} | Will request pairing code in 20 seconds...`));
+        }
+    }
+    
+    global.nimaInstance = nimaBot;
+    await Solving(nimaBot, global.store)
+    nimaBot.ev.on('creds.update', saveCreds)
+    
     nimaBot.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, isNewLogin, receivedPendingNotifications, qr } = update;
+        const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
         
-        // Request pairing code only when the connection is 'connecting' and we haven't already started
-        if (connection === 'connecting' && pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
-            pairingStarted = true;
-            console.log(chalk.cyan('🔑 Socket is connecting — will request pairing code in 5 seconds...'));
-            
-            // Wait a few seconds for the socket to stabilise, then attempt with retries
-            setTimeout(async () => {
-                const requestCode = async () => {
-                    if (nimaBot.authState.creds.registered) return true;
-                    try {
-                        console.log(chalk.blue('🔑 Requesting pairing code...'));
-                        // Small delay before each request to avoid rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        let code = await nimaBot.requestPairingCode(phoneNumber);
-                        console.log(chalk.bgGreen.black(' ════════════════════════════ '));
-                        console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
-                        console.log(chalk.yellow('⏰ _New code every 2 minutes_'));
-                        console.log(chalk.bgGreen.black(' ════════════════════════════ '));
-                        return true;
-                    } catch(e) {
-                        console.log(chalk.red(`⚠️ Pairing code error (attempt ${pairRetryCount+1}/${MAX_PAIR_RETRIES}): ${e.message}`));
-                        return false;
-                    }
-                };
+        // Request pairing code only once, when the connection is stable enough
+        if (pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
+            // We trigger on 'connecting' or when we see a QR (which won't happen because QR is disabled)
+            if (connection === 'connecting' || qr) {
+                pairingStarted = true;
+                console.log(chalk.blue('🔗 Socket is connecting — will request pairing code in 20 seconds...'));
                 
-                // First attempt after 5s
-                let success = await requestCode();
-                if (!success && pairRetryCount < MAX_PAIR_RETRIES) {
-                    // Retry with exponential backoff: 5s, 10s, 20s
-                    const delays = [5000, 10000, 20000];
-                    for (let i = 0; i < delays.length && !success && pairRetryCount < MAX_PAIR_RETRIES; i++) {
-                        pairRetryCount++;
-                        console.log(chalk.yellow(`⏳ Retrying in ${delays[i]/1000} seconds...`));
-                        await new Promise(resolve => setTimeout(resolve, delays[i]));
-                        success = await requestCode();
+                // Longer delay to ensure socket is ready (20 seconds)
+                setTimeout(async () => {
+                    let attempts = 0;
+                    const maxAttempts = 3;
+                    const requestPairing = async () => {
+                        if (nimaBot.authState.creds.registered) return true;
+                        try {
+                            console.log(chalk.blue(`🔑 Requesting pairing code (attempt ${attempts+1}/${maxAttempts})...`));
+                            // Small delay before request
+                            await new Promise(r => setTimeout(r, 2000));
+                            let code = await nimaBot.requestPairingCode(phoneNumber);
+                            console.log(chalk.bgGreen.black(' ════════════════════════════ '));
+                            console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
+                            console.log(chalk.yellow('⏰ _New code every 2 minutes_'));
+                            console.log(chalk.bgGreen.black(' ════════════════════════════ '));
+                            return true;
+                        } catch (e) {
+                            console.log(chalk.red(`⚠️ Pairing code error: ${e.message}`));
+                            return false;
+                        }
+                    };
+                    
+                    let success = await requestPairing();
+                    while (!success && attempts < maxAttempts - 1) {
+                        attempts++;
+                        console.log(chalk.yellow(`⏳ Retrying in 10 seconds... (${attempts}/${maxAttempts-1})`));
+                        await new Promise(r => setTimeout(r, 10000));
+                        success = await requestPairing();
                     }
-                }
-                if (!success) {
-                    console.log(chalk.red('❌ Failed to obtain pairing code after multiple attempts. Check your phone number and network.'));
-                }
-                
-                // Even if we fail, we don't want to keep spamming – will retry on next reconnect
-                if (pairRequestInterval) clearInterval(pairRequestInterval);
-            }, 5000);
+                    if (!success) {
+                        console.log(chalk.red('❌ Failed to obtain pairing code after multiple attempts. Check your phone number and network.'));
+                        console.log(chalk.yellow('💡 You may need to use QR code instead (set pairing_code = false in settings.js)'));
+                    }
+                }, 20000); // 20 seconds delay
+            }
         }
         
-        // Handle disconnection and reconnection
         if (connection === 'close') {
             const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
             const errMsg = lastDisconnect?.error?.message || '';
@@ -465,10 +487,8 @@ async function startnimaBot() {
                 setTimeout(() => { if (_reconnectCount > 5) _reconnectCount = 0; startnimaBot(); }, _backoff);
             }
         }
-        
         if (connection == 'open') {
             _reconnectCount = 0;
-            if (pairRequestInterval) clearInterval(pairRequestInterval);
             console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
             let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
             if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {
@@ -524,8 +544,7 @@ async function startnimaBot() {
                 await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
             }, 3000);
         }
-        
-        // QR is completely ignored (no output)
+        // Do not output QR code at all
         if (qr && !pairingCode) {
             // QR code generation disabled because pairingCode = true
         }
