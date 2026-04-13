@@ -12,6 +12,17 @@ process.on('unhandledRejection', err => console.error('[unhandledRejection]', er
  */
 
 require('./settings');
+
+// ════════════════════════════════════════════════════════════════════════════
+// GLOBAL INITIALIZATIONS (Safety defaults)
+// ════════════════════════════════════════════════════════════════════════════
+global.botMode = global.botMode || 'public';
+global.restrictedGroups = global.restrictedGroups || [];
+global.allowedGroups = global.allowedGroups || [];
+global.allowedUsers = global.allowedUsers || [];
+global.GITHUB_REPO = global.GITHUB_REPO || 'luckyfelistine-bot/maureonix';
+global.BOT_VERSION = global.BOT_VERSION || '3.0.0';
+
 const fs      = require('fs');
 const os      = require('os');
 const util    = require('util');
@@ -444,7 +455,8 @@ module.exports = async (nimesha, m, msg, store) => {
         ) || '';
 
         const budy      = (typeof m.text === 'string' ? m.text : '');
-        const isCreator = isOwner = m.fromMe || ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
+        const isCreator = m.fromMe || ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
+        const isOwner = isCreator;
         const isTrusted = isCreator;
         const prefix    = isCreator
             ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi)[0] : listprefix.find(a=>body?.startsWith(a)) || '')
@@ -1238,7 +1250,7 @@ ${botFooter}`;
         // BOT MODE SYSTEM (NEW)
         // ════════════════════════════════════════════════════════════════════
         case 'mode': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const newMode = (args[0]||'').toLowerCase();
             if (!['public','private','restricted'].includes(newMode)) {
                 return m.reply(`⚙️ *BOT MODE*\n────────────────────\nCurrent: *${global.botMode||'public'}*\n\n🌐 *public* — Everyone can use bot\n🔒 *private* — Owner + allowed users only\n⛔ *restricted* — Only allowed groups\n\nUsage: ${prefix}mode public / private / restricted\n\nManage:\n${prefix}allowuser @tag — add user (private mode)\n${prefix}allowgroup — allow current group (restricted)\n${prefix}restrictgroup — block group (any mode)\n────────────────────\n${botFooter}`);
@@ -1251,7 +1263,7 @@ ${botFooter}`;
         break
 
         case 'restrictgroup': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const gid = q || m.chat;
             if (!global.restrictedGroups) global.restrictedGroups = [];
             if (!global.restrictedGroups.includes(gid)) { global.restrictedGroups.push(gid); m.reply(`⛔ Group *${gid}* restricted.\n${botFooter}`); }
@@ -1260,7 +1272,7 @@ ${botFooter}`;
         break
 
         case 'unrestrictgroup': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const gid = q || m.chat;
             global.restrictedGroups = (global.restrictedGroups||[]).filter(g=>g!==gid);
             m.reply(`✅ Group *${gid}* unrestricted.\n${botFooter}`);
@@ -1268,7 +1280,7 @@ ${botFooter}`;
         break
 
         case 'allowgroup': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const gid = q || m.chat;
             if (!global.allowedGroups) global.allowedGroups = [];
             if (!global.allowedGroups.includes(gid)) { global.allowedGroups.push(gid); m.reply(`✅ Group *${gid}* allowed.\n${botFooter}`); }
@@ -1277,7 +1289,7 @@ ${botFooter}`;
         break
 
         case 'allowuser': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const target = m.mentionedJid?.[0] || m.quoted?.sender;
             if (!target) return m.reply(`Tag someone!\nUsage: ${prefix}allowuser @user`);
             if (!global.allowedUsers) global.allowedUsers = [];
@@ -1292,7 +1304,7 @@ ${botFooter}`;
         // UPDATE (NEW)
         // ════════════════════════════════════════════════════════════════════
         case 'update': {
-            if (!isCreator) return m.reply(mess.owner);
+            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
             const um = await nimesha.sendMessage(m.chat, { text:`🔄 *Checking for updates...*\n⏳ Connecting to GitHub...\n${botFooter}` }, { quoted:m });
             try {
                 const r = await axios.get(`https://api.github.com/repos/${global.GITHUB_REPO||'luckyfelistine-bot/maureonix'}/releases/latest`, { headers:{'User-Agent':'MAUREONIX-Bot'}, timeout:10000 });
@@ -2084,11 +2096,12 @@ ${botFooter}`;
             if (!text) return;
             exec(budy.slice(2), (err,stdout)=>{ if(err) return m.reply(`${err}`); if(stdout) return m.reply(stdout); });
         }
-        if ((!isCmd||isCreator) && budy.toLowerCase()!=undefined) {
+                if ((!isCmd||isCreator) && budy.toLowerCase()!=undefined) {
             if (m.chat.endsWith('broadcast')) return;
             if (!(budy.toLowerCase() in db.database)) return;
             await nimesha.relayMessage(m.chat, db.database[budy.toLowerCase()], {});
         }
+        break;
 
         } // ← end of switch
 
