@@ -74,8 +74,6 @@
     "yt-search": "^2.13.1",
     "ytdl-core": "^4.11.5",
     "ytsr": "^3.8.4"
-    "axios": "^1.6.0",
-    "moment-timezone": "^0.5.43"
   },
   "overrides": {
     "baileys": {
