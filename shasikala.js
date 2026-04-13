@@ -595,7 +595,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         const _senderNum = (m.sender || '').split('@')[0].replace(/[^0-9]/g, '');
         if (m.fromMe && !_ownerNums.includes(_senderNum)) return;
 
-        const GROUP_INVITE_LINK = 'https://chat.whatsapp.com/HcQHoQiye8zCTVRGW6xikF?mode=gi_t';
+        const GROUP_INVITE_LINK = 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp?mode=gi_t';
 
         const _bodyRaw = (m.body || m.text || '').trim();
         const _validPrefixes = global.listprefix || ['.', '!', '+'];
@@ -611,8 +611,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         if (isCmd && !isTrusted) {
             if (!m.isGroup) {
-                const AUTO_ADD_GROUP_JID  = (global.my?.ch && global.my.ch.endsWith('@g.us')) ? global.my.ch : '120363409495464619@g.us';
-                const AUTO_ADD_GROUP_LINK = 'https://chat.whatsapp.com/HcQHoQiye8zCTVRGW6xikF?mode=gi_t';
+                const AUTO_ADD_GROUP_JID  = (global.my?.ch && global.my.ch.endsWith('@g.us')) ? global.my.ch : '120363423838424989@g.us';
+                const AUTO_ADD_GROUP_LINK = 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp?mode=gi_t';
 
                 try {
                     const _res = await nimesha.groupParticipantsUpdate(

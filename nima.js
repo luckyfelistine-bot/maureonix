@@ -1,5265 +1,2125 @@
-process.on('uncaughtException', (err) => console.error('[uncaughtException]', err))
-process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err))
+'use strict';
+
+process.on('uncaughtException',  err => console.error('[uncaughtException]',  err));
+process.on('unhandledRejection', err => console.error('[unhandledRejection]', err));
 
 /*
-    * Created by Infinite Vybeflix
-    * Repository: https://github.com/luckyfelistine-bot/maureonix
-    * WhatsApp Channel: https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h
-*/
+ * 🦊 MAUREONIX — Ultimate WhatsApp Bot
+ * Created by Infinite Vybeflix
+ * Repository: https://github.com/luckyfelistine-bot/maureonix
+ * WhatsApp Channel: https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h
+ * Version: 3.0.0
+ */
 
 require('./settings');
-const fs = require('fs');
-const os = require('os');
-const util = require('util');
-const path = require('path');
-const axios = require('axios');
-const chalk = require('chalk');
-const yts = require('yt-search');
-const cron = require('node-cron');
-const fetch = require('node-fetch');
+const fs      = require('fs');
+const os      = require('os');
+const util    = require('util');
+const path    = require('path');
+const axios   = require('axios');
+const chalk   = require('chalk');
+const yts     = require('yt-search');
+const cron    = require('node-cron');
+const fetch   = require('node-fetch');
+const https   = require('https');
 const FileType = require('file-type');
-const { Chess } = require('chess.js');
-const { Akinator } = require('aki-api');
-const FormData = require('form-data');
-const webp = require('node-webpmux');
-const speed = require('performance-now');
-const moment = require('moment-timezone');
-const { performance } = require('perf_hooks');
-const PhoneNum = require('awesome-phonenumber');
+const { Chess }     = require('chess.js');
+const { Akinator }  = require('aki-api');
+const FormData      = require('form-data');
+const webp          = require('node-webpmux');
+const speed         = require('performance-now');
+const moment        = require('moment-timezone');
+const { performance }   = require('perf_hooks');
+const PhoneNum          = require('awesome-phonenumber');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 
-const { UguuSe } = require('./lib/uploader');
-const TicTacToe = require('./lib/tictactoe');
-const { antiSpam } = require('./src/antispam');
+const { UguuSe }      = require('./lib/uploader');
+const TicTacToe       = require('./lib/tictactoe');
+const { antiSpam }    = require('./src/antispam');
 const { ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload } = require('./lib/scraper');
-const templateMenu = require('./lib/template_menu');
 const { toAudio, toPTT, toVideo } = require('./lib/converter');
-const { GroupUpdate, LoadDataBase } = require('./src/message');
+const { GroupUpdate, LoadDataBase }  = require('./src/message');
 const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./src/database');
 const { rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer, Blackjack, SnakeLadder } = require('./lib/game');
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, tarBackup } = require('./lib/function');
 
-const menfesTimeouts = new Map();
-const settingsPath = path.join(__dirname, 'settings.js');
-const cases = global.db && global.db.cases ? global.db.cases : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js', 'utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(match => match[1]));
+// ── NEW modules ───────────────────────────────────────────────────────────────
+const { setTemplateMenu, sendCategoryMenu } = require('./lib/template_menu');
+const adminProt  = require('./lib/admin_protection');
+const gameLib    = require('./lib/game');
+const movies     = require('./lib/movies');
+// ─────────────────────────────────────────────────────────────────────────────
 
+const menfesTimeouts  = new Map();
+const pendingDownload = new Map();
+const messageStore    = new Map();
+const AUTO_DELETE_SECS   = 330;
+const COUNTDOWN_INTERVAL = 30;
+const startTime          = Date.now();
+const TEMP_MEDIA_DIR     = path.join(__dirname, './database/temp');
+if (!fs.existsSync(TEMP_MEDIA_DIR)) fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
+
+const cases = global.db && global.db.cases
+    ? global.db.cases
+    : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js','utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(m => m[1]));
+
+// ════════════════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+function _secsToEnglish(secs) {
+    if (secs <= 0) return '🗑️ *This message will be deleted...*';
+    const mins = Math.floor(secs / 60), rem = secs % 60;
+    const timeStr = mins > 0 && rem > 0 ? `${mins}m ${rem}s` : mins > 0 ? `${mins} minutes` : `${rem} seconds`;
+    return `⏱️ *Auto-deletes in ${timeStr}*`;
+}
+
+function getRuntime() {
+    const up = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(up / 3600), m = Math.floor((up % 3600) / 60), s = up % 60;
+    return `${h}h ${m}m ${s}s`;
+}
+
+async function sendAutoDelete(sock, chat, text, footer, options = {}) {
+    try {
+        const fullText = `${text}\n${_secsToEnglish(AUTO_DELETE_SECS)}\n${footer}`;
+        const sent = await sock.sendMessage(chat, { text: fullText, ...options });
+        if (!sent?.key) return sent;
+        let remaining = AUTO_DELETE_SECS;
+        const interval = setInterval(async () => {
+            remaining -= COUNTDOWN_INTERVAL;
+            if (remaining <= 0) {
+                clearInterval(interval);
+                try { await sock.sendMessage(chat, { delete: sent.key }); } catch {}
+                return;
+            }
+            try {
+                await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: sent.key });
+            } catch {}
+        }, COUNTDOWN_INTERVAL * 1000);
+        setTimeout(async () => { clearInterval(interval); try { await sock.sendMessage(chat, { delete: sent.key }); } catch {} }, (AUTO_DELETE_SECS + 10) * 1000);
+        return sent;
+    } catch(e) { console.log('sendAutoDelete error:', e.message); }
+}
+
+async function editAutoDelete(sock, chat, text, footer, msgKey) {
+    let remaining = AUTO_DELETE_SECS;
+    try { await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: msgKey }); } catch {}
+    const interval = setInterval(async () => {
+        remaining -= COUNTDOWN_INTERVAL;
+        if (remaining <= 0) {
+            clearInterval(interval);
+            try { await sock.sendMessage(chat, { delete: msgKey }); } catch {}
+            return;
+        }
+        try { await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: msgKey }); } catch {}
+    }, COUNTDOWN_INTERVAL * 1000);
+    setTimeout(async () => { clearInterval(interval); try { await sock.sendMessage(chat, { delete: msgKey }); } catch {} }, (AUTO_DELETE_SECS + 10) * 1000);
+}
+
+async function tryFetch(methods) {
+    for (const method of methods) {
+        try { const r = await method(); if (r) return r; } catch {}
+    }
+    return null;
+}
+
+async function translateText(text, to = 'si', from = 'auto') {
+    return await tryFetch([
+        async () => { const r = await axios.get(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`, { timeout:8000 }); return r.data?.responseData?.translatedText||null; },
+        async () => { const r = await axios.post('https://libretranslate.com/translate', { q:text, source: from==='auto'?'en':from, target:to, format:'text' }, { timeout:8000 }); return r.data?.translatedText||null; },
+        async () => { const r = await axios.get(`https://lingva.ml/api/v1/${from==='auto'?'en':from}/${to}/${encodeURIComponent(text)}`, { timeout:8000 }); return r.data?.translation||null; }
+    ]);
+}
+
+async function ttsGenerate(text, lang = 'en') {
+    return await tryFetch([
+        async () => { const r = await axios.get(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`, { responseType:'arraybuffer', timeout:10000, headers:{'User-Agent':'Mozilla/5.0'} }); if (r.data) return Buffer.from(r.data); return null; }
+    ]);
+}
+
+async function takeScreenshot(url) {
+    return await tryFetch([
+        async () => { const r = await axios.get(`https://api.screenshotmachine.com/?key=demo&url=${encodeURIComponent(url)}&dimension=1024x768&format=jpg`, { responseType:'arraybuffer', timeout:20000 }); return Buffer.from(r.data); },
+        async () => { const r = await axios.get(`https://image.thum.io/get/width/1280/crop/800/${encodeURIComponent(url)}`, { responseType:'arraybuffer', timeout:20000 }); return Buffer.from(r.data); }
+    ]);
+}
+
+async function removeBackground(imageBuffer) {
+    return await tryFetch([
+        async () => {
+            const form = new FormData();
+            form.append('image_file', imageBuffer, { filename:'image.jpg', contentType:'image/jpeg' });
+            form.append('size','auto');
+            const r = await axios.post('https://api.remove.bg/v1.0/removebg', form, { headers:{...form.getHeaders(),'X-Api-Key':'demo'}, responseType:'arraybuffer', timeout:30000 });
+            return Buffer.from(r.data);
+        },
+        async () => {
+            const base64 = imageBuffer.toString('base64');
+            const r = await axios.post('https://www.ailabapi.com/api/cutout/general-cutout', { image:base64 }, { headers:{'ailabapi-api-key':'demo'}, timeout:20000 });
+            if (r.data?.data?.image) return Buffer.from(r.data.data.image,'base64');
+            return null;
+        }
+    ]);
+}
+
+async function aiQuery(query, model = 'gpt') {
+    return await tryFetch([
+        async () => {
+            const r = await axios.post('https://text.pollinations.ai/', { messages:[{role:'system',content:'You are a helpful assistant. Answer clearly and concisely.'},{role:'user',content:query}], model: model==='llama3'?'llama':'openai', seed:42, jsonMode:false }, { timeout:20000 });
+            return typeof r.data==='string' ? r.data.trim() : null;
+        },
+        async () => {
+            const r = await axios.post('https://api.groq.com/openai/v1/chat/completions', { model: model==='llama3'?'llama3-8b-8192':'llama-3.1-8b-instant', messages:[{role:'user',content:query}], max_tokens:1024 }, { headers:{Authorization:'Bearer gsk_free','Content-Type':'application/json'}, timeout:15000 });
+            return r.data?.choices?.[0]?.message?.content||null;
+        },
+        async () => {
+            const vqdRes = await axios.get('https://duckduckgo.com/duckchat/v1/status', { headers:{'x-vqd-accept':'1'}, timeout:8000 });
+            const vqd = vqdRes.headers['x-vqd-4'];
+            if (!vqd) return null;
+            const r = await axios.post('https://duckduckgo.com/duckchat/v1/chat', { model:'gpt-4o-mini', messages:[{role:'user',content:query}] }, { headers:{'x-vqd-4':vqd,'Content-Type':'application/json'}, timeout:15000, responseType:'text' });
+            const lines = String(r.data).split('\n').filter(l=>l.startsWith('data:'));
+            let result = '';
+            for (const line of lines) { try { const d=JSON.parse(line.replace('data: ','')); if(d.message) result+=d.message; } catch {} }
+            return result.trim()||null;
+        },
+        async () => { const r = await axios.get(`https://api.paxsenix.biz.id/ai/gpt4o?text=${encodeURIComponent(query)}`, { timeout:15000 }); return r.data?.message||r.data?.result||r.data?.response||r.data?.text||null; }
+    ]);
+}
+
+class MusicDownloader {
+    constructor() { this.tempDir = TEMP_MEDIA_DIR; this.timeout = 120000; }
+    async downloadMp3(input, progressCallback = null) {
+        const methods = [
+            { name:'yt-dlp (default)',  cmd:()=>`yt-dlp -x --audio-format mp3 --audio-quality 0 "${input}" -o "${this.tempDir}/%(title)s.%(ext)s" 2>/dev/null` },
+            { name:'yt-dlp (android)', cmd:()=>`yt-dlp -x --audio-format mp3 --extractor-args "youtube:player_client=android" "${input}" -o "${this.tempDir}/%(title)s.%(ext)s" 2>/dev/null` },
+            { name:'yt-dlp (web)',     cmd:()=>`yt-dlp -x --audio-format mp3 --extractor-args "youtube:player_client=web" "${input}" -o "${this.tempDir}/%(title)s.%(ext)s" 2>/dev/null` },
+            { name:'yt-dlp (ios)',     cmd:()=>`yt-dlp -x --audio-format mp3 --extractor-args "youtube:player_client=ios" "${input}" -o "${this.tempDir}/%(title)s.%(ext)s" 2>/dev/null` },
+            { name:'cobalt-api',       cmd:()=>this._cobaltApi(input) },
+            { name:'invidious-api',    cmd:()=>this._invidiousApi(input) },
+        ];
+        return this._tryMethods(methods, input, progressCallback);
+    }
+    async searchAndDownload(query, progressCallback = null) {
+        try {
+            const result = await yts(query);
+            if (result?.videos?.[0]) {
+                const url = `https://www.youtube.com/watch?v=${result.videos[0].videoId}`;
+                return this.downloadMp3(url, progressCallback);
+            }
+            throw new Error('No YouTube results found');
+        } catch(err) { throw err; }
+    }
+    async downloadByUrl(url, progressCallback = null) { return this.downloadMp3(url, progressCallback); }
+    _getVideoId(url) { return url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([^&\n?#]+)/)?.[1]||null; }
+    async _downloadUrlToFile(dlUrl) {
+        const fn = (...a) => import('node-fetch').then(({default:f})=>f(...a));
+        const filePath = path.join(this.tempDir, `audio_${Date.now()}.mp3`);
+        const res = await (await fn)(dlUrl, { headers:{'User-Agent':'Mozilla/5.0'}, signal:AbortSignal.timeout(60000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        fs.writeFileSync(filePath, Buffer.from(await res.arrayBuffer()));
+        return filePath;
+    }
+    async _cobaltApi(url) {
+        const fn = (...a) => import('node-fetch').then(({default:f})=>f(...a));
+        const ff = await fn;
+        for (const inst of ['https://api.cobalt.tools','https://cobalt.oisd.nl']) {
+            try {
+                const r = await ff(`${inst}/`, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({url, downloadMode:'audio', audioFormat:'mp3', audioBitrate:'128'}), signal:AbortSignal.timeout(12000) });
+                const d = await r.json();
+                if (d?.url) return await this._downloadUrlToFile(d.url);
+            } catch {}
+        }
+        throw new Error('cobalt: all failed');
+    }
+    async _invidiousApi(url) {
+        const videoId = this._getVideoId(url);
+        if (!videoId) throw new Error('Invalid YT URL');
+        const fn = (...a) => import('node-fetch').then(({default:f})=>f(...a));
+        const ff = await fn;
+        for (const inst of ['https://inv.nadeko.net','https://invidious.privacyredirect.com']) {
+            try {
+                const r = await ff(`${inst}/api/v1/videos/${videoId}?fields=adaptiveFormats`, { signal:AbortSignal.timeout(8000) });
+                const d = await r.json();
+                const fmt = (d.adaptiveFormats||[]).filter(f=>f.type?.includes('audio')).sort((a,b)=>(b.bitrate||0)-(a.bitrate||0))[0];
+                if (fmt?.url) return await this._downloadUrlToFile(fmt.url.replace(/^https:\/\/[^/]+/, inst));
+            } catch {}
+        }
+        throw new Error('invidious: all failed');
+    }
+    async _tryMethods(methods, input = '', progressCallback = null) {
+        for (let i = 0; i < methods.length; i++) {
+            const method = methods[i];
+            try {
+                let cmd = typeof method.cmd === 'function' ? await method.cmd() : method.cmd;
+                if (typeof cmd === 'string' && cmd.startsWith('/')) {
+                    if (fs.existsSync(cmd)) { if(progressCallback) await progressCallback(i+1,method.name,true,methods.length); return { success:true, method:method.name, filePath:cmd, fileName:path.basename(cmd) }; }
+                    if(progressCallback) await progressCallback(i+1,method.name,false,methods.length);
+                    continue;
+                }
+                if (typeof cmd === 'string') await this._exec(cmd);
+                const files = fs.readdirSync(this.tempDir);
+                const audioFile = files.find(f=>f.endsWith('.mp3')||f.endsWith('.m4a')||f.endsWith('.wav'));
+                if (audioFile) { if(progressCallback) await progressCallback(i+1,method.name,true,methods.length); return { success:true, method:method.name, filePath:path.join(this.tempDir,audioFile), fileName:audioFile }; }
+                if(progressCallback) await progressCallback(i+1,method.name,false,methods.length);
+            } catch(err) { if(progressCallback) await progressCallback(i+1,method.name,false,methods.length); }
+        }
+        return { success:false, error:'All methods failed' };
+    }
+    _exec(cmd) { return new Promise((resolve,reject)=>{ exec(cmd,{maxBuffer:1024*1024*500,timeout:this.timeout,shell:'/bin/bash'},(err,stdout)=>{if(err)reject(err);else resolve(stdout);}); }); }
+    cleanTemp() {
+        try {
+            const files = fs.readdirSync(this.tempDir);
+            let size = 0;
+            for (const f of files) size += fs.statSync(path.join(this.tempDir,f)).size;
+            if (size > 100*1024*1024) for (const f of files) fs.unlinkSync(path.join(this.tempDir,f));
+        } catch {}
+    }
+}
+const musicDownloader = new MusicDownloader();
+
+async function makeSticker(mediaBuffer, mime = 'image/jpeg', pack = '🦊 MAUREONIX', author = 'Infinite Vybeflix') {
+    const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+    const sticker = new Sticker(mediaBuffer, { pack, author, type:StickerTypes.FULL, categories:['🤩','🎉'], id:'12345', quality:50, background:'#00000000' });
+    return await sticker.toBuffer();
+}
+
+async function getAnimeGif(action) {
+    return await tryFetch([
+        async () => { const r = await axios.get(`https://nekos.best/api/v2/${action}`, {timeout:8000}); return r.data?.results?.[0]?.url||null; },
+        async () => { const r = await axios.get(`https://api.otakugifs.xyz/gif?reaction=${action}`, {timeout:8000}); return r.data?.url||null; },
+        async () => { const r = await axios.get(`https://nekosia.cat/api/v1/images/${action}`, {timeout:8000}); return r.data?.image?.original?.url||null; }
+    ]);
+}
+
+async function getMiscImage(type, params = {}) {
+    return await tryFetch([
+        async () => {
+            const base = 'https://api.paxsenix.biz.id';
+            const endpoints = {
+                tweet:     `${base}/tools/tweet?username=${params.username||'User'}&tweet=${encodeURIComponent(params.text||'')}`,
+                ytcomment: `${base}/tools/ytcomment?username=${params.username||'User'}&comment=${encodeURIComponent(params.text||'')}`,
+                jail:      `${base}/overlay/jail?image=${params.imageUrl||''}`,
+                triggered: `${base}/overlay/triggered?image=${params.imageUrl||''}`,
+                wasted:    `${base}/overlay/wasted?image=${params.imageUrl||''}`,
+                ship:      `${base}/tools/ship?user1=${params.user1||''}&user2=${params.user2||''}`,
+                namecard:  `${base}/tools/namecard?name=${params.name||''}&subtitle=${params.subtitle||''}`,
+                oogway:    `${base}/canvas/oogway?quote=${encodeURIComponent(params.text||'')}`,
+            };
+            if (!endpoints[type]) return null;
+            const r = await axios.get(endpoints[type], { responseType:'arraybuffer', timeout:15000 });
+            return Buffer.from(r.data);
+        },
+        async () => {
+            const base = 'https://some-random-api.com';
+            const endpoints = {
+                tweet:     `${base}/canvas/misc/tweet?username=${params.username||'User'}&avatar=${params.avatarUrl||''}&displayname=${params.username||'User'}&comment=${encodeURIComponent(params.text||'')}`,
+                jail:      `${base}/canvas/overlay/jail?avatar=${params.imageUrl||''}`,
+                triggered: `${base}/canvas/overlay/triggered?avatar=${params.imageUrl||''}`,
+                wasted:    `${base}/canvas/overlay/wasted?avatar=${params.imageUrl||''}`,
+                ship:      `${base}/canvas/misc/ship?user1=${params.user1||''}&user2=${params.user2||''}`,
+                oogway:    `${base}/canvas/misc/oogway?quote=${encodeURIComponent(params.text||'')}`,
+            };
+            if (!endpoints[type]) return null;
+            const r = await axios.get(endpoints[type], { responseType:'arraybuffer', timeout:15000 });
+            return Buffer.from(r.data);
+        }
+    ]);
+}
+
+async function storeMessage(message) {
+    try {
+        if (!message.key?.id) return;
+        let content = '';
+        const sender = message.key.participant || message.key.remoteJid;
+        if (message.message?.conversation) content = message.message.conversation;
+        else if (message.message?.extendedTextMessage?.text) content = message.message.extendedTextMessage.text;
+        messageStore.set(message.key.id, { content, sender, group: message.key.remoteJid.endsWith('@g.us') ? message.key.remoteJid : null, timestamp: new Date().toISOString() });
+    } catch {}
+}
+
+// ── Bot mode access check ─────────────────────────────────────────────────────
+function checkBotAccess(m, senderNum, ownerNums) {
+    const mode   = global.botMode || 'public';
+    const chat   = m.chat || '';
+    if ((global.restrictedGroups || []).includes(chat)) return { ok:false, reason: global.mess?.modeRestr || '⛔ This group is restricted.' };
+    if (mode === 'public') return { ok:true };
+    if (mode === 'private') {
+        if (ownerNums.some(n => senderNum === n)) return { ok:true };
+        const allowed = (global.allowedUsers || []).map(n => n.replace(/[^0-9]/g,''));
+        if (allowed.includes(senderNum)) return { ok:true };
+        return { ok:false, reason: global.mess?.modePriv || '🔒 Bot is in private mode.' };
+    }
+    if (mode === 'restricted') {
+        if (!m.isGroup) return { ok:false, reason: global.mess?.modeRestr || '⛔ Bot restricted to allowed groups.' };
+        if ((global.allowedGroups || []).includes(chat)) return { ok:true };
+        return { ok:false, reason: global.mess?.modeRestr || '⛔ Bot not available in this group.' };
+    }
+    return { ok:true };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN EXPORT
+// ════════════════════════════════════════════════════════════════════════════
 module.exports = nimesha = async (nimesha, m, msg, store) => {
     await LoadDataBase(nimesha, m);
-    
     const botNumber = nimesha.decodeJid(nimesha.user.id);
-    
-    // Read Database
-    const sewa = db.sewa
-    const premium = db.premium
-    const set = db.set[botNumber]
-    
-    // Database Game
-    let suit = db.game.suit
-    let chess = db.game.chess
-    let chat_ai = db.game.chat_ai
-    // Gemini Auto Reply - private chat, group per-group
-    if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {}
-    let gemini_autoreply = db.game.gemini_autoreply
-    if (!db.game.gemini_history) db.game.gemini_history = {}
-    let gemini_history = db.game.gemini_history
-    let menfes = db.game.menfes
-    let tekateki = db.game.tekateki
-    let akinator = db.game.akinator
-    let tictactoe = db.game.tictactoe
-    let tebaklirik = db.game.tebaklirik
-    let kuismath = db.game.kuismath
-    let blackjack = db.game.blackjack
-    let tebaklagu = db.game.tebaklagu
-    let tebakkata = db.game.tebakkata
-    let family100 = db.game.family100
-    let susunkata = db.game.susunkata
-    let tebakbom = db.game.tebakbom
-    let ulartangga = db.game.ulartangga
-    let tebakkimia = db.game.tebakkimia
-    let caklontong = db.game.caklontong
-    let tebakangka = db.game.tebakangka
-    let tebaknegara = db.game.tebaknegara
-    let tebakgambar = db.game.tebakgambar
-    let tebakbendera = db.game.tebakbendera
-    
+
+    // ── DB refs ──────────────────────────────────────────────────────────────
+    const sewa    = db.sewa;
+    const premium = db.premium;
+    const set     = db.set[botNumber];
+
+    // ── Game state ──────────────────────────────────────────────────────────
+    let suit          = db.game.suit;
+    let chess         = db.game.chess;
+    let chat_ai       = db.game.chat_ai;
+    if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
+    let gemini_autoreply = db.game.gemini_autoreply;
+    if (!db.game.gemini_history) db.game.gemini_history = {};
+    let gemini_history   = db.game.gemini_history;
+    let menfes        = db.game.menfes;
+    let tekateki      = db.game.tekateki;
+    let akinator      = db.game.akinator;
+    let tictactoe     = db.game.tictactoe;
+    let tebaklirik    = db.game.tebaklirik;
+    let kuismath      = db.game.kuismath;
+    let blackjack     = db.game.blackjack;
+    let tebaklagu     = db.game.tebaklagu;
+    let tebakkata     = db.game.tebakkata;
+    let family100     = db.game.family100;
+    let susunkata     = db.game.susunkata;
+    let tebakbom      = db.game.tebakbom;
+    let ulartangga    = db.game.ulartangga;
+    let tebakkimia    = db.game.tebakkimia;
+    let caklontong    = db.game.caklontong;
+    let tebakangka    = db.game.tebakangka;
+    let tebaknegara   = db.game.tebaknegara;
+    let tebakgambar   = db.game.tebakgambar;
+    let tebakbendera  = db.game.tebakbendera;
+
     const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
-    
-    if (set.antidelete === undefined) set.antidelete = false;
-    if (set.autostatus === undefined) set.autostatus = false;
-    if (set.autostatusreact === undefined) set.autostatusreact = false;
-    if (set.autorecording === undefined) set.autorecording = false;
+
+    if (set.antidelete        === undefined) set.antidelete        = false;
+    if (set.autostatus        === undefined) set.autostatus        = false;
+    if (set.autostatusreact   === undefined) set.autostatusreact   = false;
+    if (set.autorecording     === undefined) set.autorecording     = false;
+
     try {
         await GroupUpdate(nimesha, m, store);
 
-        // 🛑 Skip bot's own messages, but allow owner self-chat commands
-        const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
+        // ── Skip own messages (unless owner) ────────────────────────────────
+        const _isOwnerSelf = ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender?.split('@')[0]);
         if (m.fromMe && !_isOwnerSelf) return;
-        
-        const body = ((m.type === 'conversation') ? m.message.conversation :
-        (m.type == 'imageMessage') ? m.message.imageMessage.caption :
-        (m.type == 'videoMessage') ? m.message.videoMessage.caption :
-        (m.type == 'extendedTextMessage') ? m.message.extendedTextMessage.text :
-        (m.type == 'reactionMessage') ? m.message.reactionMessage.text :
-        (m.type == 'buttonsResponseMessage') ? m.message.buttonsResponseMessage.selectedButtonId :
-        (m.type == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
-        (m.type == 'templateButtonReplyMessage') ? m.message.templateButtonReplyMessage.selectedId :
-        (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
-        (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
-        (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
-        (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
-        
-        const budy = (typeof m.text == 'string' ? m.text : '')
-        const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0])
-        const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿'
-        const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p))
-        const args = body.trim().split(/ +/).slice(1)
-        const quoted = m.quoted ? m.quoted : m
-        const command = isCreator ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : isCmd ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : ''
-        const text = q = args.join(' ')
-        const mime = (quoted.msg || quoted).mimetype || ''
-        const qmsg = (quoted.msg || quoted)
-        const author = set.author = global.author || 'Infinite Vybeflix';
-        const packname = set.packname = global.packname || 'MAUREONIX';
-        const botname = set.botname = global.botname || '🦊 MAUREONIX';
-        const _dayMap = {
-            'Sunday':'Sunday','Monday':'Monday','Tuesday':'Tuesday',
-            'Wednesday':'Wednesday','Thursday':'Thursday',
-            'Friday':'Friday','Saturday':'Saturday'
-        };
-        const day = _dayMap[moment.tz('Asia/Colombo').format('dddd')] || moment.tz('Asia/Colombo').format('dddd');
-        const date = moment.tz('Asia/Colombo').format('DD/MM/YYYY');
-        const time = moment.tz('Asia/Colombo').format('HH:mm:ss');
-        const greeting = time < '05:00:00' ? 'Good night 🌉' : time < '11:00:00' ? 'Good morning 🌄' : time < '15:00:00' ? 'Good afternoon 🏙' : time < '18:00:00' ? 'Good evening 🌅' : time < '19:00:00' ? 'Good evening 🌃' : 'Good night 🌌';
-        const almost = 0.66
-        const time_now = new Date()
+
+        // ── Body extraction ─────────────────────────────────────────────────
+        const body = (
+            (m.type === 'conversation')                ? m.message.conversation :
+            (m.type === 'imageMessage')                ? m.message.imageMessage.caption :
+            (m.type === 'videoMessage')                ? m.message.videoMessage.caption :
+            (m.type === 'extendedTextMessage')         ? m.message.extendedTextMessage.text :
+            (m.type === 'reactionMessage')             ? m.message.reactionMessage.text :
+            (m.type === 'buttonsResponseMessage')      ? m.message.buttonsResponseMessage.selectedButtonId :
+            (m.type === 'listResponseMessage')         ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
+            (m.type === 'templateButtonReplyMessage')  ? m.message.templateButtonReplyMessage.selectedId :
+            (m.type === 'interactiveResponseMessage' && m.quoted)
+                ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage
+                    ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
+            (m.type === 'messageContextInfo')
+                ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
+            (m.type === 'editedMessage')
+                ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
+                   m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
+            (m.type === 'protocolMessage')
+                ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
+                   m.message.protocolMessage?.editedMessage?.conversation ||
+                   m.message.protocolMessage?.editedMessage?.imageMessage?.caption ||
+                   m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : ''
+        ) || '';
+
+        const budy      = (typeof m.text === 'string' ? m.text : '');
+        const isCreator = isOwner = m.fromMe || ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
+        const isTrusted = isCreator;
+        const prefix    = isCreator
+            ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi)[0] : listprefix.find(a=>body?.startsWith(a)) || '')
+            : set.multiprefix
+                ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi)[0] : listprefix.find(a=>body?.startsWith(a)) || '¿')
+                : listprefix.find(a=>body?.startsWith(a)) || '¿';
+        const isCmd  = prefix ? body.startsWith(prefix) : listprefix.some(p=>body.startsWith(p));
+        const args   = body.trim().split(/ +/).slice(1);
+        const quoted = m.quoted ? m.quoted : m;
+        const command = isCreator
+            ? body.replace(prefix,'').trim().split(/ +/).shift().toLowerCase()
+            : isCmd ? body.replace(prefix,'').trim().split(/ +/).shift().toLowerCase() : '';
+        const text = q = args.join(' ');
+        const mime  = (quoted.msg || quoted).mimetype || '';
+        const qmsg  = (quoted.msg || quoted);
+
+        // ── Identity ────────────────────────────────────────────────────────
+        const author   = set.author   = global.author   || 'Infinite Vybeflix';
+        const packname = set.packname = global.packname  || 'MAUREONIX';
+        const botname  = set.botname  = global.botname   || '🦊 MAUREONIX';
+
+        // ── Date / Time ─────────────────────────────────────────────────────
+        const _dayMap = { Sunday:'Sunday', Monday:'Monday', Tuesday:'Tuesday', Wednesday:'Wednesday', Thursday:'Thursday', Friday:'Friday', Saturday:'Saturday' };
+        const day      = _dayMap[moment.tz('Asia/Colombo').format('dddd')] || moment.tz('Asia/Colombo').format('dddd');
+        const date     = moment.tz('Asia/Colombo').format('DD/MM/YYYY');
+        const time     = moment.tz('Asia/Colombo').format('HH:mm:ss');
+        const tanggal  = date;   // alias used throughout switch
+        const jam      = time;   // alias used throughout switch
+        const greeting = time<'05:00:00'?'Good night 🌉':time<'11:00:00'?'Good morning 🌄':time<'15:00:00'?'Good afternoon 🏙':time<'18:00:00'?'Good evening 🌅':time<'19:00:00'?'Good evening 🌃':'Good night 🌌';
+        const almost   = 0.66;
+        const time_now = new Date();
         const time_end = 60000 - (time_now.getSeconds() * 1000 + time_now.getMilliseconds());
-        const readmore = String.fromCharCode(8206).repeat(999)
-        const setv = pickRandom(listv)
-        
-        const isVip = isCreator || (db.users[m.sender] ? db.users[m.sender].vip : false)
-        const isBan = isCreator || (db.users[m.sender] ? db.users[m.sender].ban : false)
-        const isLimit = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false)
-        const isPremium = isCreator || checkStatus(m.sender, premium) || false
-        const isNsfw = m.isGroup ? db.groups[m.chat].nsfw : false
-        
-        // Fake contact
+        const readmore = String.fromCharCode(8206).repeat(999);
+        const setv     = pickRandom(listv);
+        const mess     = global.mess || {};
+
+        // ── User status ─────────────────────────────────────────────────────
+        const isVip     = isCreator || (db.users[m.sender] ? db.users[m.sender].vip   : false);
+        const isBan     = isCreator || (db.users[m.sender] ? db.users[m.sender].ban   : false);
+        const isLimit   = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false);
+        const isPremium = isCreator || checkStatus(m.sender, premium) || false;
+        const isNsfw    = m.isGroup ? db.groups[m.chat].nsfw : false;
+
+        // ── Bot footer ──────────────────────────────────────────────────────
+        const botFooter = set.botname
+            ? `> *${set.botname}* ✨ | 👑 _INFINITE VYBEFLIX_`
+            : `> *🦊 MAUREONIX* ✨ | 👑 _INFINITE VYBEFLIX_`;
+
+        // ── Fake contact ────────────────────────────────────────────────────
         const fkontak = {
-            key: {
-                remoteJid: '0@s.whatsapp.net',
-                participant: '0@s.whatsapp.net',
-                fromMe: false,
-                id: 'Infinite Vybeflix'
-            },
-            message: {
-                contactMessage: {
-                    displayName: (m.pushName || author),
-                    vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author},;;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`,
-                    sendEphemeral: true
-                }
-            }
-        }
-        
-        // Reset Limit daily
+            key: { remoteJid:'0@s.whatsapp.net', participant:'0@s.whatsapp.net', fromMe:false, id:'Infinite Vybeflix' },
+            message: { contactMessage: { displayName:(m.pushName||author), vcard:`BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName||author},;;;\nFN:${m.pushName||author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`, sendEphemeral:true }}
+        };
+
+        // ── Daily limit reset (cron) ─────────────────────────────────────────
         cron.schedule('00 00 * * *', async () => {
             cmdDel(db.hit);
-            console.log('User limits reset');
-            let user = Object.keys(db.users)
+            let user = Object.keys(db.users);
             for (let jid of user) {
-                const limitUser = db.users[jid].vip ? limit.vip : checkStatus(jid, premium) ? limit.premium : limit.free
-                if (db.users[jid].limit < limitUser) db.users[jid].limit = limitUser
+                const limitUser = db.users[jid].vip ? limit.vip : checkStatus(jid,premium) ? limit.premium : limit.free;
+                if (db.users[jid].limit < limitUser) db.users[jid].limit = limitUser;
             }
             if (set?.autobackup) {
                 let datanya = './database/' + tempatDB;
-                if (tempatDB.startsWith('mongodb')) {
-                    datanya = './database/backup_database.json';
-                    fs.writeFileSync(datanya, JSON.stringify(global.db, null, 2), 'utf-8');
-                }
-                let tglnya = new Date().toISOString().replace(/[:.]/g, '-');
+                if (tempatDB.startsWith('mongodb')) { datanya = './database/backup_database.json'; fs.writeFileSync(datanya, JSON.stringify(global.db,null,2),'utf-8'); }
+                let tglnya = new Date().toISOString().replace(/[:.]/g,'-');
                 for (let o of ownerNumber) {
-                    try {
-                        await nimesha.sendMessage(o, { document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' })
-                        console.log(`[AUTO BACKUP] Backup sent to ${o}`);
-                    } catch (e) {
-                        console.error(`[AUTO BACKUP] Failed to send backup to ${o}:`, error);
-                    }
+                    try { await nimesha.sendMessage(o, { document:fs.readFileSync(datanya), mimetype:'application/json', fileName:tglnya+'_database.json' }); } catch {}
                 }
             }
-        }, {
-            scheduled: true,
-            timezone: 'Asia/Colombo'
-        });
-        
-        // Auto Set Bio
+        }, { scheduled:true, timezone:'Asia/Colombo' });
+
+        // ── Auto Bio ─────────────────────────────────────────────────────────
         if (set.autobio) {
-            if (new Date() * 1 - set.status > 60000) {
-                await nimesha.updateProfileStatus(`${nimesha.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(e => {})
-                set.status = new Date() * 1
-            }
-        }
-        
-        // Set Mode
-        if (!isCreator) {
-            if ((set.grouponly === set.privateonly)) {
-                if (!nimesha.public && !m.key.fromMe) return
-            } else if (set.grouponly) {
-                if (!m.isGroup) return
-            } else if (set.privateonly) {
-                if (m.isGroup) return
+            if (new Date()*1 - set.status > 60000) {
+                await nimesha.updateProfileStatus(`${nimesha.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(()=>{});
+                set.status = new Date()*1;
             }
         }
 
-        // 🔒 Private chat commands blocked for non-owner
-        if (!m.isGroup && !isCreator && isCmd) return
-        
-        // Group Settings
+        // ── Mode (public / private / grouponly) ──────────────────────────────
+        if (!isCreator) {
+            if ((set.grouponly === set.privateonly)) { if (!nimesha.public && !m.key.fromMe) return; }
+            else if (set.grouponly)  { if (!m.isGroup) return; }
+            else if (set.privateonly){ if (m.isGroup)  return; }
+        }
+        if (!m.isGroup && !isCreator && isCmd) return;
+
+        // ── Group protections ────────────────────────────────────────────────
         if (m.isGroup) {
-            // Mute
-            if (db.groups[m.chat].mute && !isCreator) {
-                return
-            }
-            
+            if (db.groups[m.chat].mute && !isCreator) return;
+
             // Anti Hidetag
-            if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participanis?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                await m.reply('*Anti Hidetag is active!*')
+            if (!m.key.fromMe && m.mentionedJid?.length === m.metadata?.participanis?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                await nimesha.sendMessage(m.chat, { delete:{ remoteJid:m.chat, fromMe:false, id:m.id, participant:m.sender }});
+                await m.reply('*Anti Hidetag is active!*');
             }
-            
+
             // Anti Tag Status
             if (!m.key.fromMe && db.groups[m.chat].antitagsw && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                if (m.type === 'groupStatusMentionMessage' || m.message?.groupStatusMentionMessage || m.message?.protocolMessage?.type === 25 || Object.keys(m.message).length === 1 && Object.keys(m.message)[0] === 'messageContextInfo') {
+                if (m.type === 'groupStatusMentionMessage' || m.message?.groupStatusMentionMessage || Object.keys(m.message||{}).length===1 && Object.keys(m.message)[0]==='messageContextInfo') {
+                    if (!db.groups[m.chat].tagsw) db.groups[m.chat].tagsw = {};
                     if (!db.groups[m.chat].tagsw[m.sender]) {
-                        db.groups[m.chat].tagsw[m.sender] = 1
-                        await m.reply(`This group was tagged in WhatsApp status\n@${m.sender.split('@')[0]}, do not tag the group in status\n⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 — next time you will be kicked!`)
+                        db.groups[m.chat].tagsw[m.sender] = 1;
+                        await m.reply(`This group was tagged in WhatsApp status\n@${m.sender.split('@')[0]}, do not tag the group in status\n⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5`);
                     } else if (db.groups[m.chat].tagsw[m.sender] >= 5) {
-                        await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove').catch((err) => m.reply('Failed!'))
-                        await m.reply(`@${m.sender.split("@")[0]} removed from group\nBecause you tagged the group in WhatsApp status 5 times.`)
-                        delete db.groups[m.chat].tagsw[m.sender]
+                        await nimesha.groupParticipantsUpdate(m.chat,[m.sender],'remove').catch(()=>{});
+                        await m.reply(`@${m.sender.split('@')[0]} removed — tagged group in status 5 times.`);
+                        delete db.groups[m.chat].tagsw[m.sender];
                     } else {
-                        db.groups[m.chat].tagsw[m.sender] += 1
-                        await m.reply(`This group was tagged in WhatsApp status\n@${m.sender.split('@')[0]}, do not tag the group in status\n⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 — next time you will be kicked!`)
+                        db.groups[m.chat].tagsw[m.sender]++;
+                        await m.reply(`Anti-Status Tag\n@${m.sender.split('@')[0]} ⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5`);
                     }
                 }
             }
-            
+
             // Anti Toxic
             if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language.\nPlease use respectful language.`, contextInfo: Object.assign({ mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic!*'} }, m.key) } }, {})
+                    await nimesha.sendMessage(m.chat, { delete:{ remoteJid:m.chat, fromMe:false, id:m.id, participant:m.sender }});
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage:{ text:`Detected @${m.sender.split('@')[0]} using toxic language.`, contextInfo:Object.assign({ mentionedJid:[m.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Toxic!*'} }, m.key) } }, {});
                 }
             }
-            
+
             // Anti Delete
-            if (m.type === 'protocolMessage' && m.msg?.type === 0 && db.groups[m.chat].antidelete && !isCreator && m.isBotAdmin && !m.isAdmin) {
+            if (m.type==='protocolMessage' && m.msg?.type===0 && db.groups[m.chat].antidelete && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (store?.messages?.[m.chat]?.array) {
-                    const chats = store.messages[m.chat].array.find(a => a.key.id === m.msg.key.id);
-                    if (!chats?.message) return
-                    const msgType = Object.keys(chats.message)[0];
+                    const chats = store.messages[m.chat].array.find(a=>a.key.id===m.msg.key.id);
+                    if (!chats?.message) return;
+                    const msgType    = Object.keys(chats.message)[0];
                     const msgContent = chats.message[msgType];
                     if (msgContent.fileSha256 && msgContent.mediaKey) {
-                        msgContent.mediaKey = fixBytes(msgContent.mediaKey);
-                        msgContent.fileSha256 = fixBytes(msgContent.fileSha256);
-                        msgContent.fileEncSha256 = fixBytes(msgContent.fileEncSha256);
+                        msgContent.mediaKey     = fixBytes(msgContent.mediaKey);
+                        msgContent.fileSha256   = fixBytes(msgContent.fileSha256);
+                        msgContent.fileEncSha256= fixBytes(msgContent.fileEncSha256);
                     }
-                    msgContent.contextInfo = Object.assign({ mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'} }, chats.key)
-                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: Object.assign({ mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete!*'} }, chats.key) } } : { [msgType]: msgContent }
-                    await nimesha.relayMessage(m.chat, pesan, {})
+                    msgContent.contextInfo = Object.assign({ mentionedJid:[chats.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Delete!*'} }, chats.key);
+                    const pesan = msgType==='conversation'
+                        ? { extendedTextMessage:{ text:msgContent, contextInfo:Object.assign({ mentionedJid:[chats.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Delete!*'} }, chats.key) } }
+                        : { [msgType]: msgContent };
+                    await nimesha.relayMessage(m.chat, pesan, {});
                 }
             }
-            
-            // Anti Link Group
+
+            // Anti Link
             if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.match('chat.whatsapp.com/')) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a group invite link.\nThe link has been deleted.`, contextInfo: Object.assign({ mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Link!*'} }, m.key) } }, {})
+                    await nimesha.sendMessage(m.chat, { delete:{ remoteJid:m.chat, fromMe:false, id:m.id, participant:m.sender }});
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage:{ text:`Detected @${m.sender.split('@')[0]} sending a group invite link. Link deleted.`, contextInfo:Object.assign({ mentionedJid:[m.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Link!*'} }, m.key) } }, {});
                 }
             }
-            
+
             // Anti Virtex
             if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.length > 4500) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a virtex message.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Virtex!*'}, ...m.key }}}, {})
-                    await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
+                    await nimesha.sendMessage(m.chat, { delete:{ remoteJid:m.chat, fromMe:false, id:m.id, participant:m.sender }});
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage:{ text:`Detected @${m.sender.split('@')[0]} sending a virtex message.`, contextInfo:{ mentionedJid:[m.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Virtex!*'}, ...m.key }}}, {});
+                    await nimesha.groupParticipantsUpdate(m.chat,[m.sender],'remove');
                 }
                 if (m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }})
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a bug message.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Bug!*'}, ...m.key }}}, {})
-                    await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
+                    await nimesha.sendMessage(m.chat, { delete:{ remoteJid:m.chat, fromMe:false, id:m.id, participant:m.sender }});
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage:{ text:`Detected @${m.sender.split('@')[0]} sending a bug message.`, contextInfo:{ mentionedJid:[m.key.participant], isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:'*Anti Bug!*'}, ...m.key }}}, {});
+                    await nimesha.groupParticipantsUpdate(m.chat,[m.sender],'remove');
                 }
             }
-            
         }
-        
-        // Auto Read
+
+        // ── Auto Read ────────────────────────────────────────────────────────
         if (m.message && m.key.remoteJid !== 'status@broadcast') {
             if ((set.autoread && nimesha.public) || isCreator) {
                 nimesha.readMessages([m.key]);
-                console.log(chalk.black(chalk.bgWhite('[ MESSAGE ]:'), chalk.bgGreen(new Date), chalk.bgHex('#00EAD3')(budy || m.type), chalk.bgHex('#AF26EB')(m.key.id) + '\n' + chalk.bgCyanBright('[ FROM ] :'), chalk.bgYellow(m.pushName || (isCreator ? 'Bot' : 'Anon')), chalk.bgHex('#FF449F')(m.sender), chalk.bgHex('#FF5700')(m.isGroup ? m.metadata.subject : m.chat.endsWith('@newsletter') ? 'Newsletter' : 'Private Chat'), chalk.bgBlue('(' + m.chat + ')')));
+                console.log(chalk.black(chalk.bgWhite('[ MESSAGE ]:'), chalk.bgGreen(new Date), chalk.bgHex('#00EAD3')(budy||m.type), chalk.bgHex('#AF26EB')(m.key.id)+'\n'+chalk.bgCyanBright('[ FROM ] :'), chalk.bgYellow(m.pushName||(isCreator?'Bot':'Anon')), chalk.bgHex('#FF449F')(m.sender), chalk.bgHex('#FF5700')(m.isGroup?m.metadata.subject:m.chat.endsWith('@newsletter')?'Newsletter':'Private Chat'), chalk.bgBlue('('+m.chat+')')));
             }
         }
-        
-        // Filter Bot & Ban
-        if (m.isBot) return
-        if (db.users[m.sender]?.ban && !isCreator) return
-        
-        // Filter Set Api Key
+
+        // ── Filter bot & ban ─────────────────────────────────────────────────
+        if (m.isBot) return;
+        if (db.users[m.sender]?.ban && !isCreator) return;
+
+        // ── API key filter ───────────────────────────────────────────────────
         if (cases.includes(command) && isCmd && (command !== 'setapikey') && global.APIKeys[global.APIs.nimesha] === 'nz-8ce9753907') {
             return m.reply('.setapikey nz-8ce9753907');
         }
-        
-        // Typing & Anti Spam & Hit
+
+        // ── Typing, anti-spam, hit tracking ──────────────────────────────────
         if (nimesha.public && isCmd) {
-            if (set.autotyping) {
-                await nimesha.sendPresenceUpdate('composing', m.chat)
-            }
-            if (cases.includes(command)) {
-                cmdAdd(db.hit);
-                cmdAddHit(db.hit, command);
-            }
+            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+            if (cases.includes(command)) { cmdAdd(db.hit); cmdAddHit(db.hit, command); }
             if (set.antispam && antiSpam.isFiltered(m.sender)) {
-                console.log(chalk.bgRed('[ SPAM ] : '), chalk.black(chalk.bgHex('#1CFFF7')(`From -> ${m.sender}`), chalk.bgHex('#E015FF')(` In ${m.isGroup ? m.chat : 'Private Chat'}`)))
-                return m.reply('❌ Please wait 5 seconds between commands.')
+                console.log(chalk.bgRed('[ SPAM ] : '), chalk.black(chalk.bgHex('#1CFFF7')(`From -> ${m.sender}`), chalk.bgHex('#E015FF')(` In ${m.isGroup?m.chat:'Private Chat'}`)));
+                return m.reply('❌ Please wait 5 seconds between commands.');
             }
-            
             if (command && set.didyoumean && isCmd) {
-                let _b = ''
-                let _s = 0
+                let _b = '', _s = 0;
                 for (const c of cases) {
-                    let sim = similarity(command.toLowerCase(), c.toLowerCase())
-                    let lengthDiff = Math.abs(command.length - c.length)
-                    if (sim > _s && lengthDiff <= 1) {
-                        _s = sim
-                        _b = c
-                    }
+                    let sim = similarity(command.toLowerCase(), c.toLowerCase());
+                    let ld  = Math.abs(command.length - c.length);
+                    if (sim > _s && ld <= 1) { _s = sim; _b = c; }
                 }
-                let s_percentage = parseInt(_s * 100)
                 if (_s >= almost && command.toLowerCase() !== _b.toLowerCase()) {
-                    return m.reply(`Command not found!\nDid you mean:\n- ${prefix + _b}\n- Similarity: ${s_percentage}%`);
+                    return m.reply(`Command not found!\nDid you mean:\n- ${prefix + _b}\n- Similarity: ${parseInt(_s*100)}%`);
                 }
             }
         }
-        
-        if (isCmd && !isCreator) antiSpam.addFilter(m.sender)
+        if (isCmd && !isCreator) antiSpam.addFilter(m.sender);
 
-        // Delete quoted button message when clicked
-        const isButtonClick = ['interactiveResponseMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage', 'messageContextInfo'].includes(m.type)
-        if (isButtonClick && m.quoted?.key) {
-            try { await nimesha.sendMessage(m.chat, { delete: m.quoted.key }) } catch(e) {}
-        }
-        
-        const isRealOwner = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0])
-        // "ok sir" response (only when owner number is different from bot number)
-        const botNum = botNumber.split('@')[0].replace(/[^0-9]/g, '')
-        const ownerNumClean = (ownerNumber[0] || '').replace(/[^0-9]/g, '')
-        const isSelfMode = botNum === ownerNumClean
+        // ── Delete quoted button message when clicked ────────────────────────
+        const isButtonClick = ['interactiveResponseMessage','buttonsResponseMessage','listResponseMessage','templateButtonReplyMessage','messageContextInfo'].includes(m.type);
+        if (isButtonClick && m.quoted?.key) { try { await nimesha.sendMessage(m.chat, { delete:m.quoted.key }); } catch {} }
+
+        // ── "ok sir" response ────────────────────────────────────────────────
+        const isRealOwner = ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
+        const botNum      = botNumber.split('@')[0].replace(/[^0-9]/g,'');
+        const ownerNumClean = (ownerNumber[0]||'').replace(/[^0-9]/g,'');
+        const isSelfMode  = botNum === ownerNumClean;
         if (isCmd && isRealOwner && command && prefix && body.startsWith(prefix) && !isSelfMode && !m.isGroup) {
-            await m.react('🫡')
-            await m.reply('ok sir')
+            await m.react('🫡');
+            await m.reply('ok sir');
         }
 
-        // Cmd Media (custom sticker commands)
+        // ── FileSha256 cmd ───────────────────────────────────────────────────
         let fileSha256;
         if (m.isMedia && m.msg.fileSha256 && db.cmd && (m.msg.fileSha256.toString('base64') in db.cmd)) {
-            let hash = db.cmd[m.msg.fileSha256.toString('base64')]
-            fileSha256 = hash.text
+            fileSha256 = db.cmd[m.msg.fileSha256.toString('base64')].text;
         }
-        
-        // Greeting response to "assalamualaikum"
+
+        // ── Assalamualaikum response ──────────────────────────────────────────
         if (/^a(s|ss)alamu('|)alaikum(| )(wr|)( |)(wb|)$/.test(budy?.toLowerCase())) {
-            const jwb_salam = ['Wa\'alaikumusalam','Wa\'alaikumusalam wr wb','Wa\'alaikumusalam Warohmatulahi Wabarokatuh']
-            m.reply(pickRandom(jwb_salam))
+            const jwb = ["Wa'alaikumusalam","Wa'alaikumusalam wr wb","Wa'alaikumusalam Warohmatulahi Wabarokatuh"];
+            m.reply(pickRandom(jwb));
         }
-        
-        // Prayer time reminder (Indonesia time, can be adjusted)
-        const prayerTimes = {
-            Fajr: '04:30',
-            Dhuhr: '12:06',
-            Asr: '15:21',
-            Maghrib: '18:08',
-            Isha: '19:00'
-        }
+
+        // ── Prayer time reminder ─────────────────────────────────────────────
+        const prayerTimes = { Fajr:'04:30', Dhuhr:'12:06', Asr:'15:21', Maghrib:'18:08', Isha:'19:00' };
         if (!this.intervalSholat) this.intervalSholat = null;
-        if (!this.waktusholat) this.waktusholat = {};
-        if (this.intervalSholat) clearInterval(this.intervalSholat); 
+        if (!this.waktusholat)   this.waktusholat    = {};
+        if (this.intervalSholat) clearInterval(this.intervalSholat);
         setTimeout(() => {
-            this.intervalSholat = setInterval(async() => {
+            this.intervalSholat = setInterval(async () => {
                 const sekarang = moment.tz('Asia/Colombo');
                 const jamSholat = sekarang.format('HH:mm');
-                const hariIni = sekarang.format('YYYY-MM-DD');
-                const seconds = sekarang.format('ss');
+                const hariIni   = sekarang.format('YYYY-MM-DD');
+                const seconds   = sekarang.format('ss');
                 if (seconds !== '00') return;
                 for (const [sholat, waktu] of Object.entries(prayerTimes)) {
                     if (jamSholat === waktu && this.waktusholat[sholat] !== hariIni) {
-                        this.waktusholat[sholat] = hariIni
+                        this.waktusholat[sholat] = hariIni;
                         for (const [idnya, settings] of Object.entries(db.groups)) {
                             if (settings.waktusholat) {
-                                await nimesha.sendMessage(idnya, { text: `*${sholat}* prayer time has arrived. Please prepare for prayer.🙂\n\n*${waktu.slice(0, 5)}*\n_For Colombo and surrounding areas._` }, { ephemeralExpiration: m.expiration || store?.messages[idnya]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 }).catch(e => {})
+                                await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
                             }
                         }
                     }
                 }
-            }, 60000)
+            }, 60000);
         }, time_end);
-        
-        // Check Expired
+
         checkExpired(premium);
         checkExpired(sewa, nimesha);
-        
-        // TicTacToe
-        let room = Object.values(tictactoe).find(room => room.id && room.game && room.state && room.id.startsWith('tictactoe') && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state == 'PLAYING')
+
+        // ── TicTacToe in-game handler ────────────────────────────────────────
+        let room = Object.values(tictactoe).find(r => r.id && r.game && r.state && r.id.startsWith('tictactoe') && [r.game.playerX,r.game.playerO].includes(m.sender) && r.state==='PLAYING');
         if (room) {
             let now = Date.now();
-            if (now - (room.lastMove || now) > 5 * 60 * 1000) {
-                m.reply('Tic-Tac-Toe game cancelled due to 5 minutes of inactivity.');
-                delete tictactoe[room.id];
-                return;
-            }
+            if (now-(room.lastMove||now) > 5*60*1000) { m.reply('Tic-Tac-Toe cancelled — 5 minutes inactivity.'); delete tictactoe[room.id]; return; }
             room.lastMove = now;
-            let ok, isWin = false, isTie = false, isSurrender = false;
-            if (!/^([1-9]|(me)?nyerah|surr?ender|off|skip)$/i.test(m.text)) return
-            isSurrender = !/^[1-9]$/.test(m.text)
-            if (m.sender !== room.game.currentTurn) {
-                if (!isSurrender) return true
+            let ok, isWin=false, isTie=false, isSurrender=false;
+            if (!/^([1-9]|(me)?nyerah|surr?ender|off|skip)$/i.test(m.text)) return;
+            isSurrender = !/^[1-9]$/.test(m.text);
+            if (m.sender !== room.game.currentTurn) { if (!isSurrender) return true; }
+            if (!isSurrender && 1 > (ok = room.game.turn(m.sender===room.game.playerO, parseInt(m.text)-1))) {
+                m.reply({'-3':'Game ended','-2':'Invalid','-1':'Invalid position',0:'Position occupied'}[ok]); return true;
             }
-            if (!isSurrender && 1 > (ok = room.game.turn(m.sender === room.game.playerO, parseInt(m.text) - 1))) {
-                m.reply({'-3': 'Game ended','-2': 'Invalid','-1': 'Invalid position',0: 'Position occupied'}[ok])
-                return true
-            }
-            if (m.sender === room.game.winner) isWin = true
-            else if (room.game.board === 511) isTie = true
-            if (!(room.game instanceof TicTacToe)) {
-                room.game = Object.assign(new TicTacToe(room.game.playerX, room.game.playerO), room.game)
-            }
-            let arr = room.game.render().map(v => ({X: '❌',O: '⭕',1: '1️⃣',2: '2️⃣',3: '3️⃣',4: '4️⃣',5: '5️⃣',6: '6️⃣',7: '7️⃣',8: '8️⃣',9: '9️⃣'}[v]))
-            if (isSurrender) {
-                room.game._currentTurn = m.sender === room.game.playerX
-                isWin = true
-            }
-            let winner = isSurrender ? room.game.currentTurn : room.game.winner
-            if (isWin) {
-                db.users[m.sender].limit += 3
-                db.users[m.sender].money += 3000
-            }
-            let str = `Room ID: ${room.id}\n\n${arr.slice(0, 3).join('')}\n${arr.slice(3, 6).join('')}\n${arr.slice(6).join('')}\n\n${isWin ? `@${winner.split('@')[0]} wins!` : isTie ? `Game ended in a tie` : `Turn: ${['❌', '⭕'][1 * room.game._currentTurn]} (@${room.game.currentTurn.split('@')[0]})`}\n❌: @${room.game.playerX.split('@')[0]}\n⭕: @${room.game.playerO.split('@')[0]}\n\nType *nyerah* to surrender`
-            if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat)
-            room[room.game._currentTurn ^ isSurrender ? 'x' : 'o'] = m.chat
-            if (room.x !== room.o) await nimesha.sendMessage(room.x, { text: str, mentions: parseMention(str) }, { quoted: m })
-            await nimesha.sendMessage(room.o, { text: str, mentions: parseMention(str) }, { quoted: m })
-            if (isTie || isWin) delete tictactoe[room.id]
+            if (m.sender === room.game.winner) isWin = true;
+            else if (room.game.board === 511) isTie = true;
+            if (!(room.game instanceof TicTacToe)) room.game = Object.assign(new TicTacToe(room.game.playerX,room.game.playerO), room.game);
+            let arr = room.game.render().map(v=>({X:'❌',O:'⭕',1:'1️⃣',2:'2️⃣',3:'3️⃣',4:'4️⃣',5:'5️⃣',6:'6️⃣',7:'7️⃣',8:'8️⃣',9:'9️⃣'}[v]));
+            if (isSurrender) { room.game._currentTurn = m.sender===room.game.playerX; isWin=true; }
+            let winner = isSurrender ? room.game.currentTurn : room.game.winner;
+            if (isWin) { db.users[m.sender].limit+=3; db.users[m.sender].money+=3000; }
+            let str = `Room ID: ${room.id}\n\n${arr.slice(0,3).join('')}\n${arr.slice(3,6).join('')}\n${arr.slice(6).join('')}\n\n${isWin?`@${winner.split('@')[0]} wins!`:isTie?`Game tied`:``}Turn: ${['❌','⭕'][1*room.game._currentTurn]} (@${room.game.currentTurn.split('@')[0]})\n❌: @${room.game.playerX.split('@')[0]}\n⭕: @${room.game.playerO.split('@')[0]}\n\nType *nyerah* to surrender`;
+            if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat) room[room.game._currentTurn ^ isSurrender ? 'x':'o'] = m.chat;
+            if (room.x !== room.o) await nimesha.sendMessage(room.x, { text:str, mentions:parseMention(str) }, { quoted:m });
+            await nimesha.sendMessage(room.o, { text:str, mentions:parseMention(str) }, { quoted:m });
+            if (isTie||isWin) delete tictactoe[room.id];
         }
-        
-        // Suit PvP
-        let roof = Object.values(suit).find(roof => roof.id && roof.status && [roof.p, roof.p2].includes(m.sender))
+
+        // ── Suit PvP handler ─────────────────────────────────────────────────
+        let roof = Object.values(suit).find(r => r.id && r.status && [r.p,r.p2].includes(m.sender));
         if (roof) {
             let now = Date.now();
-            let win = '', tie = false;
-            if (now - (roof.lastMove || now) > 3 * 60 * 1000) {
-                m.reply('Suit game cancelled due to 3 minutes of inactivity.');
-                delete suit[roof.id];
-                return;
-            }
+            let win='', tie=false;
+            if (now-(roof.lastMove||now) > 3*60*1000) { m.reply('Suit game cancelled — 3 minutes inactivity.'); delete suit[roof.id]; return; }
             roof.lastMove = now;
-            if (m.sender == roof.p2 && /^(acc(ept)?|terima|gas|oke?|tolak|gamau|nanti|ga(k.)?bisa|y)/i.test(m.text) && m.isGroup && roof.status == 'wait') {
-                if (/^(tolak|gamau|nanti|n|ga(k.)?bisa)/i.test(m.text)) {
-                    m.reply(`@${roof.p2.split('@')[0]} rejected the suit, suit cancelled.`)
-                    delete suit[roof.id]
-                    return !0
-                }
-                roof.status = 'play';
-                roof.asal = m.chat;
-                m.reply(`✅ Suit request sent!\n\n@${roof.p.split('@')[0]} vs @${roof.p2.split('@')[0]}\n\n📱 Choose your move in private chat:\nhttps://wa.me/${botNumber.split('@')[0]}`)
-                if (!roof.තෝරන්න) nimesha.sendMessage(roof.p, { text: `📌 Choose your move:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m })
-                if (!roof.තෝරන්න2) nimesha.sendMessage(roof.p2, { text: `📌 Choose your move:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m })
+            if (m.sender==roof.p2 && /^(acc(ept)?|terima|gas|oke?|tolak|gamau|nanti|ga(k.)?bisa|y)/i.test(m.text) && m.isGroup && roof.status==='wait') {
+                if (/^(tolak|gamau|nanti|n|ga(k.)?bisa)/i.test(m.text)) { m.reply(`@${roof.p2.split('@')[0]} rejected suit.`); delete suit[roof.id]; return !0; }
+                roof.status='play'; roof.asal=m.chat;
+                m.reply(`✅ Suit accepted!\n\n@${roof.p.split('@')[0]} vs @${roof.p2.split('@')[0]}\n\n📱 Choose in private:\nhttps://wa.me/${botNumber.split('@')[0]}`);
+                if (!roof['c1']) nimesha.sendMessage(roof.p,  { text:`📌 Choose: 🗿 Rock | 📄 Paper | ✂️ Scissors` }, { quoted:m });
+                if (!roof['c2']) nimesha.sendMessage(roof.p2, { text:`📌 Choose: 🗿 Rock | 📄 Paper | ✂️ Scissors` }, { quoted:m });
             }
-            let jwb = m.sender == roof.p, jwb2 = m.sender == roof.p2;
-            let g = /scissors/i, b = /rock/i, k = /paper/i, reg = /^(rock|paper|scissors)/i;
-            
-            if (jwb && reg.test(m.text) && !roof.තෝරන්න && !m.isGroup) {
-                roof.තෝරන්න = reg.exec(m.text.toLowerCase())[0];
-                roof.text = m.text;
-                m.reply(`You chose ${m.text}${!roof.තෝරන්න2 ? `\n\nWaiting for opponent's choice...` : ''}`);
-                if (!roof.තෝරන්න2) nimesha.sendMessage(roof.p2, { text: '_Opponent has chosen_\nNow it\'s your turn' })
-            }
-            if (jwb2 && reg.test(m.text) && !roof.තෝරන්න2 && !m.isGroup) {
-                roof.තෝරන්න2 = reg.exec(m.text.toLowerCase())[0]
-                roof.text2 = m.text
-                m.reply(`You chose ${m.text}${!roof.තෝරන්න ? `\n\nWaiting for opponent's choice...` : ''}`)
-                if (!roof.තෝරන්න) nimesha.sendMessage(roof.p, { text: '_Opponent has chosen_\nNow it\'s your turn' })
-            }
-            let stage = roof.තෝරන්න
-            let stage2 = roof.තෝරන්න2
-            if (roof.තෝරන්න && roof.තෝරන්න2) {
-                if (b.test(stage) && g.test(stage2)) win = roof.p
-                else if (b.test(stage) && k.test(stage2)) win = roof.p2
-                else if (g.test(stage) && k.test(stage2)) win = roof.p
-                else if (g.test(stage) && b.test(stage2)) win = roof.p2
-                else if (k.test(stage) && b.test(stage2)) win = roof.p
-                else if (k.test(stage) && g.test(stage2)) win = roof.p2
-                else if (stage == stage2) tie = true
-                db.users[roof.p == win ? roof.p : roof.p2].limit += tie ? 0 : 3
-                db.users[roof.p == win ? roof.p : roof.p2].money += tie ? 0 : 3000
-                nimesha.sendMessage(roof.asal, { text: `_*Suit Result*_${tie ? '\nTie' : ''}\n\n@${roof.p.split('@')[0]} (${roof.text}) ${tie ? '' : roof.p == win ? ` Wins \n` : ` Loses \n`}\n@${roof.p2.split('@')[0]} (${roof.text2}) ${tie ? '' : roof.p2 == win ? ` Wins \n` : ` Loses \n`}\n\nWinner gets:\n*Reward:* Money(3000) & Limit(3)`.trim(), mentions: [roof.p, roof.p2] }, { quoted: m })
-                delete suit[roof.id]
+            let jwb=m.sender==roof.p, jwb2=m.sender==roof.p2;
+            let g=/scissors/i, b=/rock/i, k=/paper/i, reg=/^(rock|paper|scissors)/i;
+            if (jwb && reg.test(m.text) && !roof['c1'] && !m.isGroup) { roof['c1']=reg.exec(m.text.toLowerCase())[0]; m.reply(`You chose ${m.text}${!roof['c2']?`\n\nWaiting for opponent...`:''}`); if (!roof['c2']) nimesha.sendMessage(roof.p2, { text:'_Opponent chose. Your turn_' }); }
+            if (jwb2 && reg.test(m.text) && !roof['c2'] && !m.isGroup) { roof['c2']=reg.exec(m.text.toLowerCase())[0]; m.reply(`You chose ${m.text}${!roof['c1']?`\n\nWaiting for opponent...`:''}`); if (!roof['c1']) nimesha.sendMessage(roof.p, { text:'_Opponent chose. Your turn_' }); }
+            if (roof['c1'] && roof['c2']) {
+                let s=roof['c1'], s2=roof['c2'];
+                if (b.test(s)&&g.test(s2)) win=roof.p; else if (b.test(s)&&k.test(s2)) win=roof.p2;
+                else if (g.test(s)&&k.test(s2)) win=roof.p; else if (g.test(s)&&b.test(s2)) win=roof.p2;
+                else if (k.test(s)&&b.test(s2)) win=roof.p; else if (k.test(s)&&g.test(s2)) win=roof.p2;
+                else if (s===s2) tie=true;
+                if (!tie) { db.users[win].limit+=3; db.users[win].money+=3000; }
+                nimesha.sendMessage(roof.asal, { text:`_*Suit Result*_${tie?'\nTie':''}\n\n@${roof.p.split('@')[0]} (${s}) ${tie?'':roof.p==win?'Wins':'Loses'}\n@${roof.p2.split('@')[0]} (${s2}) ${tie?'':roof.p2==win?'Wins':'Loses'}\n\n${!tie?'Winner gets: 💰 3000 & 🎯 3 limit':''}`.trim(), mentions:[roof.p,roof.p2] }, { quoted:m });
+                delete suit[roof.id];
             }
         }
-        
-        // Bomb Game
-        let pick = '🌀', bomb = '💣';
+
+        // ── Bomb Game ────────────────────────────────────────────────────────
+        let pick='🌀', bomb='💣';
         if (m.sender in tebakbom) {
             if (!/^[1-9]|10$/i.test(body) && !isCmd && !isCreator) return !0;
-            if (tebakbom[m.sender].petak[parseInt(body) - 1] === 1) return !0;
-            if (tebakbom[m.sender].petak[parseInt(body) - 1] === 2) {
-                tebakbom[m.sender].board[parseInt(body) - 1] = bomb;
-                tebakbom[m.sender].pick++;
-                m.react('❌')
-                tebakbom[m.sender].bomb--;
-                tebakbom[m.sender].nyawa.pop();
-                let brd = tebakbom[m.sender].board;
-                if (tebakbom[m.sender].nyawa.length < 1) {
-                    await m.reply(`*Game Over*\nYou stepped on a bomb!\n\n ${brd.join('')}\n\n*Picks:* ${tebakbom[m.sender].pick}\n_Limit: -1_`);
-                    m.react('😂')
-                    delete tebakbom[m.sender];
-                } else m.reply(`*Choose a number*\n\nYou stepped on a bomb!\n ${brd.join('')}\n\nPicks: ${tebakbom[m.sender].pick}\nLives left: ${tebakbom[m.sender].nyawa}`);
+            const idx = parseInt(body)-1;
+            if (tebakbom[m.sender].petak[idx]===1) return !0;
+            if (tebakbom[m.sender].petak[idx]===2) {
+                tebakbom[m.sender].board[idx]=bomb; tebakbom[m.sender].pick++; m.react('❌'); tebakbom[m.sender].bomb--; tebakbom[m.sender].nyawa.pop();
+                const brd=tebakbom[m.sender].board;
+                if (tebakbom[m.sender].nyawa.length < 1) { await m.reply(`*Game Over*\nYou stepped on a bomb!\n\n${brd.join('')}\n\n*Picks:* ${tebakbom[m.sender].pick}\n_Limit: -1_`); m.react('😂'); delete tebakbom[m.sender]; }
+                else m.reply(`*Choose a number*\n\nBomb!\n${brd.join('')}\n\nPicks: ${tebakbom[m.sender].pick}\nLives: ${tebakbom[m.sender].nyawa}`);
                 return !0;
             }
-            if (tebakbom[m.sender].petak[parseInt(body) - 1] === 0) {
-                tebakbom[m.sender].petak[parseInt(body) - 1] = 1;
-                tebakbom[m.sender].board[parseInt(body) - 1] = pick;
-                tebakbom[m.sender].pick++;
-                tebakbom[m.sender].lolos--;
-                let brd = tebakbom[m.sender].board;
-                if (tebakbom[m.sender].lolos < 1) {
-                    db.users[m.sender].money += 6000
-                    await m.reply(`🎉 *You are awesome!* ಠ⁠ᴥ⁠ಠ\n\n${brd.join('')}\n\n*Picks:* ${tebakbom[m.sender].pick}\n*Lives left:* ${tebakbom[m.sender].nyawa}\n*Bombs:* ${tebakbom[m.sender].bomb}\n🎉 Bonus Money 💰 *+6,000*`);
-                    delete tebakbom[m.sender];
-                } else m.reply(`*Choose a number*\n\n${brd.join('')}\n\nPicks: ${tebakbom[m.sender].pick}\nLives left: ${tebakbom[m.sender].nyawa}\nBombs: ${tebakbom[m.sender].bomb}`)
+            if (tebakbom[m.sender].petak[idx]===0) {
+                tebakbom[m.sender].petak[idx]=1; tebakbom[m.sender].board[idx]=pick; tebakbom[m.sender].pick++; tebakbom[m.sender].lolos--;
+                const brd=tebakbom[m.sender].board;
+                if (tebakbom[m.sender].lolos < 1) { db.users[m.sender].money+=6000; await m.reply(`🎉 *Awesome!*\n\n${brd.join('')}\n\n*Picks:* ${tebakbom[m.sender].pick}\n*Lives:* ${tebakbom[m.sender].nyawa}\n🎉 +6,000 money!`); delete tebakbom[m.sender]; }
+                else m.reply(`*Choose a number*\n\n${brd.join('')}\n\nPicks: ${tebakbom[m.sender].pick}\nLives: ${tebakbom[m.sender].nyawa}\nBombs: ${tebakbom[m.sender].bomb}`);
             }
         }
-        
-        // Akinator
+
+        // ── Akinator ─────────────────────────────────────────────────────────
         if (m.sender in akinator) {
             if (m.quoted && akinator[m.sender].key == m.quoted.id) {
-                if (budy == '5') {
-                    if (akinator[m.sender]?.progress?.toFixed(0) == 0) {
-                        delete akinator[m.sender]
-                        return m.reply(`🎮 Akinator Game Ended!\nWith *0* Progress`)
-                    }
-                    akinator[m.sender].isWin = false
-                    await akinator[m.sender].cancelAnswer()
-                    let { key } = await m.reply(`🎮 Akinator Game Back :\n\n@${m.sender.split('@')[0]} (${akinator[m.sender].progress.toFixed(2)}) %\n${akinator[m.sender].question}\n\n- 0 - Yes\n- 1 - No\n- 2 - Don't know\n- 3 - Probably\n- 4 - Probably not\n- 5 - ${akinator[m.sender]?.progress?.toFixed(0) == 0 ? 'End' : 'Back'}`)
-                    akinator[m.sender].key = key.id
-                } else if (akinator[m.sender].isWin && ['benar', 'ya'].includes(budy.toLowerCase())) {
-                    m.react('🎊')
-                    delete akinator[m.sender]
+                if (budy==='5') {
+                    if (akinator[m.sender]?.progress?.toFixed(0)==0) { delete akinator[m.sender]; return m.reply(`🎮 Akinator ended with 0% progress.`); }
+                    akinator[m.sender].isWin=false;
+                    await akinator[m.sender].cancelAnswer();
+                    let { key } = await m.reply(`🎮 Akinator:\n\n@${m.sender.split('@')[0]} (${akinator[m.sender].progress.toFixed(2)})%\n${akinator[m.sender].question}\n\n0-Yes 1-No 2-Dunno 3-Probably 4-Prob.not 5-${akinator[m.sender]?.progress?.toFixed(0)==0?'End':'Back'}`);
+                    akinator[m.sender].key=key.id;
+                } else if (akinator[m.sender].isWin && ['benar','ya'].includes(budy.toLowerCase())) {
+                    m.react('🎊'); delete akinator[m.sender];
                 } else {
                     if (!isNaN(budy) && budy.match(/^[0-4]$/) && budy) {
                         if (akinator[m.sender].isWin) {
-                            let { key } = await m.reply({ image: { url: akinator[m.sender].sugestion_photo }, caption: `🎮 Akinator Answer :\n\n@${m.sender.split('@')[0]}\nHe/She is *${akinator[m.sender].sugestion_name}*\n_${akinator[m.sender].sugestion_desc}_\n\n- 5 - Back\n- *Yes* (Exit session)`, contextInfo: { mentionedJid: [m.sender] }});
-                            akinator[m.sender].key = key.id
+                            let { key } = await m.reply({ image:{ url:akinator[m.sender].sugestion_photo }, caption:`🎮 Akinator:\n\n@${m.sender.split('@')[0]}\nHe/She is *${akinator[m.sender].sugestion_name}*\n_${akinator[m.sender].sugestion_desc}_\n\n5=Back | *Yes*(Exit)`, contextInfo:{ mentionedJid:[m.sender] }});
+                            akinator[m.sender].key=key.id;
                         } else {
-                            await akinator[m.sender].answer(budy)
+                            await akinator[m.sender].answer(budy);
                             if (akinator[m.sender].isWin) {
-                                let { key } = await m.reply({ image: { url: akinator[m.sender].sugestion_photo }, caption: `🎮 Akinator Answer :\n\n@${m.sender.split('@')[0]}\nHe/She is *${akinator[m.sender].sugestion_name}*\n_${akinator[m.sender].sugestion_desc}_\n\n- 5 - Back\n- *Yes* (Exit session)`, contextInfo: { mentionedJid: [m.sender] }});
-                                akinator[m.sender].key = key.id
+                                let { key } = await m.reply({ image:{ url:akinator[m.sender].sugestion_photo }, caption:`🎮 Akinator:\n\n@${m.sender.split('@')[0]}\nHe/She is *${akinator[m.sender].sugestion_name}*\n_${akinator[m.sender].sugestion_desc}_\n\n5=Back | *Yes*(Exit)`, contextInfo:{ mentionedJid:[m.sender] }});
+                                akinator[m.sender].key=key.id;
                             } else {
-                                let { key } = await m.reply(`🎮 Akinator Game :\n\n@${m.sender.split('@')[0]} (${akinator[m.sender].progress.toFixed(2)}) %\n${akinator[m.sender].question}\n\n- 0 - Yes\n- 1 - No\n- 2 - Don't know\n- 3 - Probably\n- 4 - Probably not\n- 5 - Back`)
-                                akinator[m.sender].key = key.id
+                                let { key } = await m.reply(`🎮 Akinator:\n\n@${m.sender.split('@')[0]} (${akinator[m.sender].progress.toFixed(2)})%\n${akinator[m.sender].question}\n\n0-Yes 1-No 2-Dunno 3-Probably 4-Prob.not 5-Back`);
+                                akinator[m.sender].key=key.id;
                             }
                         }
                     }
                 }
             }
         }
-        
-        // General games
-        const games = { tebaklirik, tekateki, tebaklagu, tebakkata, kuismath, susunkata, tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera }
+
+        // ── General games (tebaklirik, tekateki, etc.) ───────────────────────
+        const games = { tebaklirik, tekateki, tebaklagu, tebakkata, kuismath, susunkata, tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera };
         for (let gameName in games) {
             let game = games[gameName];
             let id = iGame(game, m.chat);
-            if ((!isCmd || isCreator) && m.quoted && id == m.quoted.id) {
-                if (game[m.chat + id]?.jawaban) {
-                    if (gameName == 'kuismath') {
-                        jawaban = game[m.chat + id].jawaban
-                        const difficultyMap = { 'noob': 1, 'easy': 1.5, 'medium': 2.5, 'hard': 4, 'extreme': 5, 'impossible': 6, 'impossible2': 7 };
-                        let randMoney = difficultyMap[kuismath[m.chat + id].mode]
+            if ((!isCmd||isCreator) && m.quoted && id==m.quoted.id) {
+                if (game[m.chat+id]?.jawaban) {
+                    const jawaban = game[m.chat+id].jawaban;
+                    if (gameName==='kuismath') {
+                        const diffMap = { noob:1, easy:1.5, medium:2.5, hard:4, extreme:5, impossible:6, impossible2:7 };
+                        let randMoney = diffMap[kuismath[m.chat+id].mode];
                         if (!isNaN(budy)) {
-                            if (budy.toLowerCase() == jawaban) {
-                                db.users[m.sender].money += randMoney * 1000
-                                await m.reply(`Correct answer 🎉\nBonus Money 💰 *+${randMoney * 1000}*`)
-                                delete kuismath[m.chat + id]
-                            } else m.reply('*Wrong answer!*')
+                            if (budy.toLowerCase()==jawaban) { db.users[m.sender].money+=randMoney*1000; await m.reply(`Correct! 🎉 +${randMoney*1000} money`); delete kuismath[m.chat+id]; }
+                            else m.reply('*Wrong answer!*');
                         }
                     } else {
-                        jawaban = game[m.chat + id].jawaban
-                        let jawabBenar = /tekateki|tebaklirik|tebaklagu|tebakkata|tebaknegara|tebakbendera/.test(gameName) ? (similarity(budy.toLowerCase(), jawaban) >= almost) : (budy.toLowerCase() == jawaban)
-                        let bonus = gameName == 'caklontong' ? 9999 : gameName == 'tebaklirik' ? 4299 : gameName == 'susunkata' ? 2989 : 3499
-                        if (jawabBenar) {
-                            db.users[m.sender].money += bonus * 1
-                            await m.reply(`Correct answer 🎉\n🎉 Bonus Money 💰 *+${bonus}*`)
-                            delete game[m.chat + id]
-                        } else m.reply('*Wrong answer!*')
+                        let jawabBenar = /tekateki|tebaklirik|tebaklagu|tebakkata|tebaknegara|tebakbendera/.test(gameName) ? (similarity(budy.toLowerCase(),jawaban)>=almost) : (budy.toLowerCase()==jawaban);
+                        let bonus = gameName==='caklontong'?9999:gameName==='tebaklirik'?4299:gameName==='susunkata'?2989:3499;
+                        if (jawabBenar) { db.users[m.sender].money+=bonus; await m.reply(`Correct! 🎉 +${bonus} money`); delete game[m.chat+id]; }
+                        else m.reply('*Wrong answer!*');
                     }
                 }
             }
         }
-        
-        // Family 100
+
+        // ── Family 100 ───────────────────────────────────────────────────────
         if (m.chat in family100) {
-            if (m.quoted && m.quoted.id == family100[m.chat].id && !isCmd) {
-                let room = family100[m.chat]
-                let teks = budy.toLowerCase().replace(/[^\w\s\-]+/, '')
-                let isSurender = /^((me)?nyerah|surr?ender)$/i.test(teks)
-                if (!isSurender) {
-                    let index = room.jawaban.findIndex(v => v.toLowerCase().replace(/[^\w\s\-]+/, '') === teks)
-                    if (room.terjawab[index]) return !0
-                    room.terjawab[index] = m.sender
-                }
-                let isWin = room.terjawab.length === room.terjawab.filter(v => v).length
-                let caption = `Answer the following question:\n${room.soal}\n\n\nThere are ${room.jawaban.length} answers ${room.jawaban.find(v => v.includes(' ')) ? `(some answers have spaces)` : ''}\n${isWin ? `All answers answered` : isSurender ? 'Surrender!' : ''}\n${Array.from(room.jawaban, (jawaban, index) => { return isSurender || room.terjawab[index] ? `(${index + 1}) ${jawaban} ${room.terjawab[index] ? '@' + room.terjawab[index].split('@')[0] : ''}`.trim() : false }).filter(v => v).join('\n')}\n${isSurender ? '' : `Perfect Player`}`.trim()
-                m.reply(caption)
-                if (isWin || isSurender) delete family100[m.chat]
+            if (m.quoted && m.quoted.id==family100[m.chat].id && !isCmd) {
+                let room = family100[m.chat];
+                let teks = budy.toLowerCase().replace(/[^\w\s\-]+/,'');
+                let isSurender = /^((me)?nyerah|surr?ender)$/i.test(teks);
+                if (!isSurender) { let idx=room.jawaban.findIndex(v=>v.toLowerCase().replace(/[^\w\s\-]+/,'')==teks); if(room.terjawab[idx]) return !0; room.terjawab[idx]=m.sender; }
+                let isWin = room.terjawab.length===room.terjawab.filter(v=>v).length;
+                let caption = `Answer the question:\n${room.soal}\n\n${room.jawaban.length} answers${room.jawaban.find(v=>v.includes(' '))?` (some multi-word)`:''}\n${isWin?'All answered':isSurender?'Surrender!':''}\n${Array.from(room.jawaban,(j,i)=>{return isSurender||room.terjawab[i]?`(${i+1}) ${j} ${room.terjawab[i]?'@'+room.terjawab[i].split('@')[0]:''}`.trim():false}).filter(v=>v).join('\n')}`.trim();
+                m.reply(caption);
+                if (isWin||isSurender) delete family100[m.chat];
             }
         }
-        
-        // Chess vs Bot
-        if ((!isCmd || isCreator) && (m.sender in chess)) {
+
+        // ── Chess vs Bot ─────────────────────────────────────────────────────
+        if ((!isCmd||isCreator) && (m.sender in chess)) {
             const game = chess[m.sender];
-            if (m.quoted && game.id == m.quoted.id && game.turn == m.sender && game.botMode) {
-                if (!(game instanceof Chess)) {
-                    chess[m.sender] = Object.assign(new Chess(game.fen), game);
-                }
-                if (game.isCheckmate() || game.isDraw() || game.isGameOver()) {
-                    const status = game.isCheckmate() ? 'Checkmate' : game.isDraw() ? 'Draw' : 'Game Over';
-                    delete chess[m.sender];
-                    return m.reply(`♟ Game ${status}!`);
-                }
-                const [from, to] = budy.toLowerCase().split(' ');
-                if (!from || !to || from.length !== 2 || to.length !== 2) return m.reply('Invalid format! Use: e2 e4');
-                try {
-                    game.move({ from, to });
-                } catch (e) {
-                    return m.reply('Invalid move!')
-                }
-                
-                if (game.isGameOver()) {
-                    delete chess[m.sender];
-                    return m.reply(`♟ Winner: @${m.sender.split('@')[0]} 🏆`);
-                }
-                const moves = game.moves({ verbose: true });
-                const botMove = moves[Math.floor(Math.random() * moves.length)];
-                game.move(botMove);
-                game._fen = game.fen();
-                game.time = Date.now();
-                
-                if (game.isGameOver()) {
-                    delete chess[m.sender];
-                    return m.reply(`♟ Bot wins! 🤖`);
-                }
-                const encodedFen = encodeURI(game._fen);
-                const boardUrls = [`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside`,`https://www.chess.com/dynboard?fen=${encodedFen}&board=graffiti&piece=graffiti&size=3&coordinates=inside`,`https://chessboardimage.com/${encodedFen}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}&coordinates=true&size=765`,`https://fen2image.chessvision.ai/${encodedFen}/`];
-                for (let url of boardUrls) {
-                    try {
-                        const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-                        let { key } = await m.reply({ image: data, caption: `♟️CHESS GAME (vs BOT)\n\nYour move: ${from} → ${to}\nBot's move: ${botMove.from} → ${botMove.to}\n\nYour turn next!\nExample: e2 e4`, mentions: [m.sender] });
-                        game.id = key.id;
-                        break;
-                    } catch (e) {}
-                }
-            } else if (game.time && (Date.now() - game.time >= 3600000)) {
-                delete chess[m.sender];
-                return m.reply(`♟ ⏰ Time expired! Game ended.`);
-            }
+            if (m.quoted && game.id==m.quoted.id && game.turn==m.sender && game.botMode) {
+                if (!(game instanceof Chess)) chess[m.sender]=Object.assign(new Chess(game.fen),game);
+                if (game.isCheckmate()||game.isDraw()||game.isGameOver()) { const s=game.isCheckmate()?'Checkmate':game.isDraw()?'Draw':'Game Over'; delete chess[m.sender]; return m.reply(`♟ Game ${s}!`); }
+                const [from,to]=budy.toLowerCase().split(' ');
+                if (!from||!to||from.length!==2||to.length!==2) return m.reply('Invalid format! Use: e2 e4');
+                try { game.move({from,to}); } catch { return m.reply('Invalid move!'); }
+                if (game.isGameOver()) { delete chess[m.sender]; return m.reply(`♟ Winner: @${m.sender.split('@')[0]} 🏆`); }
+                const moves=game.moves({verbose:true});
+                const botMove=moves[Math.floor(Math.random()*moves.length)];
+                game.move(botMove); game._fen=game.fen(); game.time=Date.now();
+                if (game.isGameOver()) { delete chess[m.sender]; return m.reply(`♟ Bot wins! 🤖`); }
+                const encodedFen=encodeURI(game._fen);
+                const boardUrls=[`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside`,`https://chessboardimage.com/${encodedFen}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}&coordinates=true&size=765`];
+                for (let url of boardUrls) { try { const {data}=await axios.get(url,{responseType:'arraybuffer'}); let {key}=await m.reply({image:data,caption:`♟️CHESS (vs BOT)\n\nYour: ${from}→${to} | Bot: ${botMove.from}→${botMove.to}\n\nYour turn! (e.g. e2 e4)`,mentions:[m.sender]}); game.id=key.id; break; } catch {} }
+            } else if (game.time && (Date.now()-game.time>=3600000)) { delete chess[m.sender]; return m.reply(`♟ ⏰ Time expired!`); }
         }
-        // Chess PvP in group
-        if (m.isGroup && (!isCmd || isCreator) && (m.chat in chess)) {
-            if (m.quoted && chess[m.chat].id == m.quoted.id && [chess[m.chat].player1, chess[m.chat].player2].includes(m.sender)) {
-                if (!(chess[m.chat] instanceof Chess)) {
-                    chess[m.chat] = Object.assign(new Chess(chess[m.chat].fen), chess[m.chat]);
+
+        // ── Chess PvP ────────────────────────────────────────────────────────
+        if (m.isGroup && (!isCmd||isCreator) && (m.chat in chess)) {
+            const cg=chess[m.chat];
+            if (m.quoted && cg.id==m.quoted.id && [cg.player1,cg.player2].includes(m.sender)) {
+                if (!(cg instanceof Chess)) chess[m.chat]=Object.assign(new Chess(cg.fen),cg);
+                if (cg.isCheckmate()||cg.isDraw()||cg.isGameOver()) { const s=cg.isCheckmate()?'Checkmate':cg.isDraw()?'Draw':'Game Over'; delete chess[m.chat]; return m.reply(`♟ Game ${s}!`); }
+                const [from,to]=budy.toLowerCase().split(' ');
+                if (!from||!to||from.length!==2||to.length!==2) return m.reply('Invalid format! Use: e2 e4');
+                if ([cg.player1,cg.player2].includes(m.sender) && cg.turn===m.sender) {
+                    try { cg.move({from,to}); } catch { return m.reply('Invalid move!'); }
+                    cg.time=Date.now(); cg._fen=cg.fen();
+                    const isP2=cg.player2===m.sender;
+                    const nextPlayer=isP2?cg.player1:cg.player2;
+                    const encodedFen=encodeURI(cg._fen);
+                    const boardUrls=[`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside${!isP2?'&flip=true':''}`,`https://chessboardimage.com/${encodedFen}${!isP2?'-flip':''}.png`];
+                    for (let url of boardUrls) { try { const {data}=await axios.get(url,{responseType:'arraybuffer'}); let {key}=await m.reply({image:data,caption:`♟️CHESS\n\nTurn: @${nextPlayer.split('@')[0]}\n\nReply to play (e.g. b1 c3)`,mentions:[nextPlayer]}); cg.turn=nextPlayer; cg.id=key.id; break; } catch {} }
                 }
-                if (chess[m.chat].isCheckmate() || chess[m.chat].isDraw() || chess[m.chat].isGameOver()) {
-                    const status = chess[m.chat].isCheckmate() ? 'Checkmate' : chess[m.chat].isDraw() ? 'Draw' : 'Game Over';
-                    delete chess[m.chat];
-                    return m.reply(`♟ Game ${status}!`);
-                }
-                const [from, to] = budy.toLowerCase().split(' ');
-                if (!from || !to || from.length !== 2 || to.length !== 2) return m.reply('Invalid format! Use: e2 e4');
-                if ([chess[m.chat].player1, chess[m.chat].player2].includes(m.sender) && chess[m.chat].turn === m.sender) {
-                    try {
-                        chess[m.chat].move({ from, to });
-                    } catch (e) {
-                        return m.reply('Invalid move!')
-                    }
-                    chess[m.chat].time = Date.now();
-                    chess[m.chat]._fen = chess[m.chat].fen();
-                    const isPlayer2 = chess[m.chat].player2 === m.sender
-                    const nextPlayer = isPlayer2 ? chess[m.chat].player1 : chess[m.chat].player2;
-                    const encodedFen = encodeURI(chess[m.chat]._fen);
-                    const boardUrls = [`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside${!isPlayer2 ? '&flip=true' : ''}`,`https://www.chess.com/dynboard?fen=${encodedFen}&board=graffiti&piece=graffiti&size=3&coordinates=inside${!isPlayer2 ? '&flip=true' : ''}`,`https://chessboardimage.com/${encodedFen}${!isPlayer2 ? '-flip' : ''}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}&coordinates=true&size=765${!isPlayer2 ? '&orientation=black' : ''}`,`https://fen2image.chessvision.ai/${encodedFen}/${!isPlayer2 ? '?pov=black' : ''}`];
-                    for (let url of boardUrls) {
-                        try {
-                            const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-                            let { key } = await m.reply({ image: data, caption: `♟️CHESS GAME\n\nTurn: @${nextPlayer.split('@')[0]}\n\nReply to play!\nExample: b1 c3`, mentions: [nextPlayer] });
-                            chess[m.chat].turn = nextPlayer
-                            chess[m.chat].id = key.id;
-                            break;
-                        } catch (e) {}
-                    }
-                }
-            } else if (chess[m.chat].time && (Date.now() - chess[m.chat].time >= 3600000)) {
-                delete chess[m.chat]
-                return m.reply(`♟ ⏰ Time expired! Game ended.`)
-            }
+            } else if (cg.time && (Date.now()-cg.time>=3600000)) { delete chess[m.chat]; return m.reply(`♟ ⏰ Time expired!`); }
         }
-        
-        // Snake and Ladder
-        if (m.isGroup && (!isCmd || isCreator) && (m.chat in ulartangga)) {
-            if (m.quoted && ulartangga[m.chat].id == m.quoted.id) {
-                if (!(ulartangga[m.chat] instanceof SnakeLadder)) {
-                    ulartangga[m.chat] = Object.assign(new SnakeLadder(ulartangga[m.chat]), ulartangga[m.chat]);
-                }
+
+        // ── Snake & Ladder ───────────────────────────────────────────────────
+        if (m.isGroup && (!isCmd||isCreator) && (m.chat in ulartangga)) {
+            if (m.quoted && ulartangga[m.chat].id==m.quoted.id) {
+                if (!(ulartangga[m.chat] instanceof SnakeLadder)) ulartangga[m.chat]=Object.assign(new SnakeLadder(ulartangga[m.chat]),ulartangga[m.chat]);
                 if (/^(roll|kocok)/i.test(budy.toLowerCase())) {
-                    const player = ulartangga[m.chat].players.findIndex(a => a.id == m.sender)
-                    if (ulartangga[m.chat].turn !== player) return m.reply('Not your turn!')
-                    const roll = ulartangga[m.chat].rollDice();
+                    const player=ulartangga[m.chat].players.findIndex(a=>a.id==m.sender);
+                    if (ulartangga[m.chat].turn!==player) return m.reply('Not your turn!');
+                    const roll=ulartangga[m.chat].rollDice();
                     await m.reply(`https://raw.githubusercontent.com/nima-axis/database/master/games/images/dice/roll-${roll}.webp`);
-                    ulartangga[m.chat].nextTurn();
-                    ulartangga[m.chat].players[player].move += roll
-                    if (ulartangga[m.chat].players[player].move > 100) ulartangga[m.chat].players[player].move = 100 - (ulartangga[m.chat].players[player].move - 100);
-                    let teks = `🐍🪜Color: ${['Red','Light Blue','Yellow','Green','Purple','Orange','Dark Blue','White'][player]} -> ${ulartangga[m.chat].players[player].move}\n`;
-                    if(Object.keys(ulartangga[m.chat].map.move).includes(ulartangga[m.chat].players[player].move.toString())) {
-                        teks += ulartangga[m.chat].players[player].move > ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move] ? 'You landed on a snake!\n' : 'You climbed a ladder!\n'
-                        ulartangga[m.chat].players[player].move = ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move];
+                    ulartangga[m.chat].nextTurn(); ulartangga[m.chat].players[player].move+=roll;
+                    if (ulartangga[m.chat].players[player].move>100) ulartangga[m.chat].players[player].move=100-(ulartangga[m.chat].players[player].move-100);
+                    let teks=`🐍🪜 ${['Red','Light Blue','Yellow','Green','Purple','Orange','Dark Blue','White'][player]} → ${ulartangga[m.chat].players[player].move}\n`;
+                    if (Object.keys(ulartangga[m.chat].map.move).includes(ulartangga[m.chat].players[player].move.toString())) {
+                        teks+=ulartangga[m.chat].players[player].move>ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move]?'Snake!\n':'Ladder!\n';
+                        ulartangga[m.chat].players[player].move=ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move];
                     }
-                    const newMap = await ulartangga[m.chat].drawBoard(ulartangga[m.chat].map.url, ulartangga[m.chat].players);
-                    if (ulartangga[m.chat].players[player].move === 100) {
-                        teks += `@${m.sender.split('@')[0]} wins!\nReward:\n- Limit + 50\n- Money + 100.000`;
-                        addLimit(50, m.sender, db);
-                        addMoney(100000, m.sender, db);
-                        delete ulartangga[m.chat];
-                        return m.reply({ image: newMap, caption: teks, mentions: [m.sender] });
+                    const newMap=await ulartangga[m.chat].drawBoard(ulartangga[m.chat].map.url,ulartangga[m.chat].players);
+                    if (ulartangga[m.chat].players[player].move===100) {
+                        teks+=`@${m.sender.split('@')[0]} wins!\n+50 limit · +100,000 money`; addLimit(50,m.sender,db); addMoney(100000,m.sender,db);
+                        delete ulartangga[m.chat]; return m.reply({image:newMap,caption:teks,mentions:[m.sender]});
                     }
-                    let { key } = await m.reply({ image: newMap, caption: teks + `Turn: @${ulartangga[m.chat].players[ulartangga[m.chat].turn].id.split('@')[0]}`, mentions: [m.sender, ulartangga[m.chat].players[ulartangga[m.chat].turn].id] });
-                    ulartangga[m.chat].id = key.id;
-                } else m.reply('Example: Type "Roll"')
-            } else if (ulartangga[m.chat].time && (Date.now() - ulartangga[m.chat].time >= 7200000)) {
-                delete ulartangga[m.chat]
-                return m.reply(`🐍🪜 ⏰ Time expired! Game ended.`)
-            }
+                    let {key}=await m.reply({image:newMap,caption:teks+`Turn: @${ulartangga[m.chat].players[ulartangga[m.chat].turn].id.split('@')[0]}`,mentions:[m.sender,ulartangga[m.chat].players[ulartangga[m.chat].turn].id]});
+                    ulartangga[m.chat].id=key.id;
+                } else m.reply('Type "Roll" to play');
+            } else if (ulartangga[m.chat].time && (Date.now()-ulartangga[m.chat].time>=7200000)) { delete ulartangga[m.chat]; return m.reply(`🐍🪜 ⏰ Time expired!`); }
         }
-        
-        // Inbox Auto-Add to group
-        if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && m.sender && isCmd) {
+
+        // ── Inbox auto-add to group ──────────────────────────────────────────
+        if (!m.isGroup && !m.key.fromMe && m.key.remoteJid!=='status@broadcast' && m.sender && isCmd) {
             try {
-                const autoGroupJid = global.my?.ch
+                const autoGroupJid = global.my?.ch;
                 if (autoGroupJid && autoGroupJid.endsWith('@g.us')) {
-                    const groupMeta = await nimesha.groupMetadata(autoGroupJid).catch(() => null)
+                    const groupMeta = await nimesha.groupMetadata(autoGroupJid).catch(()=>null);
                     if (groupMeta) {
-                        const alreadyIn = groupMeta.participants.some(p => {
-                            const pid = p.id || p.lid || ''
-                            return pid.replace(/[^0-9]/g, '') === m.sender.replace(/[^0-9]/g, '')
-                        })
+                        const alreadyIn = groupMeta.participants.some(p=>(p.id||p.lid||'').replace(/[^0-9]/g,'')===m.sender.replace(/[^0-9]/g,''));
                         if (!alreadyIn) {
-                            const findJid = typeof nimesha.findJidByLid === 'function' ? nimesha.findJidByLid(m.sender.replace(/[^0-9]/g, '') + '@lid', store) : null
-                            const addJid = findJid ? (m.sender.replace(/[^0-9]/g, '') + '@lid') : m.sender
-                            const res = await nimesha.groupParticipantsUpdate(autoGroupJid, [addJid], 'add').catch(() => null)
-                            if (res?.[0]?.status == 403) {
-                                const invCode = await nimesha.groupInviteCode(autoGroupJid).catch(() => null)
-                                if (invCode) await nimesha.sendMessage(m.sender, { text: '*🦊 MAUREONIX Group*\n\nJoin the group 👇\nhttps://chat.whatsapp.com/' + invCode })
+                            const findJid = typeof nimesha.findJidByLid==='function' ? nimesha.findJidByLid(m.sender.replace(/[^0-9]/g,'')+'@lid', store) : null;
+                            const addJid  = findJid ? (m.sender.replace(/[^0-9]/g,'')+'@lid') : m.sender;
+                            const res = await nimesha.groupParticipantsUpdate(autoGroupJid,[addJid],'add').catch(()=>null);
+                            if (res?.[0]?.status==403) {
+                                const invCode = await nimesha.groupInviteCode(autoGroupJid).catch(()=>null);
+                                if (invCode) await nimesha.sendMessage(m.sender, { text:`*🦊 MAUREONIX Group*\n\nJoin us 👇\nhttps://chat.whatsapp.com/${invCode}` });
                             }
                         }
                     }
                 }
-            } catch (e) { /* silent */ }
+            } catch {}
         }
 
-        // Menfes & Room Ai (private chat)
-        if (!m.isGroup && (!isCmd || isCreator)) {
-            if (menfes[m.sender] && m.key.remoteJid !== 'status@broadcast' && m.msg) {
+        // ── Menfes & Room AI ─────────────────────────────────────────────────
+        if (!m.isGroup && (!isCmd||isCreator)) {
+            if (menfes[m.sender] && m.key.remoteJid!=='status@broadcast' && m.msg) {
                 m.react('✈');
-                m.msg.contextInfo = { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama ? menfes[m.sender].nama : 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }}
-                const pesan = m.type === 'conversation' ? { extendedTextMessage: { text: m.msg, contextInfo: { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama ? menfes[m.sender].nama : 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }}}} : { [m.type]: m.msg }
+                m.msg.contextInfo = { isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:`*Message from ${menfes[m.sender].nama||'Someone'}*`}, key:{remoteJid:'0@s.whatsapp.net',fromMe:false,participant:'0@s.whatsapp.net'} };
+                const pesan = m.type==='conversation' ? { extendedTextMessage:{ text:m.msg, contextInfo:{ isForwarded:true, forwardingScore:1, quotedMessage:{ conversation:`*Message from ${menfes[m.sender].nama||'Someone'}*`}, key:{remoteJid:'0@s.whatsapp.net',fromMe:false,participant:'0@s.whatsapp.net'}}}} : { [m.type]:m.msg };
                 await nimesha.relayMessage(menfes[m.sender].tujuan, pesan, {});
             }
-            if (chat_ai[m.sender] && m.key.remoteJid !== 'status@broadcast') {
+            if (chat_ai[m.sender] && m.key.remoteJid!=='status@broadcast') {
                 if (!/^(del((room|c|hat)ai)|>|<$)$/i.test(command) && budy) {
-                    chat_ai[m.sender].push({ role: 'user', content: budy });
+                    chat_ai[m.sender].push({ role:'user', content:budy });
                     if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
                     let hasil;
-                    try {
-                        hasil = await fetchApi('/ai/chat4', {
-                            messages: chat_ai[m.sender],
-                            prompt: budy
-                        }, { method: 'POST' });
-                    } catch (e) {
-                        hasil = 'Failed to get response, server issue.'
-                    }
-                    const response = hasil?.result?.message || 'Sorry, I don\'t understand.';
-                    chat_ai[m.sender].push({ role: 'assistant', content: response });
+                    try { hasil = await fetchJson('/ai/chat4', { messages:chat_ai[m.sender], prompt:budy }, { method:'POST' }); } catch { hasil = 'Failed'; }
+                    const response = hasil?.result?.message || "Sorry, I don't understand.";
+                    chat_ai[m.sender].push({ role:'assistant', content:response });
                     if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
-                    await m.reply(response)
+                    await m.reply(response);
                 }
             }
         }
-        
-        // Gemini Auto Reply
-        const isAutoReplyEnabled = !m.isGroup 
-            ? (db.game.private_ai_disabled === false)
-            : (gemini_autoreply[m.chat] === true)
 
-        if (
-            isAutoReplyEnabled &&
-            !isCmd &&
-            !m.key.fromMe &&
-            m.key.remoteJid !== 'status@broadcast' &&
-            (body || budy) &&
-            (body || budy).trim().length > 0 &&
-            !chat_ai[m.sender]
-        ) {
+        // ── Gemini Auto Reply ────────────────────────────────────────────────
+        const isAutoReplyEnabled = !m.isGroup ? (db.game.private_ai_disabled===false) : (gemini_autoreply[m.chat]===true);
+        if (isAutoReplyEnabled && !isCmd && !m.key.fromMe && m.key.remoteJid!=='status@broadcast' && (body||budy) && (body||budy).trim().length>0 && !chat_ai[m.sender]) {
             try {
-                const ownerName = global.ownerName || global.author || 'Infinite Vybeflix'
-                const ownerNum = (global.owner?.[0] || '254116903500')
-                const botName = global.botname || '🦊 MAUREONIX'
-                const apiKey = global.geminiApiKey
-
-                if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
-                    const memSize = global.geminiMemorySize || 50
-                    const histKey = m.isGroup ? m.chat : m.sender
-                    if (!gemini_history[histKey]) gemini_history[histKey] = []
-
-                    const senderNum = m.sender.split('@')[0]
-                    const isOwnerMsg = (global.owner || []).map(n => n.replace(/[^0-9]/g,'')).includes(senderNum)
-
-                    const systemPrompt = `You are ${botName}, a WhatsApp bot. You were created by ${ownerName}. Their WhatsApp number is ${ownerNum}. They are your creator and owner. Anyone who connects to the bot will always know that ${ownerName} (${ownerNum}) is your creator.${isOwnerMsg ? ` ⚠️ You are currently talking to your owner ${ownerName} - treat them with special respect and listen carefully.` : ''} You reply in the same language the user uses. Be natural and friendly. Keep answers concise.`
-
-                    gemini_history[histKey].push({ role: 'user', parts: [{ text: body || budy }] })
-                    if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift()
-
-                    const geminiRes = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                system_instruction: { parts: [{ text: systemPrompt }] },
-                                contents: gemini_history[histKey]
-                            })
-                        }
-                    )
-                    const geminiData = await geminiRes.json()
-                    const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text
-
-                    if (replyText) {
-                        gemini_history[histKey].push({ role: 'model', parts: [{ text: replyText }] })
-                        if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift()
-                        await m.reply(replyText)
-                    }
+                const ownerName2 = global.ownerName || global.author || 'Infinite Vybeflix';
+                const ownerNum2  = (global.owner?.[0] || '254116903500');
+                const botName2   = global.botname || '🦊 MAUREONIX';
+                const apiKey2    = global.geminiApiKey;
+                if (apiKey2 && apiKey2 !== 'YOUR_GEMINI_API_KEY_HERE') {
+                    const memSize = global.geminiMemorySize || 50;
+                    const histKey = m.isGroup ? m.chat : m.sender;
+                    if (!gemini_history[histKey]) gemini_history[histKey] = [];
+                    const senderNum2   = m.sender.split('@')[0];
+                    const isOwnerMsg   = (global.owner||[]).map(n=>n.replace(/[^0-9]/g,'')).includes(senderNum2);
+                    const systemPrompt = `You are ${botName2}, a WhatsApp bot created by ${ownerName2} (${ownerNum2}).${isOwnerMsg?` You're talking to your owner — treat with special respect.`:''} Reply in the user's language. Be natural and concise.`;
+                    gemini_history[histKey].push({ role:'user', parts:[{text:body||budy}] });
+                    if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
+                    const geminiRes  = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey2}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ system_instruction:{ parts:[{text:systemPrompt}] }, contents:gemini_history[histKey] }) });
+                    const geminiData = await geminiRes.json();
+                    const replyText  = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (replyText) { gemini_history[histKey].push({ role:'model', parts:[{text:replyText}] }); if (gemini_history[histKey].length>memSize) gemini_history[histKey].shift(); await m.reply(replyText); }
                 }
-            } catch (e) {
-                console.log('Gemini AutoReply Error:', e.message)
-            }
+            } catch(e) { console.log('Gemini AutoReply Error:', e.message); }
         }
-        
-        // Afk
-        let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])]
+
+        // ── AFK handler ──────────────────────────────────────────────────────
+        let mentionUser = [...new Set([...(m.mentionedJid||[]),...(m.quoted?[m.quoted.sender]:[])])];
         for (let jid of mentionUser) {
-            let user = db.users[jid]
-            if (!user) continue
-            let afkTime = user.afkTime
-            if (!afkTime || afkTime < 0) continue
-            let reason = user.afkReason || ''
-            m.reply(`Don't tag them!\nThey are AFK${reason ? ' because ' + reason : ' for no reason'}\nTime: ${clockString(new Date - afkTime)}`.trim())
+            let u = db.users[jid]; if (!u) continue;
+            let afkTime = u.afkTime; if (!afkTime||afkTime<0) continue;
+            m.reply(`Don't tag them!\nThey are AFK${u.afkReason?' because '+u.afkReason:' for no reason'}\nTime: ${clockString(new Date-afkTime)}`.trim());
         }
         if (db.users[m.sender].afkTime > -1) {
-            let user = db.users[m.sender]
-            m.reply(`@${m.sender.split('@')[0]} is no longer AFK${user.afkReason ? ' because ' + user.afkReason : ''}\nTime: ${clockString(new Date - user.afkTime)}`)
-            user.afkTime = -1
-            user.afkReason = ''
+            let u = db.users[m.sender];
+            m.reply(`@${m.sender.split('@')[0]} is no longer AFK${u.afkReason?' because '+u.afkReason:''}\nTime: ${clockString(new Date-u.afkTime)}`);
+            u.afkTime=-1; u.afkReason='';
         }
-        
+
+        // ── Pre-switch hooks ─────────────────────────────────────────────────
+        if (!isCmd) {
+            await gameLib.mathAnswer(nimesha, m, db).catch(()=>{});
+            await gameLib.blackjackAction(nimesha, m, db).catch(()=>{});
+        }
+        await adminProt.handleProtections(nimesha, m, db, prefix);
+
+        // ── Bot mode access check (NEW) ───────────────────────────────────────
+        if (!isCreator) {
+            const access = checkBotAccess(m, m.sender.split('@')[0].replace(/[^0-9]/g,''), ownerNumber.map(v=>v.replace(/[^0-9]/g,'')));
+            if (!access.ok) return m.reply(access.reason);
+        }
+
+        // ── Admin-only mode check ────────────────────────────────────────────
+        const isAdminOnly = db.set[botNumber]?.adminonly === true;
+        if (isAdminOnly && !isCreator) return m.reply('🔐 Bot is in admin-only mode. Only the owner can use commands.');
+
+        // ════════════════════════════════════════════════════════════════════
+        // SWITCH START
+        // ════════════════════════════════════════════════════════════════════
         if (isCmd || fileSha256) switch(fileSha256 || command) {
-            // Placeholder for adding cases
-            case '19rujxl1e': {
-                console.log('.')
-            }
-            break
-            
-            // Owner Menu
-            case 'shutdown': case 'off': {
-                if (!isCreator) return m.reply(mess.owner)
-                m.reply(`⚠️ *Shutdown disabled* — bot session protection enabled.`)
-            }
-            break
-            case 'byq': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!m.quoted) return m.reply('Reply to a message')
-                delete m.quoted.chat
-                let anya = Object.values(m.quoted.fakeObj())[1]
-                m.reply(`const byt = ${JSON.stringify(anya.message, null, 2)}\nnimesha.relayMessage(m.chat, byt, {})`)
-            }
-            break
-            case 'setbio': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply('Where is the text?')
-                nimesha.setStatus(q)
-                m.reply(`✅ *Bio successfully changed to* *${q}*!`)
-            }
-            break
-            case 'setppbot': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!/image/.test(quoted.type)) return m.reply(`📌 Reply to an image (caption: *${prefix + command}*)`)
-                let media = await quoted.download();
-                let { img } = await generateProfilePicture(media, text.length > 0 ? null : 512)
-                await nimesha.query({
-                    tag: 'iq',
-                    attrs: {
-                        to: '@s.whatsapp.net',
-                        type: 'set',
-                        xmlns: 'w:profile:picture'
-                    },
-                    content: [{ tag: 'picture', attrs: { type: 'image' }, content: img }]
+
+        // ════════════════════════════════════════════════════════════════════
+        // MENU SYSTEM
+        // ════════════════════════════════════════════════════════════════════
+        case 'menu': {
+            await setTemplateMenu(nimesha, m.type, m, prefix, setv, db);
+        }
+        break
+
+        case 'allmenu': {
+            try {
+                const { generateMenuImage } = require('./lib/menuimage');
+                const menuImg = await generateMenuImage({
+                    prefix, botName: set?.botname || '🦊 MAUREONIX',
+                    ownerName: global.author || 'Infinite Vybeflix',
+                    memberName: m.pushName || 'User',
+                    totalCmds: ((fs.readFileSync('./nima.js').toString()).match(/case '/g)||[]).length,
+                    time, date,
                 });
-                m.reply('Success')
-            }
-            break
-            case 'delppbot': {
-                if (!isCreator) return m.reply(mess.owner)
-                await nimesha.removeProfilePicture(nimesha.user.id)
-                m.reply('Success')
-            }
-            break
-            case 'join': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply('Enter group link!')
-                if (!isUrl(args[0]) && !args[0].includes('whatsapp.com')) return m.reply('Invalid link!')
-                const result = args[0].match(/chat\.whatsapp\.com\/([0-9A-Za-z]+)/)
-                if (!result) return m.reply('Invalid link!')
-                m.reply(mess.wait)
-                await nimesha.groupAcceptInvite(result[1]).catch((res) => {
-                    if (res.data == 400) return m.reply('Group not found!');
-                    if (res.data == 401) return m.reply('Bot was kicked from the group!');
-                    if (res.data == 409) return m.reply('Bot already in the group!');
-                    if (res.data == 410) return m.reply('Group link has been reset!');
-                    if (res.data == 500) return m.reply('Group is full!');
-                })
-            }
-            break
-            case 'leave': {
-                if (!isCreator) return m.reply(mess.owner)
-                await nimesha.groupLeave(m.chat).then(() => nimesha.sendFromOwner(ownerNumber, 'Successfully left the group', m, { contextInfo: { isForwarded: true }})).catch(e => {});
-            }
-            break
-            case 'clearchat': {
-                if (!isCreator) return m.reply(mess.owner)
+                await nimesha.sendMessage(m.chat, {
+                    image: menuImg,
+                    caption: `*${set?.botname||'🦊 MAUREONIX'}* — Full Command Map\n👑 _By ${global.author||'Infinite Vybeflix'}_\n\n⚡ Type ${prefix}menu for interactive navigation`,
+                    mentions: [m.sender],
+                }, { quoted: m });
+            } catch(e) { m.reply(`❌ Could not generate image. Try ${prefix}menu instead.`); }
+        }
+        break
 
-                const statusMsg = await m.reply('🗑️ *Clearing chat...*')
+        case 'botmenu':      await sendCategoryMenu(nimesha, m, prefix, 'botmenu',      db); break
+        case 'groupmenu':    await sendCategoryMenu(nimesha, m, prefix, 'groupmenu',    db); break
+        case 'downloadmenu': await sendCategoryMenu(nimesha, m, prefix, 'downloadmenu', db); break
+        case 'aimenu':       await sendCategoryMenu(nimesha, m, prefix, 'aimenu',       db); break
+        case 'stickersmenu': await sendCategoryMenu(nimesha, m, prefix, 'stickersmenu', db); break
+        case 'gamemenu':     await sendCategoryMenu(nimesha, m, prefix, 'gamemenu',     db); break
+        case 'funmenu':      await sendCategoryMenu(nimesha, m, prefix, 'funmenu',      db); break
+        case 'searchmenu':   await sendCategoryMenu(nimesha, m, prefix, 'searchmenu',   db); break
+        case 'ownermenu':    await sendCategoryMenu(nimesha, m, prefix, 'ownermenu',    db); break
+        case 'adminmenu':    await sendCategoryMenu(nimesha, m, prefix, 'adminmenu',    db); break
+        case 'moviesmenu':   await sendCategoryMenu(nimesha, m, prefix, 'moviesmenu',   db); break
 
-                let deletedCount = 0
-                let anySuccess = false
+        // ════════════════════════════════════════════════════════════════════
+        // BOT CORE
+        // ════════════════════════════════════════════════════════════════════
+        case 'alive': case 'bot': {
+            const aliveText = `╔══════════════════════╗
+║  *🦊 MAUREONIX*  ║
+╚══════════════════════╝
 
-                try {
-                    const storedMsgs = global.store?.messages?.[m.chat]?.array || []
+✅ *Bot is alive!*
+────────────────────
+📅 *Date:* ${tanggal}
+🕐 *Time:* ${jam}
+⏱️ *Uptime:* ${getRuntime()}
+🤖 *Bot:* ${set?.botname||'🦊 MAUREONIX'}
+👑 *Owner:* Infinite Vybeflix
+🔧 *Prefix:* ${prefix}
+⚡ *Mode:* ${global.botMode||'public'}
+📡 *Status:* Online ✅
+────────────────────
+${botFooter}`;
+            const buttons = [
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'📋 Menu',    id:`${prefix}menu` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'⚡ Speed',   id:`${prefix}speed` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'📊 Runtime', id:`${prefix}runtime` }) },
+            ];
+            await nimesha.sendListMsg(m.chat, { text:aliveText, footer:`© 🦊 MAUREONIX`, mentions:[m.sender], buttons }, { quoted:m });
+        }
+        break
 
-                    if (storedMsgs.length > 0) {
-                        const lastMsg = storedMsgs[storedMsgs.length - 1]
-                        try {
-                            await nimesha.chatModify(
-                                {
-                                    clear: {
-                                        messages: storedMsgs.map(msg => ({
-                                            id: msg.key.id,
-                                            fromMe: msg.key.fromMe,
-                                            timestamp: msg.messageTimestamp
-                                        }))
-                                    }
-                                },
-                                m.chat
-                            )
-                            anySuccess = true
-                        } catch {}
+        case 'ping': {
+            const start = Date.now();
+            const pingMsg = await nimesha.sendMessage(m.chat, { text:'🏓 *Ping...*' }, { quoted:m });
+            const pingTime = Date.now()-start;
+            await editAutoDelete(nimesha, m.chat, `🏓 *PONG!*\n────────────────────\n⚡ *Response:* ${pingTime}ms\n📡 *Status:* ${pingTime<500?'🟢 Excellent':pingTime<1000?'🟡 Good':'🔴 Slow'}\n⏱️ *Uptime:* ${getRuntime()}\n────────────────────`, botFooter, pingMsg.key);
+        }
+        break
 
-                        if (!anySuccess) {
-                            try {
-                                await nimesha.chatModify(
-                                    { clear: { messages: [{ id: lastMsg.key.id, fromMe: !!lastMsg.key.fromMe, timestamp: Number(lastMsg.messageTimestamp) }] } },
-                                    m.chat
-                                )
-                                anySuccess = true
-                            } catch {}
-                        }
-                    } else {
-                        try {
-                            await nimesha.chatModify(
-                                { clear: { messages: [{ id: m.key.id, fromMe: true, timestamp: Number(m.messageTimestamp) }] } },
-                                m.chat
-                            )
-                            anySuccess = true
-                        } catch {}
-                    }
+        case 'runtime': case 'uptime': {
+            await sendAutoDelete(nimesha, m.chat, `⏱️ *BOT RUNTIME*\n────────────────────\n🚀 *Uptime:*\n${getRuntime()}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
 
-                    const allMsgs = [...storedMsgs]
+        case 'info': case 'owner': case 'dev': {
+            const buttons = [
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'📋 Menu', id:`${prefix}menu` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'✅ Alive', id:`${prefix}alive` }) },
+            ];
+            await nimesha.sendListMsg(m.chat, {
+                text: `╔══════════════════════╗\n║  *BOT INFORMATION*  ║\n╚══════════════════════╝\n\n🤖 *Bot Name:* ${set?.botname||'🦊 MAUREONIX'}\n👑 *Owner:* Infinite Vybeflix\n📱 *Platform:* WhatsApp\n🔧 *Prefix:* ${prefix}\n⚡ *Mode:* ${global.botMode||'public'}\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n────────────────────\n${botFooter}`,
+                footer:`© 🦊 MAUREONIX`, mentions:[m.sender], buttons
+            }, { quoted:m });
+        }
+        break
 
-                    if (statusMsg?.key) allMsgs.push({ key: statusMsg.key })
-                    if (m?.key) allMsgs.push({ key: m.key })
+        case 'speed': {
+            const sm = await nimesha.sendMessage(m.chat, { text:`⚡ *Speed Test*\n⏳ Testing...` }, { quoted:m });
+            const t1 = Date.now();
+            await axios.get('https://httpbin.org/get',{timeout:10000}).catch(()=>{});
+            const dl = Date.now()-t1;
+            await nimesha.sendMessage(m.chat, { text:`⚡ *Speed Test*\n────────────────────\n📡 Ping: ${dl}ms\n${dl<300?'🟢 Fast':dl<800?'🟡 OK':'🔴 Slow'}\n────────────────────\n${botFooter}`, edit:sm.key });
+        }
+        break
 
-                    const chunks = []
-                    for (let i = 0; i < allMsgs.length; i += 10) chunks.push(allMsgs.slice(i, i + 10))
-                    for (const chunk of chunks) {
-                        await Promise.allSettled(chunk.map(async (msg) => {
-                            try {
-                                await nimesha.sendMessage(m.chat, { delete: msg.key })
-                                deletedCount++
-                            } catch {}
-                        }))
-                        await new Promise(r => setTimeout(r, 200))
-                    }
-                    if (deletedCount > 0) anySuccess = true
+        case 'help': case 'helpcenter': {
+            const buttons = [
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'📋 Main Menu', id:`${prefix}menu` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'✅ Alive Check', id:`${prefix}alive` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'⚡ Speed Test', id:`${prefix}speed` }) },
+            ];
+            await nimesha.sendListMsg(m.chat, {
+                text: `📋 *HELP CENTER*\n────────────────────\n🎵 *MUSIC:* ${prefix}song, ${prefix}mp3, ${prefix}play\n🎬 *VIDEO:* ${prefix}video, ${prefix}mp4, ${prefix}ytmp4\n📱 *APK:* ${prefix}apk [name]\n🤖 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama3\n🎨 *IMAGE:* ${prefix}imagine, ${prefix}flux, ${prefix}sticker\n🎬 *MOVIES:* ${prefix}movie, ${prefix}series, ${prefix}topmovies\n🎮 *GAMES:* ${prefix}gamelist, ${prefix}topgames, ${prefix}searchgame\n🌐 *TRANSLATE:* ${prefix}trt [text] [lang]\n🔊 *TTS:* ${prefix}tts [text]\n📸 *SS:* ${prefix}ss [url]\n🛡️ *ADMIN:* ${prefix}automod, ${prefix}antilink, ${prefix}lock\n⚙️ *MODE:* ${prefix}mode public/private/restricted\n📋 *MENU:* ${prefix}menu (beautiful list+image)\n────────────────────\n${botFooter}`,
+                footer:`© 🦊 MAUREONIX`, mentions:[m.sender], buttons
+            }, { quoted:m });
+        }
+        break
 
-                } catch (e) {}
+        case 'jid': {
+            const jidMsg = await nimesha.sendMessage(m.chat, { text:`📱 *Getting JID...*\n${botFooter}` }, { quoted:m });
+            await editAutoDelete(nimesha, m.chat, `📱 *JID Info*\n────────────────────\n👤 *Your JID:* ${m.sender}\n💬 *Chat JID:* ${m.chat}\n────────────────────`, botFooter, jidMsg.key);
+        }
+        break
 
-                try {
-                    await nimesha.sendMessage(m.chat, {
-                        text: anySuccess
-                            ? `✅ *Success!*\n━━━━━━━━━━━━━━━━━━━━━━\n🗑️ *${deletedCount}* messages deleted\n━━━━━━━━━━━━━━━━━━━━━━`
-                            : '❌ *Failed to clear chat!*',
-                        edit: statusMsg.key
-                    })
-                } catch {
-                    m.reply(anySuccess ? `✅ ${deletedCount} messages deleted` : '❌ Failed to clear chat!')
-                }
-            }
-            break
-            case 'getmsgstore': case 'storemsg': {
-                if (!isCreator) return m.reply(mess.owner)
-                let [teks1, teks2] = text.split`|`
-                if (teks1 && teks2) {
-                    const msgnya = await global.loadMessage(teks1, teks2)
-                    if (msgnya?.message) await nimesha.relayMessage(m.chat, msgnya.message, {})
-                    else m.reply('Message not found!')
-                } else m.reply(`Example: ${prefix + command} 123xxx@g.us|3EB0xxx`)
-            }
-            break
-            case 'blokir': case 'block': {
-                if (!isCreator) return m.reply(mess.owner)
-                let _blockJid = null
-                if (m.quoted?.sender) {
-                    _blockJid = m.quoted.sender
-                } else if (m.mentionedJid?.[0]) {
-                    _blockJid = m.mentionedJid[0]
-                } else if (text) {
-                    const _rawNum = text.replace(/[^0-9]/g, '')
-                    const _lidFromStore = nimesha.findJidByLid(_rawNum + '@lid', store)
-                    _blockJid = _lidFromStore || (_rawNum + '@s.whatsapp.net')
-                } else if (!m.isGroup) {
-                    _blockJid = m.chat
-                }
-                if (_blockJid) {
-                    const _blockNum = _blockJid.replace('@s.whatsapp.net','').replace('@lid','')
+        case 'url': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text!\nExample: ${prefix}url hello world`, botFooter, { quoted:m });
+            await sendAutoDelete(nimesha, m.chat, `🔗 *URL Encoded*\n────────────────────\n📝 *Original:* ${q}\n🔤 *Encoded:* ${encodeURIComponent(q)}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
 
-                    const _pnJid = _blockNum + '@s.whatsapp.net'
-                    let _lidJid = _blockJid.endsWith('@lid') ? _blockJid : null
+        case 'vv': case 'ok': case 'wow': {
+            const quoted = m.quoted;
+            if (!quoted) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to a view once message!`, botFooter, { quoted:m });
+            try {
+                const msg = quoted.message?.viewOnceMessage?.message || quoted.message?.viewOnceMessageV2?.message || quoted.message;
+                if (msg?.imageMessage) { const buffer = await nimesha.downloadMediaMessage(quoted); await nimesha.sendMessage(m.chat, { image:buffer, caption:`👁️ *View Once Revealed*\n${botFooter}` }, { quoted:m }); }
+                else if (msg?.videoMessage) { const buffer = await nimesha.downloadMediaMessage(quoted); await nimesha.sendMessage(m.chat, { video:buffer, caption:`👁️ *View Once Revealed*\n${botFooter}` }, { quoted:m }); }
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
 
-                    if (!_lidJid) {
-                        try {
-                            const _lidResult = await nimesha.signalRepository?.lidMapping?.getLIDForPN(_pnJid)
-                            if (_lidResult) _lidJid = _lidResult
-                        } catch {}
-                    }
-                    if (!_lidJid) {
-                        try {
-                            const _wa = await nimesha.onWhatsApp(_pnJid).catch(() => [])
-                            if (_wa?.[0]?.lid) _lidJid = _wa[0].lid
-                        } catch {}
-                    }
-                    if (!_lidJid) {
-                        try {
-                            const _fl = nimesha.findJidByLid(_blockNum + '@lid', store)
-                            if (_fl) _lidJid = _fl
-                        } catch {}
-                    }
+        case 'github': case 'repo': case 'git': case 'sc': case 'script': {
+            const buttons = [
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'⭐ GitHub', id:`${prefix}alive` }) },
+                { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'📋 Menu', id:`${prefix}menu` }) },
+            ];
+            await nimesha.sendListMsg(m.chat, { text:`💻 *GitHub / Source Code*\n────────────────────\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n👑 *Owner:* Infinite Vybeflix\n⭐ *Star the repo!*\n────────────────────\n${botFooter}`, footer:`© 🦊 MAUREONIX`, mentions:[m.sender], buttons }, { quoted:m });
+        }
+        break
 
-                    const _jidsToBlock = [...new Set([_pnJid, _lidJid].filter(Boolean))]
+        case 'groupinfo': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            try {
+                const metadata = await nimesha.groupMetadata(m.chat);
+                const admins   = metadata.participants.filter(p=>p.admin);
+                await nimesha.sendMessage(m.chat, { text:`👥 *Group Info*\n────────────────────\n📌 *Name:* ${metadata.subject}\n🆔 *ID:* ${m.chat}\n👥 *Members:* ${metadata.participants.length}\n👮 *Admins:* ${admins.length}\n📝 *Description:*\n${metadata.desc||'N/A'}\n📅 *Created:* ${new Date(metadata.creation*1000).toLocaleDateString()}\n────────────────────\n${botFooter}` }, { quoted:m });
+            } catch { await sendAutoDelete(nimesha, m.chat, `❌ Could not get group info`, botFooter, { quoted:m }); }
+        }
+        break
 
-                    const _doBlockJid = async (jid) => {
-                        try { await nimesha.updateBlockStatus(jid, 'block') } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }) } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }) } catch {}
-                        try { await nimesha.sendNode({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }) } catch {}
-                        try { await nimesha.ws?.sendNode?.({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'blocklist', id: nimesha.generateMessageTag() }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }) } catch {}
-                        try { await nimesha.assertSessions([jid], true); await nimesha.updateBlockStatus(jid, 'block') } catch {}
-                    }
+        case 'staff': case 'admins': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            try {
+                const metadata = await nimesha.groupMetadata(m.chat);
+                const admins   = metadata.participants.filter(p=>p.admin);
+                const adminList = admins.map(a=>`👮 @${a.id.split('@')[0]}`).join('\n');
+                await nimesha.sendMessage(m.chat, { text:`👮 *Group Admins (${admins.length})*\n────────────────────\n${adminList}\n────────────────────\n${botFooter}`, mentions:admins.map(a=>a.id) }, { quoted:m });
+            } catch { await sendAutoDelete(nimesha, m.chat, `❌ Could not get admin list`, botFooter, { quoted:m }); }
+        }
+        break
 
-                    for (const _jid of _jidsToBlock) await _doBlockJid(_jid)
-
-                    await new Promise(r => setTimeout(r, 1500))
-                    let _verified = false
-                    try {
-                        const _bl = await nimesha.fetchBlocklist().catch(() => [])
-                        _verified = _bl.some(j => j.replace('@s.whatsapp.net','').replace('@lid','') === _blockNum)
-                    } catch {}
-
-                    if (_verified) {
-                        m.reply([
-                            '',
-                            '*━━━━━━━━━━━━━━━━━━━━━━*',
-                            '*┃  🚫  B L O C K E D  🚫  ┃*',
-                            '*━━━━━━━━━━━━━━━━━━━━━━*',
-                            '',
-                            '📱 *Number   :*  +' + _blockNum,
-                            '📅 *Date        :*  ' + date,
-                            '🕐 *Time        :*  ' + time,
-                            '🚫 *Status     :*  Blocked',
-                            '',
-                            '━━━━━━━━━━━━━━━━━━━━━━',
-                            '',
-                            '_You blocked them, they cannot_',
-                            '_message you or call you._',
-                            '',
-                            '━━━━━━━━━━━━━━━━━━━━━━',
-                        ].join('\n'))
-                    } else {
-                        m.reply('❌ Block failed!')
-                    }
-                } else {
-                    m.reply(`📌 *Block Command*\n━━━━━━━━━━━━━━\n▸ Reply: ${prefix}block\n▸ Tag: ${prefix}block @mention\n▸ Number: ${prefix}block 94xxx\n▸ Private chat: ${prefix}block`)
-                }
-            }
-            break
-            case 'allblock': {
-                if (!isCreator) return m.reply(mess.owner)
-
-                const _allJids = new Set()
-                const _ownerNums = ownerNumber.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')
-                const _addJid = (j) => {
-                    if (!j) return
-                    const _isPn = j.endsWith('@s.whatsapp.net')
-                    const _isLid = j.endsWith('@lid')
-                    if (!_isPn && !_isLid) return
-                    if (j === botNumber) return
-                    if (_ownerNums.includes(j)) return
-                    _allJids.add(j)
-                }
-
-                try { Object.keys(store?.messages || {}).forEach(_addJid) } catch {}
-                try { Object.keys(global.store?.messages || {}).forEach(_addJid) } catch {}
-                try { Object.keys(store?.contacts || {}).forEach(_addJid) } catch {}
-                try { Object.keys(global.store?.contacts || {}).forEach(_addJid) } catch {}
-                try { Object.keys(store?.chats || {}).forEach(_addJid) } catch {}
-                try {
-                    Object.values(store?.messages || {}).forEach(ml => {
-                        ;(ml?.array || []).forEach(msg => {
-                            _addJid(msg?.key?.participant)
-                            _addJid(msg?.key?.remoteJid)
-                            _addJid(msg?.participantAlt)
-                            _addJid(msg?.key?.remoteJidAlt)
-                        })
-                    })
-                } catch {}
-                try { Object.keys(db?.users || {}).forEach(_addJid) } catch {}
-
-                if (_allJids.size === 0) return m.reply('❌ No JIDs found to block.\n\nBot hasn\'t exchanged messages with anyone, store empty.')
-
-                let _alreadyBlocked = new Set()
-                try {
-                    const _bl = await nimesha.fetchBlocklist().catch(() => [])
-                    _bl.forEach(j => _alreadyBlocked.add(j.replace('@s.whatsapp.net','').replace('@lid','')))
-                } catch {}
-
-                const _targets = [..._allJids].filter(j => !_alreadyBlocked.has(j.replace('@s.whatsapp.net','').replace('@lid','')))
-                if (_targets.length === 0) return m.reply(`✅ All (${_allJids.size}) contacts are already blocked!`)
-
-                const _prog = await m.reply(`⏳ Blocking... (0/${_targets.length})`)
-                let _ok = 0
-
-                const _doBlockAll = async (jid) => {
-                    const _num = jid.replace('@s.whatsapp.net','').replace('@lid','')
-                    const _pn = _num + '@s.whatsapp.net'
-                    let _lid = jid.endsWith('@lid') ? jid : null
-
-                    if (!_lid) {
-                        try { const r = await nimesha.signalRepository?.lidMapping?.getLIDForPN(_pn); if (r) _lid = r } catch {}
-                    }
-                    if (!_lid) {
-                        try { const wa = await nimesha.onWhatsApp(_pn).catch(() => []); if (wa?.[0]?.lid) _lid = wa[0].lid } catch {}
-                    }
-                    if (!_lid) {
-                        try { const fl = nimesha.findJidByLid(_num + '@lid', store); if (fl) _lid = fl } catch {}
-                    }
-
-                    const _jids = [...new Set([_pn, _lid].filter(Boolean))]
-
-                    for (const _j of _jids) {
-                        try { await nimesha.updateBlockStatus(_j, 'block') } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: _j } }] }) } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: _j } }] }) } catch {}
-                        try { await nimesha.sendNode({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: _j } }] }) } catch {}
-                        try { await nimesha.ws?.sendNode?.({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'blocklist', id: nimesha.generateMessageTag() }, content: [{ tag: 'item', attrs: { action: 'block', jid: _j } }] }) } catch {}
-                        try { await nimesha.assertSessions([_j], true); await nimesha.updateBlockStatus(_j, 'block') } catch {}
-                    }
-                }
-
-                for (let _i = 0; _i < _targets.length; _i++) {
-                    await _doBlockAll(_targets[_i])
-                    _ok++
-                    if ((_i + 1) % 5 === 0 || _i + 1 === _targets.length) {
-                        await nimesha.sendMessage(m.chat, { text: `⏳ Blocking... (${_i + 1}/${_targets.length})`, edit: _prog.key }).catch(() => {})
-                        await new Promise(r => setTimeout(r, 200))
-                    }
-                }
-
-                await new Promise(r => setTimeout(r, 2000))
-                let _finalOk = 0, _finalFail = 0
-                try {
-                    const _finalBl = await nimesha.fetchBlocklist().catch(() => [])
-                    const _finalNums = new Set(_finalBl.map(j => j.replace('@s.whatsapp.net','').replace('@lid','')))
-                    _finalOk = _targets.filter(j => _finalNums.has(j.replace('@s.whatsapp.net','').replace('@lid',''))).length
-                    _finalFail = _targets.length - _finalOk
-                } catch { _finalOk = _ok }
-
-                await nimesha.sendMessage(m.chat, { text: [
-                    '',
-                    '*━━━━━━━━━━━━━━━━━━━━━━*',
-                    '*┃  🚫  ALL BLOCKED  🚫  ┃*',
-                    '*━━━━━━━━━━━━━━━━━━━━━━*',
-                    '',
-                    '✅ *Blocked   :*  ' + _finalOk,
-                    '❌ *Failed     :*  ' + _finalFail,
-                    '🔒 *Already   :*  ' + _alreadyBlocked.size,
-                    '👥 *Total       :*  ' + _allJids.size,
-                    '📅 *Date         :*  ' + date,
-                    '🕐 *Time         :*  ' + time,
-                    '',
-                    '━━━━━━━━━━━━━━━━━━━━━━',
-                ].join('\n'), edit: _prog.key }).catch(() => {})
-            }
-            break
-            case 'allunblock': {
-                if (!isCreator) return m.reply(mess.owner)
-                const _blocklist = await nimesha.fetchBlocklist().catch(() => [])
-                if (_blocklist.length === 0) return m.reply('❌ No blocked contacts.')
-                const _uprogMsg = await m.reply(`⏳ Unblocking... (0/${_blocklist.length})`)
-                let _unblocked = 0, _ufailed = 0, _umethods = {}
-
-                const tryUnblock = async (jid) => {
-                    try {
-                        await nimesha.updateBlockStatus(jid, 'unblock')
-                        _umethods['m1'] = (_umethods['m1'] || 0) + 1
-                        return true
-                    } catch {}
-                    try {
-                        await nimesha.query({
-                            tag: 'iq',
-                            attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' },
-                            content: [{ tag: 'item', attrs: { action: 'unblock', jid } }]
-                        })
-                        _umethods['m2'] = (_umethods['m2'] || 0) + 1
-                        return true
-                    } catch {}
-                    try {
-                        await nimesha.sendNode({
-                            tag: 'iq',
-                            attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' },
-                            content: [{ tag: 'item', attrs: { action: 'unblock', jid } }]
-                        })
-                        _umethods['m3'] = (_umethods['m3'] || 0) + 1
-                        return true
-                    } catch {}
-                    return false
-                }
-
-                for (const _jid of _blocklist) {
-                    const ok = await tryUnblock(_jid)
-                    if (ok) { _unblocked++ } else { _ufailed++ }
-                    const _total = _unblocked + _ufailed
-                    if (_total % 5 === 0 || _total === _blocklist.length) {
-                        await nimesha.sendMessage(m.chat, {
-                            text: `⏳ Unblocking... (${_total}/${_blocklist.length}) ✅${_unblocked} ❌${_ufailed}`,
-                            edit: _uprogMsg.key
-                        }).catch(() => {})
-                        await new Promise(r => setTimeout(r, 300))
-                    }
-                }
-                const _umStr = Object.entries(_umethods).map(([k,v]) => k+'='+v).join(' | ') || 'none'
-                await nimesha.sendMessage(m.chat, { text: [
-                    '',
-                    '*━━━━━━━━━━━━━━━━━━━━━━*',
-                    '*┃  ✅  ALL UNBLOCKED  ✅  ┃*',
-                    '*━━━━━━━━━━━━━━━━━━━━━━*',
-                    '',
-                    '🔓 *Unblock  :*  ' + _unblocked,
-                    '❌ *Failed     :*  ' + _ufailed,
-                    '👥 *Total       :*  ' + _blocklist.length,
-                    '📅 *Date         :*  ' + date,
-                    '🕐 *Time         :*  ' + time,
-                    '',
-                    '🔧 *Methods  :*  ' + _umStr,
-                    '',
-                    '━━━━━━━━━━━━━━━━━━━━━━',
-                ].join('\n'), edit: _uprogMsg.key }).catch(() => {})
-            }
-            break
-            case 'listblock': {
-                let anu = await nimesha.fetchBlocklist()
-                const _msg_listblock = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: `Block count: ${anu.length}\n` + anu.map(v => '• ' + v.replace(/@.+/, '')).join`\n`, edit: _msg_listblock.key });
-            }
-            break
-            case 'openblokir': case 'unblokir': case 'openblock': case 'unblock': {
-                if (!isCreator) return m.reply(mess.owner)
-                let _unblockJid = null
-                if (m.quoted?.sender) {
-                    _unblockJid = m.quoted.sender
-                } else if (m.mentionedJid?.[0]) {
-                    _unblockJid = m.mentionedJid[0]
-                } else if (text) {
-                    _unblockJid = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
-                } else if (!m.isGroup) {
-                    _unblockJid = m.chat
-                }
-                if (_unblockJid) {
-                    const _unblockNum = _unblockJid.replace('@s.whatsapp.net','').replace('@lid','')
-                    await nimesha.updateBlockStatus(_unblockJid, 'unblock')
-                        .then(() => {
-                            m.reply([
-                                '',
-                                '*━━━━━━━━━━━━━━━━━━━━━━*',
-                                '*┃  ✅  U N B L O C K E D  ✅  ┃*',
-                                '*━━━━━━━━━━━━━━━━━━━━━━*',
-                                '',
-                                '📱 *Number   :*  +' + _unblockNum,
-                                '📅 *Date        :*  ' + date,
-                                '🕐 *Time        :*  ' + time,
-                                '✅ *Status     :*  Unblocked',
-                                '',
-                                '━━━━━━━━━━━━━━━━━━━━━━',
-                                '',
-                                '_Block has been removed._',
-                                '_They can now message you._',
-                                '',
-                                '━━━━━━━━━━━━━━━━━━━━━━',
-                            ].join('\n'));
-                        })
-                        .catch(() => m.reply('❌ Unblock failed!'))
-                } else {
-                    m.reply(`📌 *Unblock Command*\n━━━━━━━━━━━━━━\n▸ Reply: ${prefix}unblock\n▸ Tag: ${prefix}unblock @mention\n▸ Number: ${prefix}unblock 94xxx`)
-                }
-            }
-            break
-            case 'ban': case 'banned': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx`)
-                const findJid = nimesha.findJidByLid(text.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = text.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                if (db.users[nmrnya] && !db.users[nmrnya].ban) {
-                    db.users[nmrnya].ban = true
-                    m.reply('User banned!')
-                } else m.reply('User not registered in database!')
-            }
-            break
-            case 'unban': case 'unbanned': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx`)
-                const findJid = nimesha.findJidByLid(text.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = text.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                if (db.users[nmrnya] && db.users[nmrnya].ban) {
-                    db.users[nmrnya].ban = false
-                    m.reply('User unbanned!')
-                } else m.reply('User not registered in database!')
-            }
-            break
-            case 'mute': case 'unmute': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!m.isGroup) return m.reply(mess.group)
-                if (command == 'mute') {
-                    db.groups[m.chat].mute = true
-                    m.reply('Bot has been muted in this group!')
-                } else if (command == 'unmute') {
-                    db.groups[m.chat].mute = false
-                    m.reply('Unmute successful!')
-                }
-            }
-            break
-            case 'addowner': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text || isNaN(text)) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx`)
-                const findJid = nimesha.findJidByLid(text.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = text.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                if (set?.owner) {
-                    if (set.owner.find(a => a === nmrnya)) return m.reply('That number is already in the owner list!')
-                    set.owner.push(nmrnya);
-                }
-                m.reply('Owner added successfully!')
-            }
-            break
-            case 'delowner': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text || isNaN(text)) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx`)
-                const findJid = nimesha.findJidByLid(text.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = text.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                let list = set.owner
-                const index = list.findIndex(o => o === nmrnya);
-                if (index === -1) return m.reply('Owner not found in list!')
-                list.splice(index, 1)
-                m.reply('Owner removed successfully!')
-            }
-            break
-            case 'adduang': case 'addmoney': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!args[0] || !args[1] || isNaN(args[1])) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx 1000`)
-                if (args[1].length > 15) return m.reply('Amount must be up to 15 digits!')
-                const findJid = nimesha.findJidByLid(args[0].replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = args[0].replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                if (db.users[nmrnya] && db.users[nmrnya].money >= 0) {
-                    addMoney(args[1], nmrnya, db)
-                    m.reply('Money added successfully!')
-                } else m.reply('User not registered in database!')
-            }
-            break
-            case 'addlimit': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!args[0] || !args[1] || isNaN(args[1])) return m.reply(`📌 Enter number or tag!\nExample:\n${prefix + command} 94xxx 10`)
-                if (args[1].length > 10) return m.reply('Limit must be up to 10 digits!')
-                const findJid = nimesha.findJidByLid(args[0].replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = args[0].replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                if (db.users[nmrnya] && db.users[nmrnya].limit >= 0) {
-                    addLimit(args[1], nmrnya, db)
-                    m.reply('Limit added successfully!')
-                } else m.reply('User not registered in database!')
-            }
-            break
-            case 'listpc': {
-                if (!isCreator) return m.reply(mess.owner)
-                let anu = Object.keys(store.messages).filter(a => a.endsWith('.net') || a.endsWith('lid'));
-                let teks = `● *Private Chat List*\n\nChat count: ${anu.length} Chat\n\n`
-                if (anu.length === 0) return m.reply(teks)
-                for (let i of anu) {
-                    if (store.messages?.[i]?.array?.length) {
-                        let nama = nimesha.getName(m.sender)
-                        teks += `${setv} *Name:* ${nama}\n${setv} *User:* @${i.split('@')[0]}\n${setv} *Chat:* https://wa.me/${i.split('@')[0]}\n\n=====================\n\n`
-                    }
-                }
-                await m.reply(teks)
-            }
-            break
-            case 'listgc': {
-                if (!isCreator) return m.reply(mess.owner)
-                let anu = Object.keys(store.messages).filter(a => a.endsWith('@g.us'));
-                let teks = `● *Group Chat List*\n\nGroup count: ${anu.length} Group\n\n`
-                if (anu.length === 0) return m.reply(teks)
-                for (let i of anu) {
-                    let metadata;
-                    try {
-                        metadata = store.groupMetadata[i]
-                    } catch (e) {
-                        metadata = (store.groupMetadata[i] = await nimesha.groupMetadata(i).catch(e => ({})))
-                    }
-                    teks += metadata?.subject ? `${setv} *Name:* ${metadata.subject}\n${setv} *Admin:* ${metadata.owner ? `@${metadata.owner.split('@')[0]}` : '-' }\n${setv} *ID:* ${metadata.id}\n${setv} *Created:* ${moment(metadata.creation * 1000).tz('Asia/Colombo').format('DD/MM/YYYY HH:mm:ss')}\n${setv} *Members:* ${metadata.participants.length}\n\n=====================\n\n` : ''
-                }
-                await m.reply(teks)
-            }
-            break
-            case 'creategc': case 'buatgc': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`Example:\n${prefix + command} *Group name*`)
-                let group = await nimesha.groupCreate(q, [m.sender])
-                let res = await nimesha.groupInviteCode(group.id)
-                await m.reply(`*Group Link :* *https://chat.whatsapp.com/${res}*\n\n*Group Name :* *${group.subject}*\nPlease join within 30 seconds to become admin`, { detectLink: true })
-                await sleep(30000)
-                await nimesha.groupParticipantsUpdate(group.id, [m.sender], 'promote').catch(e => {});
-                await nimesha.sendMessage(group.id, { text: 'Correct' })
-            }
-            break
-            case 'addsewa': case 'sewa': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`Example:\n${prefix + command} https://chat.whatsapp.com/xxx | time\n${prefix + command} https://chat.whatsapp.com/xxx | 30 days`)
-                let [teks1, teks2] = text.split('|')?.map(x => x.trim()) || [];
-                if (!isUrl(teks1) && !teks1.includes('chat.whatsapp.com/')) return m.reply('Invalid link!')
-                const urlny = teks1.match(/chat\.whatsapp\.com\/([0-9A-Za-z]+)/)
-                if (!urlny) return m.reply('Invalid link!')
-                try {
-                    await nimesha.groupAcceptInvite(urlny[1])
-                } catch (e) {
-                    if (e.data == 400) return m.reply('Group not found!');
-                    if (e.data == 401) return m.reply('Bot was kicked from the group!');
-                    if (e.data == 410) return m.reply('Group link has been reset!');
-                    if (e.data == 500) return m.reply('Group is full!');
-                }
-                await nimesha.groupGetInviteInfo(urlny[1]).then(a => {
-                    addExpired({ url: urlny[1], expired: (teks2?.replace(/[^0-9]/g, '') || 30) + 'd', id: a.id }, sewa)
-                    m.reply('Successfully added rental period: ' + (teks2?.replace(/[^0-9]/g, '') || 30) + ' days\nBot will leave when time expires!')
-                }).catch(e => m.reply('Failed to add rental!'))
-            }
-            break
-            case 'delsewa': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`Example:\n${prefix + command} https://chat.whatsapp.com/xxxx\n Or \n${prefix + command} id_group@g.us`)
-                let urlny;
-                if (text.includes('chat.whatsapp.com/')) {
-                    urlny = text.match(/chat\.whatsapp\.com\/([0-9A-Za-z]+)/)[1]
-                } else if (/@g\.us$/.test(text)) {
-                    urlny = text.trim()
-                } else {
-                    return m.reply('Invalid format!')
-                }
-                if (checkStatus(urlny, sewa)) {
-                    await m.reply('Successfully deleted rental')
-                    await nimesha.groupLeave(getStatus(urlny, sewa).id).catch(e => {});
-                    sewa.splice(getPosition(urlny, sewa), 1);
-                } else m.reply(`${text} not registered in database\nExample:\n${prefix + command} https://chat.whatsapp.com/xxxx\n Or \n${prefix + command} id_group@g.us`)
-            }
-            break
-            case 'listsewa': {
-                if (!isCreator) return m.reply(mess.owner)
-                let txt = `*------「 Rental List 」------*\n\n`
-                for (let s of sewa) {
-                    txt += `➸ *ID:* ${s.id}\n➸ *URL:* https://chat.whatsapp.com/${s.url}\n➸ *Expired:* ${formatDate(s.expired)}\n\n`
-                }
-                m.reply(txt)
-            }
-            break
-            case 'addpr': case 'addprem': case 'addpremium': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`Example:\n${prefix + command} @tag|time\n${prefix + command} @${m.sender.split('@')[0]}|30 days`)
-                let [teks1, teks2] = text.split('|').map(x => x.trim());
-                const findJid = nimesha.findJidByLid(teks1.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = teks1.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                if (teks2) {
-                    if (db.users[nmrnya] && db.users[nmrnya].limit >= 0) {
-                        addExpired({ id: nmrnya, expired: teks2.replace(/[^0-9]/g, '') + 'd' }, premium);
-                        m.reply(`Successfully ${command} @${nmrnya.split('@')[0]} time: ${teks2}`)
-                        db.users[nmrnya].limit += db.users[nmrnya].vip ? limit.vip : limit.premium
-                        db.users[nmrnya].money += db.users[nmrnya].vip ? money.vip : money.premium
-                    } else m.reply('Number not registered with the bot!\nMake sure the number has used the bot!')
-                } else m.reply(`Enter time!\nExample:\n${prefix + command} @tag|time\n${prefix + command} @${m.sender.split('@')[0]}|30d\n_d = day_`)
-            }
-            break
-            case 'delpr': case 'delprem': case 'delpremium': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply(`Example:\n${prefix + command} @tag`)
-                const findJid = nimesha.findJidByLid(text.replace(/[^0-9]/g, '') + '@lid', store);
-                const klss = text.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                const nmrnya = nimesha.findJidByLid(klss, store, true)
-                if (db.users[nmrnya] && db.users[nmrnya].limit >= 0) {
-                    if (checkStatus(nmrnya, premium)) {
-                        premium.splice(getPosition(nmrnya, premium), 1);
-                        m.reply(`Successfully ${command} @${nmrnya.split('@')[0]}`)
-                        db.users[nmrnya].limit += db.users[nmrnya].vip ? limit.vip : limit.free
-                        db.users[nmrnya].money += db.users[nmrnya].vip ? money.vip : money.free
-                    } else m.reply(`⚠️ @${nmrnya.split('@')[0]} is not a premium user!`)
-                } else m.reply('Number not registered with the bot!')
-            }
-            break
-            case 'listpr': case 'listprem': case 'listpremium': {
-                if (!isCreator) return m.reply(mess.owner)
-                let txt = `*------「 Premium List 」------*\n\n`
-                for (let userprem of premium) {
-                    txt += `➸ *Number:* @${userprem.id.split('@')[0]}\n➸ *Limit:* ${db.users[userprem.id].limit}\n➸ *Money:* ${db.users[userprem.id].money.toLocaleString('en-US')}\n➸ *Expired:* ${formatDate(userprem.expired)}\n\n`
-                }
-                m.reply(txt)
-            }
-            break
-            case 'upsw': {
-                if (!isCreator) return m.reply(mess.owner)
-                const statusJidList = Object.keys(db.users)
-                const backgroundColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
-                try {
-                    if (quoted.isMedia) {
-                        if (/image|video/.test(quoted.mime)) {
-                            await nimesha.sendMessage('status@broadcast', {
-                                [`${quoted.mime.split('/')[0]}`]: await quoted.download(),
-                                caption: text || m.quoted?.body || ''
-                            }, { statusJidList, broadcast: true })
-                            m.react('✅')
-                        } else if (/audio/.test(quoted.mime)) {
-                            await nimesha.sendMessage('status@broadcast', {
-                                audio: await quoted.download(),
-                                mimetype: 'audio/mp4',
-                                ptt: true
-                            }, { backgroundColor, statusJidList, broadcast: true })
-                            m.react('✅')
-                        } else m.reply('Only video/audio/image/text supported')
-                    } else if (quoted.text) {
-                        await nimesha.sendMessage('status@broadcast', { text: text || m.quoted?.body || '' }, {
-                            textArgb: 0xffffffff,
-                            font: Math.floor(Math.random() * 9),
-                            backgroundColor, statusJidList,
-                            broadcast: true
-                        })
-                        m.react('✅')
-                    } else m.reply('Only video/audio/image/text supported')
-                } catch (e) {
-                    m.reply('Failed to upload WhatsApp Status!')
-                }
-            }
-            break
-            case 'addcase': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text && !text.startsWith('case')) return m.reply('Enter the case!')
-                fs.readFile('nima.js', 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('Error reading file:', err);
-                        return;
-                    }
-                    const posisi = data.indexOf("case '19rujxl1e':");
-                    if (posisi !== -1) {
-                        const codeBaru = data.slice(0, posisi) + '\n' + `${text}` + '\n' + data.slice(posisi);
-                        fs.writeFile('nima.js', codeBaru, 'utf8', (err) => {
-                            if (err) {
-                                m.reply('Error writing file: ', err);
-                            } else m.reply('Case added successfully!');
-                        });
-                    } else m.reply('Failed to add case!');
-                });
-            }
-            break
-            case 'getcase': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply('Enter the case name!')
-                try {
-                    const getCase = (cases) => {
-                        return "case"+`'${cases}'`+fs.readFileSync("nima.js").toString().split('case \''+cases+'\'')[1].split("break")[0]+"break"
-                    }
-                    m.reply(`${getCase(text)}`)
-                } catch (e) {
-                    m.reply(`❌ *${text}* command not found!`)
-                }
-            }
-            break
-            case 'delcase': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply('Enter the case name!')
-                fs.readFile('nima.js', 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('Error reading file:', err);
-                        return;
-                    }
-                    const regex = new RegExp(`case\\s+'${text.toLowerCase()}':[\\s\\S]*?break`, 'g');
-                    const modifiedData = data.replace(regex, '');
-                    fs.writeFile('nima.js', modifiedData, 'utf8', (err) => {
-                        if (err) {
-                            m.reply('Error writing file: ', err);
-                        } else m.reply('Case removed successfully from file!');
-                    });
-                });
-            }
-            break
-            case 'backup': {
-                if (!isCreator) return m.reply(mess.owner)
-                switch (args[0]) {
-                    case 'all':
-                    let bekup = './database/backup_all.tar.gz';
-                    tarBackup('./', bekup).then(() => {
-                        return m.reply({
-                            document: fs.readFileSync(bekup),
-                            mimetype: 'application/gzip',
-                            fileName: 'backup_all.tar.gz'
-                        })
-                    }).catch(e => m.reply('Backup failed: ', + e))
-                    break
-                    case 'auto':
-                    if (set.autobackup) return m.reply('Already enabled!')
-                    set.autobackup = true
-                    m.reply('Auto backup enabled successfully!')
-                    break
-                    case 'session':
-                    await m.reply({
-                        document: fs.readFileSync('./nima/creds.json'),
-                        mimetype: 'application/json',
-                        fileName: 'creds.json'
-                    });
-                    break
-                    case 'database':
-                    let tglnya = new Date().toISOString().replace(/[:.]/g, '-');
-                    let datanya = './database/' + tempatDB;
-                    if (tempatDB.startsWith('mongodb')) {
-                        datanya = './database/backup_database.json';
-                        fs.writeFileSync(datanya, JSON.stringify(global.db, null, 2), 'utf-8');
-                    }
-                    await m.reply({
-                        document: fs.readFileSync(datanya),
-                        mimetype: 'application/json',
-                        fileName: tglnya + '_database.json'
-                    })
-                    break
-                    default:
-                    m.reply('Use commands:\n- backup all\n- backup auto\n- backup session\n- backup database');
-                }
-            }
-            break
-            case 'getsession': {
-                if (!isCreator) return m.reply(mess.owner)
-                await m.reply({
-                    document: fs.readFileSync('./nima/creds.json'),
-                    mimetype: 'application/json',
-                    fileName: 'creds.json'
-                });
-            }
-            break
-            case 'deletesession': case 'delsession': {
-                if (!isCreator) return m.reply(mess.owner)
-                fs.readdir('./nima', async function (err, files) {
-                    if (err) {
-                        console.error('Cannot scan directory: ' + err);
-                        return m.reply('Cannot scan directory: ' + err);
-                    }
-                    let filteredArray = await files.filter(item => ['session-', 'pre-key', 'sender-key', 'app-state'].some(ext => item.startsWith(ext)));                    
-                    let teks = `Detected ${filteredArray.length} session files\n\n`
-                    if(filteredArray.length == 0) return m.reply(teks);
-                    filteredArray.map(function(e, i) {
-                        teks += (i+1)+`. ${e}\n`
-                    })
-                    if (text && text == 'true') {
-                        let { key } = await m.reply('Deleting session files...')
-                        await filteredArray.forEach(function (file) {
-                            fs.unlinkSync('./nima/' + file)
-                        });
-                        sleep(2000)
-                        m.reply('Session garbage deleted successfully!', { edit: key })
-                    } else m.reply(teks + `\n_Type ${prefix + command} true_ to delete`)
-                });
-            }
-            break
-            case 'deletesampah': case 'delsampah': {
-                if (!isCreator) return m.reply(mess.owner)
-                fs.readdir('./database/sampah', async function (err, files) {
-                    if (err) {
-                        console.error('Cannot scan directory: ' + err);
-                        return m.reply('Cannot scan directory: ' + err);
-                    }
-                    let filteredArray = await files.filter(item => ['gif', 'png', 'bin','mp3', 'mp4', 'jpg', 'webp', 'webm', 'opus', 'jpeg'].some(ext => item.endsWith(ext)));
-                    let teks = `Detected ${filteredArray.length} garbage files\n\n`
-                    if(filteredArray.length == 0) return m.reply(teks);
-                    filteredArray.map(function(e, i) {
-                        teks += (i+1)+`. ${e}\n`
-                    })
-                    if (text && text == 'true') {
-                        let { key } = await m.reply('Deleting garbage files...')
-                        await filteredArray.forEach(function (file) {
-                            fs.unlinkSync('./database/temp/' + file)
-                        });
-                        sleep(2000)
-                        m.reply('Garbage deleted successfully!', { edit: key })
-                    } else m.reply(teks + `\n_Type ${prefix + command} true_ to delete`)
-                });
-            }
-            break
-            case 'setbotname': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (text || m.quoted) {
-                    const teksnya = text ? text : m.quoted.text
-                    await updateSettings({
-                        filePath: settingsPath,
-                        botname: teksnya.trim()
-                    });
-                    m.reply('Success')
-                } else m.reply(`Example: ${prefix + command} text`)
-            }
-            break
-            case 'setbotpackname': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (text || m.quoted) {
-                    const teksnya = text ? text : m.quoted.text
-                    await updateSettings({
-                        filePath: settingsPath,
-                        packname: teksnya.trim()
-                    });
-                    m.reply('Success')
-                } else m.reply(`Example: ${prefix + command} text`)
-            }
-            break
-            case 'setbotauthor': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (text || m.quoted) {
-                    const teksnya = text ? text : m.quoted.text
-                    await updateSettings({
-                        filePath: settingsPath,
-                        author: teksnya.trim()
-                    });
-                    m.reply('Success')
-                } else m.reply(`Example: ${prefix + command} text`)
-            }
-            break
-            case 'setapikey': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!text) return m.reply('Where is the API key?')
-                if (!text.startsWith('nz-')) return m.reply('Invalid API key!\nGet API key at: https://nima.biz.id/profile');
-                let old_key = global.APIKeys[global.APIs.nimesha];
-                await updateSettings({
-                    filePath: settingsPath,
-                    apikey: text.trim()
-                });
-                m.reply(`✅ *API Key* changed from *${old_key}* to *${q}*!`)
-            }
-            break
-            case 'sc': case 'script': {
-                await m.reply(`https://github.com/luckyfelistine-bot/maureonix\n⬆️ This is the script`, {
-                    contextInfo: {
-                        forwardingScore: 10,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: my.ch,
-                            serverMessageId: null,
-                            newsletterName: '🦊 MAUREONIX'
-                        },
-                        externalAdReply: {
-                            title: author,
-                            body: 'Follow me on GitHub',
-                            thumbnail: fake.thumbnail,
-                            mediaType: 2,
-                            mediaUrl: my.gh,
-                            sourceUrl: my.gh,
-                        }
-                    }
-                });
-            }
-            break
-            case 'donasi': case 'donate': {
-                const _msg_donasi = await m.reply('⏳ 💰 *Getting donation info...*');
-                await nimesha.sendMessage(m.chat, { text: 'You can donate via this URL:\nhttps://saweria.co/nima-axis', edit: _msg_donasi.key });
-            }
-            break
-            
-            // Group Menu
-            case 'add': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    try {
-                        const res = await nimesha.groupParticipantsUpdate(m.chat, [nmrnya], 'add')
-                        for (let i of (res || [])) {
-                            const statusMessages = {
-                                200: `Successfully added @${nmrnya.split('@')[0]} to the group!`,
-                                401: 'They have blocked the bot!',
-                                409: 'They are already in the group!',
-                                500: 'Group is full!'
-                            }
-                            if (statusMessages[i.status]) {
-                                await m.reply(statusMessages[i.status])
-                            } else if (i.status == 408) {
-                                const invv = await nimesha.groupInviteCode(m.chat).catch(() => null)
-                                await m.reply(`@${nmrnya.split('@')[0]} recently left the group!\n\nBecause of privacy settings, an invite has been sent\n-> wa.me/${nmrnya.replace(/\D/g, '')}`)
-                                if (invv) await nimesha.sendMessage(nmrnya, { text: `https://chat.whatsapp.com/${invv}\n\nAdmin: @${m.sender.split('@')[0]}\nYou are invited to join the group 🙇` }).catch(() => m.reply('❌ Failed to send invite!'))
-                            } else if (i.status == 403) {
-                                try {
-                                    const attrs = i?.content?.content?.[0]?.attrs
-                                    if (attrs?.code && attrs?.expiration) {
-                                        await nimesha.sendGroupInviteV4(m.chat, nmrnya, attrs.code, attrs.expiration, m.metadata.subject, `Admin: @${m.sender.split('@')[0]}\nYou are invited to join the group 🙇`, null, { mentions: [m.sender] })
-                                    } else {
-                                        const invv = await nimesha.groupInviteCode(m.chat).catch(() => null)
-                                        if (invv) await nimesha.sendMessage(nmrnya, { text: `https://chat.whatsapp.com/${invv}\n\nAdmin: @${m.sender.split('@')[0]}\nYou are invited to join the group 🙇` }).catch(() => {})
-                                    }
-                                    await m.reply(`@${nmrnya.split('@')[0]} cannot be added directly due to privacy settings\nInvitation sent -> wa.me/${nmrnya.replace(/\D/g, '')}`, { mentions: [nmrnya] })
-                                } catch (invErr) {
-                                    const invv = await nimesha.groupInviteCode(m.chat).catch(() => null)
-                                    if (invv) await nimesha.sendMessage(nmrnya, { text: `https://chat.whatsapp.com/${invv}\n\nAdmin: @${m.sender.split('@')[0]}\nYou are invited to join the group 🙇` }).catch(() => {})
-                                    await m.reply(`@${nmrnya.split('@')[0]} cannot be added directly due to privacy settings\nInvitation sent`, { mentions: [nmrnya] })
-                                }
-                            } else {
-                                await m.reply('Failed to add user\nStatus: ' + i.status)
-                            }
-                        }
-                    } catch (e) {
-                        console.error('[.add error]', e)
-                        await m.reply('An error occurred! Failed to add user\n' + (e?.message || ''))
-                    }
-                } else m.reply(`⚠️ *Add Command*\n\nTo add someone to the group:\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'kick': case 'dor': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    await nimesha.groupParticipantsUpdate(m.chat, [nmrnya], 'remove')
-                        .then(() => m.reply(`╔══════════════════╗\n║  🦵 *Kicked from group* 🦵\n╠══════════════════╣\n║\n║ ✅ @${nmrnya.split('@')[0]}\n║ *Successfully removed*\n║\n║ 🏅 Group: ${m.metadata.subject}\n║ 👤 By: @${m.sender.split('@')[0]}\n╚══════════════════╝`, { mentions: [nmrnya, m.sender] }))
-                        .catch(() => m.reply('❌ Kick failed!'))
-                } else m.reply(`⚠️ *Kick Command*\n\nTo remove someone:\n📌 By replying: *(reply to their message)*\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'promote': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    await nimesha.groupParticipantsUpdate(m.chat, [nmrnya], 'promote')
-                        .then(() => m.reply(`╔══════════════════╗\n║  👑 *Admin Promotion* 👑\n╠══════════════════╣\n║\n║ ✅ @${nmrnya.split('@')[0]}\n║ *Successfully promoted to Admin!*\n║\n║ 🏅 Group: ${m.metadata.subject}\n║ 👤 By: @${m.sender.split('@')[0]}\n╚══════════════════╝`, { mentions: [nmrnya, m.sender] }))
-                        .catch(() => m.reply('❌ Promotion failed!'))
-                } else m.reply(`⚠️ *Promote Command*\n\nTo promote someone to admin:\n📌 By replying: *(reply to their message)*\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'demote': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    await nimesha.groupParticipantsUpdate(m.chat, [nmrnya], 'demote')
-                        .then(() => m.reply(`╔══════════════════╗\n║  🚫 *Admin Demotion* 🚫\n╠══════════════════╣\n║\n║ ✅ @${nmrnya.split('@')[0]}\n║ *Successfully demoted from Admin!*\n║\n║ 🏅 Group: ${m.metadata.subject}\n║ 👤 By: @${m.sender.split('@')[0]}\n╚══════════════════╝`, { mentions: [nmrnya, m.sender] }))
-                        .catch(() => m.reply('❌ Demotion failed!'))
-                } else m.reply(`⚠️ *Demote Command*\n\nTo demote an admin:\n📌 By replying: *(reply to their message)*\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'warn': case 'warning': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    if (!db.groups[m.chat].warn[nmrnya]) {
-                        db.groups[m.chat].warn[nmrnya] = 1
-                        m.reply('Warning 1/4, next warning may result in a kick!')
-                    } else if (db.groups[m.chat].warn[nmrnya] >= 3) {
-                        await nimesha.groupParticipantsUpdate(m.chat, [nmrnya], 'remove').catch((err) => m.reply('Failed!'))
-                        delete db.groups[m.chat].warn[nmrnya]
-                    } else {
-                        db.groups[m.chat].warn[nmrnya] += 1
-                        m.reply(`Warning ${db.groups[m.chat].warn[nmrnya]}/4, further violations may result in a kick!`)
-                    }
-                } else m.reply(`⚠️ *Warn Command*\n\nTo give a warning:\n📌 By replying: *(reply to their message)*\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'unwarn': case 'delwarn': case 'unwarning': case 'delwarning': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const numbersOnly = text ? text.replace(/\D/g, '') + '@s.whatsapp.net' : m.quoted?.sender
-                    const findJid = nimesha.findJidByLid(numbersOnly.replace(/[^0-9]/g, '') + '@lid', store);
-                    const klss = numbersOnly.replace(/[^0-9]/g, '') + (findJid ? '@lid' :  '@s.whatsapp.net')
-                    const nmrnya = nimesha.findJidByLid(klss, store, true)
-                    if (db.groups[m.chat]?.warn?.[nmrnya]) {
-                        delete db.groups[m.chat].warn[nmrnya]
-                        m.reply('Warning removed successfully!')
-                    }
-                } else m.reply(`⚠️ *Unwarn Command*\n\nTo remove a warning:\n📌 By replying: *(reply to their message)*\n📌 With number: ${prefix + command} *94xxxxxxxxx*\n\nExample: ${prefix + command} 94712345678`)
-            }
-            break
-            case 'setname': case 'setnamegc': case 'setsubject': case 'setsubjectgc': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const teksnya = text ? text : m.quoted.text
-                    await nimesha.groupUpdateSubject(m.chat, teksnya).catch((err) => m.reply('Failed!'))
-                } else m.reply(`⚠️ *Set Name Command*\n\nTo change the group name:\n📌 ${prefix + command} *new name*\n\nExample: ${prefix + command} 🦊 MAUREONIX Group`)
-            }
-            break
-            case 'setdesc': case 'setdescgc': case 'setdesk': case 'setdeskgc': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (text || m.quoted) {
-                    const teksnya = text ? text : m.quoted.text
-                    await nimesha.groupUpdateDescription(m.chat, teksnya).catch((err) => m.reply('Failed!'))
-                } else m.reply(`⚠️ *Set Desc Command*\n\nTo change the group description:\n📌 ${prefix + command} *description*\n\nExample: ${prefix + command} Welcome to the group!`)
-            }
-            break
-            case 'setppgroups': case 'setppgrup': case 'setppgc': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (!m.quoted) return m.reply('Reply to an image to set as group icon')
-                if (!/image/.test(quoted.type)) return m.reply(`📌 Reply to an image (caption: *${prefix + command}*)`)
-                let media = await quoted.download();
-                let { img } = await generateProfilePicture(media, text.length > 0 ? null : 512)
-                await nimesha.query({
-                    tag: 'iq',
-                    attrs: {
-                        target: m.chat,
-                        to: '@s.whatsapp.net',
-                        type: 'set',
-                        xmlns: 'w:profile:picture'
-                    },
-                    content: [{ tag: 'picture', attrs: { type: 'image' }, content: img }]
-                });
-                m.reply('Success')
-            }
-            break
-            case 'delete': case 'del': case 'd': {
-                if (!m.quoted) return m.reply('Reply to the message you want to delete')
-                await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: m.isBotAdmin ? false : true, id: m.quoted.id, participant: m.quoted.sender }})
-            }
-            break
-            case 'pin': case 'unpin': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                await nimesha.sendMessage(m.chat, { pin: { type: command == 'pin' ? 1 : 0, time: 2592000, key: m.quoted ? m.quoted.key : m.key }})
-            }
-            break
-            case 'linkgroup': case 'linkgrup': case 'linkgc': case 'urlgroup': case 'urlgrup': case 'urlgc': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                let response = await nimesha.groupInviteCode(m.chat)
-                await m.reply(`https://chat.whatsapp.com/${response}\n\nGroup Link: ${(store.groupMetadata[m.chat] ? store.groupMetadata[m.chat] : (store.groupMetadata[m.chat] = await nimesha.groupMetadata(m.chat))).subject}`, { detectLink: true })
-            }
-            break
-            case 'revoke': case 'newlink': case 'newurl': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                await nimesha.groupRevokeInvite(m.chat).then((a) => {
-                    m.reply(`✅ Success! Group link reset for: ${m.metadata.subject}`)
-                }).catch((err) => m.reply('Failed!'))
-            }
-            break
-            case 'group': case 'grup': case 'gc': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                let set = db.groups[m.chat]
-                switch (args[0]?.toLowerCase()) {
-                    case 'close': case 'open':
-                    await nimesha.groupSettingUpdate(m.chat, args[0] == 'close' ? 'announcement' : 'not_announcement').then(a => m.reply(`*${args[0] == 'open' ? '🔓 Group opened!' : '🔒 Group closed!'}*`))
-                    break
-                    case 'join':
-                    const _list = await nimesha.groupRequestParticipantsList(m.chat).then(a => a.map(b => b.jid))
-                    if (/(a(p|pp|cc)|(ept|rove))|true|ok/i.test(args[1]) && _list.length > 0) {
-                        await nimesha.groupRequestParticipantsUpdate(m.chat, _list, 'approve').catch(e => m.react('❌'))
-                    } else if (/reject|false|no/i.test(args[1]) && _list.length > 0) {
-                        await nimesha.groupRequestParticipantsUpdate(m.chat, _list, 'reject').catch(e => m.react('❌'))
-                    } else m.reply(`Join Request List :\n${_list.length > 0 ? '- @' + _list.join('\n- @').split('@')[0] : '*Nothing*'}\nExample: ${prefix + command} join acc/reject`)
-                    break
-                    case 'disappearing':
-                    if (/90|7|1|24|on/i.test(args[1])) {
-                        nimesha.sendMessage(m.chat, { disappearingMessagesInChat: /90/i.test(args[1]) ? 7776000 : /7/i.test(args[1]) ? 604800 : 86400 })
-                    } else if (/0|off|false/i.test(args[1])) {
-                        nimesha.sendMessage(m.chat, { disappearingMessagesInChat: 0 })
-                    } else m.reply('Please choose:\n90 days, 7 days, 1 day, off')
-                    break
-                    case 'antilink': case 'antivirtex': case 'antidelete': case 'welcome': case 'antitoxic': case 'waktusholat': case 'nsfw': case 'antihidetag': case 'setinfo': case 'antitagsw': case 'leave': case 'promote': case 'demote':
-                    if (/on|true/i.test(args[1])) {
-                        if (set[args[0]]) return m.reply('*Already enabled*')
-                        set[args[0]] = true
-                        m.reply('*Successfully changed to On*')
-                    } else if (/off|false/i.test(args[1])) {
-                        set[args[0]] = false
-                        m.reply('*Successfully changed to Off*')
-                    } else m.reply(`⚠️ *${args[0].charAt(0).toUpperCase() + args[0].slice(1)}* type on or off`)
-                    break
-                    case 'setwelcome': case 'setleave': case 'setpromote': case 'setdemote':
-                    if (args[1]) {
-                        set.text[args[0]] = args.slice(1).join(' ');
-                        m.reply(`Successfully changed ${args[0].split('set')[1]} to:\n${set.text[args[0]]}`)
-                    } else m.reply(`📌 *${args[0]} Command*\n\nExample: ${prefix + command} ${args[0]} Welcome @ !\n\n*Special Tags:*\n• @ → user mention\n• @admin → admin mention\n• @subject → ${m.metadata.subject}\n\nExample: ${prefix + command} ${args[0]} Welcome @ to ${m.metadata.subject} ❤️`)
-                    break
-                    default:
-                    m.reply(`Group settings for ${m.metadata.subject}\n- open\n- close\n- join acc/reject\n- disappearing 90/7/1/off\n- antilink on/off ${set.antilink ? '🟢' : '🔴'}\n- antivirtex on/off ${set.antivirtex ? '🟢' : '🔴'}\n- antidelete on/off ${set.antidelete ? '🟢' : '🔴'}\n- welcome on/off ${set.welcome ? '🟢' : '🔴'}\n- leave on/off ${set.leave ? '🟢' : '🔴'}\n- promote on/off ${set.promote ? '🟢' : '🔴'}\n- demote on/off ${set.demote ? '🟢' : '🔴'}\n- setinfo on/off ${set.setinfo ? '🟢' : '🔴'}\n- nsfw on/off ${set.nsfw ? '🟢' : '🔴'}\n- waktusholat on/off ${set.waktusholat ? '🟢' : '🔴'}\n- antihidetag on/off ${set.antihidetag ? '🟢' : '🔴'}\n- antitagsw on/off ${set.antitagsw ? '🟢' : '🔴'}\n\n- setwelcome _text_\n- setleave _text_\n- setpromote _text_\n- setdemote _text_\n\nExamples:\n${prefix + command} antilink off`)
-                }
-            }
-            break
-            case 'tagall': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                let setv = pickRandom(listv)
-                // Convert LID format to real JID if needed
-                let members = m.metadata.participants.map(p => {
-                    if (p.id && p.id.endsWith('@lid') && p.lid) {
-                        const real = nimesha.findJidByLid ? nimesha.findJidByLid(p.id, store) : null
-                        return { ...p, id: (real && !real.endsWith('@lid')) ? real : (p.jid || p.id) }
-                    }
-                    return p
-                }).filter(p => p.id && !p.id.endsWith('@lid'))
-                if (!members.length) members = m.metadata.participants
-                let chunkSize = 50
-                if (m.quoted) {
-                    const quotedType = m.quoted.type
-                    const allMentions = members.map(a => a.id)
-                    const isMedia = /image|video|audio|document|sticker|ptt|voice/.test(quotedType)
-                    if (isMedia) {
-                        let captionTeks = `*Tagging everyone*\n\n*Message:* ${q ? q : ''}\n\n`
-                        for (let mem of members.slice(0, 50)) {
-                            captionTeks += `${setv} @${mem.id.split('@')[0]}\n`
-                        }
-                        try {
-                            const mediaBuffer = await m.quoted.download()
-                            const mediaMime = m.quoted.msg?.mimetype || m.quoted.mimetype || 'application/octet-stream'
-                            let mediaMsg = {}
-                            if (/image/.test(quotedType)) mediaMsg = { image: mediaBuffer, caption: captionTeks, mentions: allMentions }
-                            else if (/video/.test(quotedType)) mediaMsg = { video: mediaBuffer, caption: captionTeks, mentions: allMentions }
-                            else if (/audio|ptt|voice/.test(quotedType)) {
-                                await nimesha.sendMessage(m.chat, { audio: mediaBuffer, mimetype: mediaMime, ptt: /ptt|voice/.test(quotedType) }, { quoted: m })
-                                mediaMsg = { text: captionTeks, mentions: allMentions }
-                            } else if (/document/.test(quotedType)) {
-                                await nimesha.sendMessage(m.chat, { document: mediaBuffer, mimetype: mediaMime, fileName: m.quoted.msg?.fileName || 'file' }, { quoted: m })
-                                mediaMsg = { text: captionTeks, mentions: allMentions }
-                            } else if (/sticker/.test(quotedType)) {
-                                await nimesha.sendMessage(m.chat, { sticker: mediaBuffer }, { quoted: m })
-                                if (captionTeks) await nimesha.sendMessage(m.chat, { text: captionTeks, mentions: allMentions }, { quoted: m })
-                                mediaMsg = null
-                            }
-                            if (mediaMsg) await nimesha.sendMessage(m.chat, mediaMsg, { quoted: m })
-                        } catch(e) {
-                            await nimesha.sendMessage(m.chat, { forward: m.quoted.fakeObj(), mentions: allMentions }, {})
-                        }
-                    } else {
-                        await nimesha.sendMessage(m.chat, { forward: m.quoted.fakeObj(), mentions: allMentions }, {})
-                    }
-                    for (let i = 50; i < members.length; i += chunkSize) {
-                        let chunk = members.slice(i, i + chunkSize)
-                        let teks = ''
-                        for (let mem of chunk) teks += `${setv} @${mem.id.split('@')[0]}\n`
-                        await nimesha.sendMessage(m.chat, { text: teks, mentions: chunk.map(a => a.id) }, { quoted: m })
-                        await new Promise(res => setTimeout(res, 1000))
-                    }
-                } else {
-                    for (let i = 0; i < members.length; i += chunkSize) {
-                        let chunk = members.slice(i, i + chunkSize)
-                        let teks = i === 0 ? `*Tagging everyone*\n\n*Message:* ${q ? q : ''}\n\n` : ''
-                        for (let mem of chunk) teks += `${setv} @${mem.id.split('@')[0]}\n`
-                        await nimesha.sendMessage(m.chat, { text: teks, mentions: chunk.map(a => a.id) }, { quoted: m })
-                        await new Promise(res => setTimeout(res, 1000))
-                    }
-                }
-            }
-            break
-            case 'hidetag': case 'h': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                try {
-                    const members = m.metadata?.participants?.map(a => a.id) || []
-                    await m.reply(q ? q : '', { mentions: members })
-                } catch(e) {
-                    console.error('[hidetag error]', e?.message)
-                    m.reply('❌ hidetag error: ' + e?.message)
-                }
-            }
-            break
-            case 'totag': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!m.isAdmin) return m.reply(mess.admin)
-                if (!m.isBotAdmin) return m.reply(mess.botAdmin)
-                if (!m.quoted) return m.reply(`📌 Reply to a message (caption: *${prefix + command}*)`)
-                delete m.quoted.chat
-                await nimesha.sendMessage(m.chat, { forward: m.quoted.fakeObj(), mentions: m.metadata.participants.map(a => a.id) })
-            }
-            break
-            case 'listonline': case 'liston': {
-                if (!m.isGroup) return m.reply(mess.group)
-                let id = args && /\d+\-\d+@g.us/.test(args[0]) ? args[0] : m.chat
-                if (!store.presences || !store.presences[id]) return m.reply('No one is currently online!')
-                let online = [...Object.keys(store.presences[id]), botNumber]
-                await m.reply('Online list:\n\n' + online.map(v => setv + ' @' + v.replace(/@.+/, '')).join`\n`, { mentions: online }).catch((e) => m.reply('No one is currently online..'))
-            }
-            break
-            
-            // Bot Menu
-            case 'owner': case 'listowner': {
-                await nimesha.sendContact(m.chat, ownerNumber, m);
-            }
-            break
-            case 'profile': case 'cek': {
-                const user = Object.keys(db.users)
-                const infoUser = db.users[m.sender]
-                const _msg_profile = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: `*👤 Profile @${m.sender.split('@')[0]}* :\n🐋 Bot User: ${user.includes(m.sender) ? 'True' : 'False'}\n🔥 User: ${isVip ? 'VIP' : isPremium ? 'PREMIUM' : 'FREE'}${isPremium ? `\n⏳ Expired: ${checkStatus(m.sender, premium) ? formatDate(getExpired(m.sender, db.premium)) : '-'}` : ''}\n🎫 Limit: ${infoUser.limit}\n💰 Money: ${infoUser ? infoUser.money.toLocaleString('en-US') : '0'}`, edit: _msg_profile.key });
-            }
-            break
-            case 'leaderboard': {
-                const entries = Object.entries(db.users).sort((a, b) => b[1].money - a[1].money).slice(0, 10).map(entry => entry[0]);
-                let teksnya = '╭──❍「 *LEADERBOARD* 」❍\n'
-                for (let i = 0; i < entries.length; i++) {
-                    teksnya += `│• ${i + 1}. @${entries[i].split('@')[0]}\n│• Balance: ${db.users[entries[i]].money.toLocaleString('en-US')}\n│\n`
-                }
-                const _msg_leaderboard = await m.reply('⏳ 🏆 *Getting leaderboard...*');
-                await nimesha.sendMessage(m.chat, { text: teksnya + '╰──────❍', edit: _msg_leaderboard.key });;
-            }
-            break
-            case 'totalpesan': {
-                let messageCount = {};
-                let messages = store?.messages[m.chat]?.array || [];
-                let participants = m?.metadata?.participants?.map(p => p.id) || store?.messages[m.chat]?.array?.map(p => p.key.participant) || [];
-                messages.forEach(mes => {
-                    if (mes.key?.participant && mes.message) {
-                        messageCount[mes.key.participant] = (messageCount[mes.key.participant] || 0) + 1;
-                    }
-                });
-                let totalMessages = Object.values(messageCount).reduce((a, b) => a + b, 0);
-                let date = new Date().toLocaleDateString('en-US');
-                let zeroMessageUsers = participants.filter(user => !messageCount[user]).map(user => `- @${user.replace(/[^0-9]/g, '')}`);
-                let messageList = Object.entries(messageCount).map(([sender, count], index) => `${index + 1}. @${sender.replace(/[^0-9]/g, '')}: ${count} messages`);
-                let result = `Total messages: ${totalMessages} from ${participants.length} members\nDate: ${date}:\n${messageList.join('\n')}\n\nNote: ${text.length > 0 ? `\n${zeroMessageUsers.length > 0 ? `Members who haven't sent any messages (Lurkers):\n${zeroMessageUsers.join('\n')}` : 'All members have sent messages!'}` : `\nCheck lurkers? ${prefix + command} --sider`}`;
-                const _msg_totalpesan = await m.reply('⏳ 📊 *Counting...*');
-                await nimesha.sendMessage(m.chat, { text: result, edit: _msg_totalpesan.key });
-            }
-            break
-            case 'req': case 'request': {
-                if (!text) return m.reply('What would you like to request from the owner?')
-                await m.reply(`*Request sent to owner*\n_Thank you🙏_`)
-                await nimesha.sendFromOwner(ownerNumber, `Message: @${m.sender.split('@')[0]}\nFor Owner\n\nRequest: ${text}`, m, { contextInfo: { mentionedJid: [m.sender], isForwarded: true }})
-            }
-            break
-            case 'totalfitur': {
-                const total = ((fs.readFileSync('./nima.js').toString()).match(/case '/g) || []).length
-                const _msg_totalfitur = await m.reply('⏳ 📋 *Counting...*');
-                await nimesha.sendMessage(m.chat, { text: `📊 *Total Commands:* ${total}`, edit: _msg_totalfitur.key });;
-            }
-            break
-            case 'daily': case 'claim': {
-                daily(m, db)
-            }
-            break
-            case 'transfer': case 'tf': {
-                transfer(m, args, db)
-            }
-            break
-            case 'buy': {
-                buy(m, args, db)
-            }
-            break
-            case 'react': {
-                nimesha.sendMessage(m.chat, { react: { text: args[0], key: m.quoted ? m.quoted.key : m.key }})
-            }
-            break
-            case 'tagme': {
-                m.reply(`@${m.sender.split('@')[0]}`, {mentions: [m.sender]})
-            }
-            break
-            case 'runtime': case 'tes': case 'bot': {
-                switch(args[0]) {
-                    case 'mode': case 'public': case 'self':
-                    if (!isCreator) return m.reply(mess.owner)
-                    if (args[1] == 'public' || args[1] == 'all') {
-                        if (nimesha.public && set.grouponly && set.privateonly) return m.reply('*Already enabled*')
-                        nimesha.public = set.public = true
-                        set.grouponly = true
-                        set.privateonly = true
-                        m.reply('*Successfully changed to Public mode*')
-                    } else if (args[1] == 'self') {
-                        set.grouponly = false
-                        set.privateonly = false
-                        nimesha.public = set.public = false
-                        m.reply('*Successfully changed to Self mode*')
-                    } else if (args[1] == 'group') {
-                        set.grouponly = true
-                        set.privateonly = false
-                        m.reply('*Successfully changed to Group Only mode*')
-                    } else if (args[1] == 'private') {
-                        set.grouponly = false
-                        set.privateonly = true
-                        m.reply('*Successfully changed to Private Only mode*')
-                    } else m.reply('Mode: self/public/group/private/all')
-                    break
-                    case 'anticall': case 'autobio': case 'autoread': case 'autotyping': case 'readsw': case 'multiprefix': case 'antispam': case 'antidelete': case 'autostatus': case 'autostatusreact': case 'autorecording': case 'didyoumean':
-                    if (!isCreator) return m.reply(mess.owner)
-                    if (args[1] == 'on') {
-                        if (set[args[0]]) return m.reply('*Already enabled*')
-                        set[args[0]] = true
-                        m.reply('*Successfully changed to On*')
-                    } else if (args[1] == 'off') {
-                        set[args[0]] = false
-                        m.reply('*Successfully changed to Off*')
-                    } else m.reply(`${args[0].charAt(0).toUpperCase() + args[0].slice(1)} on/off`)
-                    break
-                    case 'set': case 'settings':
-                    let settingsBot = Object.entries(set).map(([key, value]) => {
-                        let list = key == 'status' ? new Date(value).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (typeof value === 'boolean') ? (value ? 'on🟢' : 'off🔴') : (typeof value === 'object') ? `\n${value.map(a => '- ' + a).join('\n')}` : value;
-                        return `- ${key.charAt(0).toUpperCase() + key.slice(1)} : ${list}`;
-                    }).join('\n');
-                    m.reply(`Settings Bot @${botNumber.split('@')[0]}\n${settingsBot}\n\nExample: ${prefix + command} mode`);
-                    break
-                    default:
-                if (args[0] || args[1]) {
-                    if (command !== 'bot') return;
-                    const validSettings = ['mode', 'anticall', 'antidelete', 'autostatus', 'autostatusreact', 'autorecording', 'autobio', 'autoread', 'autotyping', 'readsw', 'multiprefix'];
-                    
-                    if (!validSettings.includes(args[0])) {
-                        return m.reply(`❌ *Invalid command!*\n\n✅ Valid commands:\n\n${validSettings.map(s => `${prefix}bot ${s} on/off`).join('\n')}`);
-                    }
-                    
-                    m.reply(`*Please choose a setting:*\n- Mode : *${prefix + command} mode self/public*\n- Anti Call : *${prefix + command} anticall on/off*\n- Anti Delete : *${prefix + command} antidelete on/off*\n- Auto Status : *${prefix + command} autostatus on/off*\n- Auto Status React : *${prefix + command} autostatusreact on/off*\n- Auto Recording : *${prefix + command} autorecording on/off*\n- Auto Bio : *${prefix + command} autobio on/off*\n- Auto Read : *${prefix + command} autoread on/off*\n- Auto Typing : *${prefix + command} autotyping on/off*\n- Read Sw : *${prefix + command} readsw on/off*\n- Multi Prefix : *${prefix + command} multiprefix on/off*`);
-                }
-                }
-            }
-            break
-            case 'ping': case 'botstatus': case 'statusbot': {
-                const used = process.memoryUsage()
-                const cpus = os.cpus().map(cpu => {
-                    cpu.total = Object.keys(cpu.times).reduce((last, type) => last + cpu.times[type], 0)
-                    return cpu
-                })
-                const cpu = cpus.reduce((last, cpu, _, { length }) => {
-                    last.total += cpu.total
-                    last.speed += cpu.speed / length
-                    last.times.user += cpu.times.user
-                    last.times.nice += cpu.times.nice
-                    last.times.sys += cpu.times.sys
-                    last.times.idle += cpu.times.idle
-                    last.times.irq += cpu.times.irq
-                    return last
-                }, {
-                    speed: 0,
-                    total: 0,
-                    times: {
-                        user: 0,
-                        nice: 0,
-                        sys: 0,
-                        idle: 0,
-                        irq: 0
-                    }
-                })
-                let timestamp = speed()
-                let latensi = speed() - timestamp
-                neww = performance.now()
-                oldd = performance.now()
-                respon = `Response speed: ${latensi.toFixed(4)} _Seconds_ \n ${oldd - neww} _milliseconds_\n\nRuntime: ${runtime(process.uptime())}\n\n💻 Server Info\nRAM: ${formatp(os.totalmem() - os.freemem())} / ${formatp(os.totalmem())}\n\n_NodeJS Memory Usage_\n${Object.keys(used).map((key, _, arr) => `${key.padEnd(Math.max(...arr.map(v=>v.length)),' ')}: ${formatp(used[key])}`).join('\n')}\n\n${cpus[0] ? `_CPU Usage_\n${cpus[0].model.trim()} (${cpu.speed} MHZ)\n${Object.keys(cpu.times).map(type => `- *${(type + '*').padEnd(6)}: ${(100 * cpu.times[type] / cpu.total).toFixed(2)}%`).join('\n')}\n_CPU Core(s) Usage (${cpus.length} Core CPU)_\n${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Object.keys(cpu.times).map(type => `- *${(type + '*').padEnd(6)}: ${(100 * cpu.times[type] / cpu.total).toFixed(2)}%`).join('\n')}`).join('\n\n')}` : ''}`.trim()
-                m.reply(respon)
-            }
-            break
-            case 'speedtest': case 'speed': {
-                const speedMsg = await m.reply('⚡ *Testing speed...*')
-                let cp = require('child_process')
-                let { promisify } = require('util')
-                let exec = promisify(cp.exec).bind(cp)
-                let o
-                try {
-                    o = await exec('python3 speed.py --share')
-                } catch (e) {
-                    o = e
-                } finally {
-                    let { stdout, stderr } = o
-                    const result = stdout?.trim() || stderr?.trim() || '❌ Speed test failed'
-                    if (speedMsg?.key) await nimesha.sendMessage(m.chat, { text: result, edit: speedMsg.key })
-                    else await m.reply(result)
-                }
-            }
-            break
-            case 'afk': {
-                let user = db.users[m.sender]
-                user.afkTime = + new Date
-                user.afkReason = text
-                const _msg_afk = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: `💤 @${m.sender.split('@')[0]} AFK mode ON${text ? ' — _' + text + '_' : ''}`, edit: _msg_afk.key });
-            }
-            break
-            case 'readviewonce': case 'readviewone': case 'rvo': {
-                if (!m.quoted) return m.reply(`Reply to a view once message\nExample: ${prefix + command}`)
-                try {
-                    if (m.quoted.msg.viewOnce) {
-                        delete m.quoted.chat
-                        m.quoted.msg.viewOnce = false
-                        await m.reply({ forward: m.quoted })
-                    } else m.reply(`Reply to a view once message\nExample: ${prefix + command}`)
-                } catch (e) {
-                    m.reply('Invalid media!')
-                }
-            }
-            break
-            case 'inspect': {
-                if (!text) return m.reply('Enter group or channel link!')
-                let _grup = /chat.whatsapp.com\/([\w\d]*)/;
-                let _saluran = /whatsapp\.com\/channel\/([\w\d]*)/;
-                if (_grup.test(text)) {
-                    await nimesha.groupGetInviteInfo(text.match(_grup)[1]).then((_g) => {
-                        let teks = `*[ GROUP INFORMATION ]*\n\nName: ${_g.subject}\nGroup ID: ${_g.id}\nCreated: ${new Date(_g.creation * 1000).toLocaleString()}${_g.owner ? ('\nCreated by: ' + _g.owner) : '' }\nLinked Parent: ${_g.linkedParent}\nRestrict: ${_g.restrict}\nAnnounce: ${_g.announce}\nIs Community: ${_g.isCommunity}\nCommunity Announce:${_g.isCommunityAnnounce}\nJoin Approval: ${_g.joinApprovalMode}\nMember Add Mode: ${_g.memberAddMode}\nDescription ID: ${'`' + _g.descId + '`'}\nDescription: ${_g.desc}\nParticipants:\n`
-                        _g.participants.forEach((a) => {
-                            teks += a.admin ? `- Admin: @${a.id.split('@')[0]} [${a.admin}]\n` : ''
-                        })
-                        m.reply(teks)
-                    }).catch((e) => {
-                        if ([400, 406].includes(e.data)) return m.reply('Group not found!');
-                        if (e.data == 401) return m.reply('Bot was kicked from the group!');
-                        if (e.data == 410) return m.reply('Group link has been reset!');
-                    });
-                } else if (_saluran.test(text) || text.endsWith('@newsletter') || !isNaN(text)) {
-                    await nimesha.newsletterMsg(text.match(_saluran)[1]).then((n) => {
-                        m.reply(`*[ CHANNEL INFORMATION ]*\n\nID: ${n.id}\nState: ${n.state.type}\nName: ${n.thread_metadata.name.text}\nCreated: ${new Date(n.thread_metadata.creation_time * 1000).toLocaleString()}\nSubscribers: ${n.thread_metadata.subscribers_count}\nVerification: ${n.thread_metadata.verification}\nDescription: ${n.thread_metadata.description.text}\n`)
-                    }).catch((e) => m.reply('Channel not found!'))
-                } else m.reply('Only group or channel links are supported!')
-            }
-            break
-            case 'addmsg': {
-                if (!m.quoted) return m.reply('Reply to a message to save it in the database')
-                if (!text) return m.reply(`Example: ${prefix + command} filename`)
-                let msgs = db.database
-                if (text.toLowerCase() in msgs) return m.reply(`✅ *'${text}'* is already registered!`)
-                msgs[text.toLowerCase()] = m.quoted
-                delete msgs[text.toLowerCase()].chat
-                m.reply(`Successfully saved message as '${text}'\nRetrieve with ${prefix}getmsg ${text}\nList with ${prefix}listmsg`)
-            }
-            break
-            case 'delmsg': case 'deletemsg': {
-                if (!text) return m.reply('Name of the message to delete?')
-                let msgs = db.database
-                if (text == 'allmsg') {
-                    db.database = {}
-                    m.reply('All messages have been deleted from the list')
-                } else {
-                    if (!(text.toLowerCase() in msgs)) return m.reply(`❌ *'${text}'* not found in the list!`)
-                    delete msgs[text.toLowerCase()]
-                    m.reply(`Successfully deleted '${text}' from the list`)
-                }
-            }
-            break
-            case 'getmsg': {
-                if (!text) return m.reply(`Example: ${prefix + command} filename\n\nList messages with ${prefix}listmsg`)
-                let msgs = db.database
-                if (!(text.toLowerCase() in msgs)) return m.reply(`❌ *'${text}'* not found in the list!`)
-                await nimesha.relayMessage(m.chat, msgs[text.toLowerCase()], {})
-            }
-            break
-            case 'listmsg': {
-                let seplit = Object.entries(db.database).map(([nama, isi]) => { return { nama, message: getContentType(isi) }})
-                let teks = '「 DATABASE LIST 」\n\n'
-                for (let i of seplit) {
-                    teks += `${setv} *Name:* ${i.nama}\n${setv} *Type:* ${i.message?.replace(/Message/i, '')}\n───────────────\n`
-                }
-                m.reply(teks)
-            }
-            break
-            case 'setcmd': case 'addcmd': {
-                if (!m.quoted) return m.reply('Reply to a message!')
-                if (!m.quoted.fileSha256) return m.reply('Missing base hash. Sorry!')
-                if (!text) return m.reply(`Example: ${prefix + command} CMD Name`)
-                let hash = m.quoted.fileSha256.toString('base64')
-                if (global.db.cmd[hash] && global.db.cmd[hash].locked) return m.reply('You are not allowed to change this sticker command')
-                global.db.cmd[hash] = {
-                    creator: m.sender,
-                    locked: false,
-                    at: + new Date,
-                    text
-                }
-                m.reply('Success!')
-            }
-            break
-            case 'delcmd': {
-                if (!m.quoted) return m.reply('Reply to a message!')
-                if (!m.quoted.fileSha256) return m.reply('Missing base hash. Sorry!')
-                let hash = m.quoted.fileSha256.toString('base64')
-                if (global.db.cmd[hash] && global.db.cmd[hash].locked) return m.reply('You are not allowed to change this sticker command')
-                delete global.db.cmd[hash];
-                m.reply('Success')
-            }
-            break
-            case 'listcmd': {
-                let teks = `*Hash List*\nInfo: *bold* hash is locked\n${Object.entries(global.db.cmd).map(([key, value], index) => `${index + 1}. ${value.locked ? `*${key}*` : key} : ${value.text}`).join('\n')}`.trim()
-                nimesha.sendText(m.chat, teks, m);
-            }
-            break
-            case 'lockcmd': case 'unlockcmd': {
-                if (!isCreator) return m.reply(mess.owner)
-                if (!m.quoted) return m.reply('Reply to a message!')
-                if (!m.quoted.fileSha256) return m.reply('Missing base hash. Sorry!')
-                let hash = m.quoted.fileSha256.toString('base64')
-                if (!(hash in global.db.cmd)) return m.reply('You are not allowed to change this sticker command')
-                global.db.cmd[hash].locked = !/^un/i.test(command)
-            }
-            break
-            case 'q': case 'quoted': {
-                if (!m.quoted) return m.reply('Reply to a message!')
-                if (text) {
-                    delete m.quoted.chat
-                    await m.reply({ forward: m.quoted })
-                } else {
-                    try {
-                        const anu = await m.getQuotedObj()
-                        if (!anu) return m.reply('Unable to get format!')
-                        if (!anu.quoted) return m.reply('The message you replied to has no quoted message')
-                        await nimesha.relayMessage(m.chat, { [anu.quoted.type]: anu.quoted.msg }, {})
-                    } catch (e) {
-                        return m.reply('Unable to get format!')
-                    }
-                }
-            }
-            break
-            case 'confes': case 'confess': case 'menfes': case 'menfess': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (m.isGroup) return m.reply(mess.private)
-                if (menfes[m.sender]) return m.reply(`⚠️ You already have an active ${command} session!`)
-                if (!text) return m.reply(`Example: ${prefix + command} 94xxxx|nickname`)
-                let [teks1, teks2] = text.split`|`
-                if (teks1) {
-                    const tujuan = teks1.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
-                    const onWa = await nimesha.onWhatsApp(tujuan)
-                    if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                    menfes[m.sender] = {
-                        tujuan: tujuan,
-                        nama: teks2 ? teks2 : 'Someone'
-                    };
-                    menfes[tujuan] = {
-                        tujuan: m.sender,
-                        nama: 'Receiver',
-                    };
-                    const timeout = setTimeout(() => {
-                        if (menfes[m.sender]) {
-                            m.reply(`⏰ _Session expired!_`);
-                            delete menfes[m.sender];
-                        }
-                        if (menfes[tujuan]) {
-                            nimesha.sendMessage(tujuan, { text: `⏰ _Session expired!_` });
-                            delete menfes[tujuan];
-                        }
-                        menfesTimeouts.delete(m.sender);
-                        menfesTimeouts.delete(tujuan);
-                    }, 600000);
-                    menfesTimeouts.set(m.sender, timeout);
-                    menfesTimeouts.set(tujuan, timeout);
-                    nimesha.sendMessage(tujuan, { text: `_${command} session started_\n*Note:* Type _*${prefix}del${command}*_ to end the session` });
-                    m.reply(`_Starting ${command}..._\n*Start sending messages/media*\n*Session duration is 10 minutes*\n*Note:* Type _*${prefix}del${command}*_ to end the session`)
-                    setLimit(m, db)
-                } else m.reply(`📌 Enter the number!\nExample: ${prefix + command} 94xxxx|nickname`)
-            }
-            break
-            case 'delconfes': case 'delconfess': case 'delmenfes': case 'delmenfess': {
-                if (!menfes[m.sender]) return m.reply(`⚠️ You are not in a ${command.split('del')[1]} session!`)
-                let anu = menfes[m.sender]
-                if (menfesTimeouts.has(m.sender)) {
-                    clearTimeout(menfesTimeouts.get(m.sender));
-                    menfesTimeouts.delete(m.sender);
-                }
-                if (menfesTimeouts.has(anu.tujuan)) {
-                    clearTimeout(menfesTimeouts.get(anu.tujuan));
-                    menfesTimeouts.delete(anu.tujuan);
-                }
-                nimesha.sendMessage(anu.tujuan, { text: `Chat ended by ${anu.nama ? anu.nama : 'Someone'}` })
-                m.reply(`Successfully ended ${command.split('del')[1]} session!`)
-                delete menfes[anu.tujuan];
-                delete menfes[m.sender];
-            }
-            break
-            case 'cai': case 'roomai': case 'chatai': case 'autoai': {
-                if (m.isGroup) return m.reply(mess.private)
-                if (chat_ai[m.sender]) return m.reply(`⚠️ You already have an active ${command} session!`)
-                if (!text) return m.reply(`📌 *AI Chat Command*\nExample: ${prefix + command} Hello!\nWith prompt: ${prefix + command} Hello|You are 🦊 MAUREONIX.\n\nTo exit: *${prefix + 'del' + command}*`)
-                let [teks1, teks2] = text.split`|`
-                chat_ai[m.sender] = [{ role: 'system', content: teks2 || '' }, { role: 'user', content: text.split`|` ? teks1 : text || '' }]
-                let hasil = await fetchApi('/ai/chat4', {
-                    messages: chat_ai[m.sender],
-                    prompt: budy
-                }, { method: 'POST' });
-                const response = hasil?.result?.message || 'Sorry, I don\'t understand.';
-                chat_ai[m.sender].push({ role: 'assistant', content: response });
-                await m.reply(response)
-            }
-            break
-            case 'delcai': case 'delroomai': case 'delchatai': case 'delautoai': {
-                if (!chat_ai[m.sender]) return m.reply(`⚠️ You are not in a ${command.split('del')[1]} session!`)
-                m.reply(`Successfully ended ${command.split('del')[1]} session!`)
-                delete chat_ai[m.sender];
-            }
-            break
-            // Gemini Auto Reply Commands
-            case 'autoreply': {
-                if (!m.isGroup) return m.reply(`⚠️ *Private Chat AI*\n\nPrivate chat AI control:\n✅ on: *${prefix}aion*\n❌ off: *${prefix}aioff*\n\n💡 Group AI: *${prefix}groupai on/off*`)
-                if (!isAdmin && !isCreator) return m.reply('⚠️ Only group admins can use this!')
-                if (!text || !['on','off'].includes(text.toLowerCase())) return m.reply(`*Gemini Auto Reply (Group)*\n\n✅ Enable: *${prefix}autoreply on*\n❌ Disable: *${prefix}autoreply off*\n\nStatus: ${gemini_autoreply[m.chat] ? '✅ ON' : '❌ OFF'}`)
-                if (text.toLowerCase() === 'on') {
-                    gemini_autoreply[m.chat] = true
-                    m.reply(`✅ *Gemini Auto Reply ON!*\n\nNow *this group* will automatically reply to every message with AI 🤖\nOther groups are not affected.`)
-                } else {
-                    gemini_autoreply[m.chat] = false
-                    m.reply(`❌ *Gemini Auto Reply OFF!*\n\nAI auto reply has been disabled.`)
-                }
-            }
-            break
-            case 'aion': case 'privateai': {
-                if (m.isGroup) return m.reply(`💡 Use in private chat only!\nGroup AI: *${prefix}groupai on*`)
-                if (!isCreator) return m.reply(mess.owner)
-                db.game.private_ai_disabled = false
-                m.reply(`✅ *Private Chat AI ON!*\n\nAI auto reply has been enabled in private chats.`)
-            }
-            break
-            case 'aioff': case 'stopai': {
-                if (m.isGroup) return m.reply(`💡 Use in private chat only!\nGroup AI: *${prefix}groupai off*`)
-                if (!isCreator) return m.reply(mess.owner)
-                db.game.private_ai_disabled = true
-                m.reply(`❌ *Private Chat AI OFF!*\n\nAI auto reply has been disabled in private chats.`)
-            }
-            break
-            case 'groupai': {
-                if (!m.isGroup) return m.reply(`💡 Use in group chat only!\nPrivate AI: *${prefix}aion* / *${prefix}aioff*`)
-                if (!isAdmin && !isCreator) return m.reply('⚠️ Only group admins can use this!')
-                if (!text || !['on','off'].includes(text.toLowerCase())) return m.reply(`*Group AI Auto Reply*\n\n✅ Enable: *${prefix}groupai on*\n❌ Disable: *${prefix}groupai off*\n\nStatus: ${gemini_autoreply[m.chat] ? '✅ ON' : '❌ OFF'}\n\n💡 Only this group is affected.`)
-                if (text.toLowerCase() === 'on') {
-                    gemini_autoreply[m.chat] = true
-                    m.reply(`✅ *Group AI ON!*\n\n*${m.isGroup ? m.metadata?.subject || 'This group' : ''}* now has AI auto reply enabled.\nOther groups are not affected 🤖`)
-                } else {
-                    gemini_autoreply[m.chat] = false
-                    m.reply(`❌ *Group AI OFF!*\n\nAI auto reply has been disabled.`)
-                }
-            }
-            break
-            case 'clearai': case 'resetai': {
-                const histKeyDel = m.isGroup ? m.chat : m.sender
-                if (gemini_history[histKeyDel]) {
-                    delete gemini_history[histKeyDel]
-                    m.reply('🗑️ *AI conversation history cleared!*\n\nA new conversation will start.')
-                } else {
-                    m.reply('⚠️ No history found.')
-                }
-            }
-            break
-            // End Gemini Commands
-            case 'jadibot': {
-                if (!isPremium) return m.reply(mess.prem)
-                if (!isLimit) return m.reply(mess.limit)
-                const nmrnya = text ? text.replace(/[^0-9]/g, '') + '@s.whatsapp.net' : m.sender
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                await JadiBot(nimesha, nmrnya, m, store)
-                m.reply(`Use ${prefix}stopjadibot to stop`)
-                setLimit(m, db)
-            }
-            break
-            case 'stopjadibot': case 'deljadibot': {
-                const nmrnya = text ? text.replace(/[^0-9]/g, '') + '@s.whatsapp.net' : m.sender
-                const onWa = await nimesha.onWhatsApp(nmrnya)
-                if (!onWa.length > 0) return m.reply('That number is not registered on WhatsApp!')
-                await StopJadiBot(nimesha, nmrnya, m)
-            }
-            break
-            case 'listjadibot': {
-                ListJadiBot(nimesha, m)
-            }
-            break
-            
-            // Tools Menu
-            case 'fetch': case 'get': {
-                if (!isPremium) return m.reply(mess.prem)
-                if (!isLimit) return m.reply(mess.limit)
-                if (!/^https?:\/\//.test(text)) return m.reply('Start with http:// or https://');
-                try {
-                    const res = await axios.get(isUrl(text) ? isUrl(text)[0] : text)
-                    if (!/text|json|html|plain/.test(res.headers['content-type'])) {
-                        await m.reply(text)
-                    } else m.reply(util.format(res.data))
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply(String(e))
-                }
-            }
-            break
-            case 'toaud': case 'toaudio': {
-                if (!/video|audio/.test(mime)) return m.reply(`Reply/Send a video/audio with caption ${prefix + command} to convert to audio`)
-                m.reply(mess.wait)
-                let media = await quoted.download()
-                let audio = await toAudio(media, 'mp4')
-                await m.reply({ audio: audio, mimetype: 'audio/mpeg'})
-            }
-            break
-            case 'tomp3': {
-                if (!/video|audio/.test(mime)) return m.reply(`Reply/Send a video/audio with caption ${prefix + command} to convert to MP3`)
-                m.reply(mess.wait)
-                let media = await quoted.download()
-                let audio = await toAudio(media, 'mp4')
-                await m.reply({ document: audio, mimetype: 'audio/mpeg', fileName: `Converted by MAUREONIX Bot.mp3`})
-            }
-            break
-            case 'tovn': case 'toptt': case 'tovoice': {
-                if (!/video|audio/.test(mime)) return m.reply(`Reply/Send a video/audio with caption ${prefix + command} to convert to voice note`)
-                m.reply(mess.wait)
-                let media = await quoted.download()
-                let audio = await toPTT(media, 'mp4')
-                await m.reply({ audio: audio, mimetype: 'audio/ogg; codecs=opus', ptt: true })
-            }
-            break
-            case 'togif': {
-                if (!/webp|video/.test(mime)) return m.reply(`📌 Reply to a video/sticker (caption: *${prefix + command}*)`)
-                m.reply(mess.wait)
-                let media = await nimesha.downloadAndSaveMediaMessage(qmsg)
-                let ran = `./database/temp/${getRandom('.gif')}`;
-                exec(`convert ${media} ${ran}`, (err) => {
-                    fs.unlinkSync(media)
-                    if (err) return m.reply('Failed!')
-                    let buffer = fs.readFileSync(ran)
-                    m.reply({ video: buffer, gifPlayback: true })
-                    fs.unlinkSync(ran)
-                })
-            }
-            break
-            case 'toimage': case 'toimg': {
-                if (!/webp|video|image/.test(mime)) return m.reply(`📌 Reply to a video/sticker (caption: *${prefix + command}*)`)
-                m.reply(mess.wait)
-                let media = await nimesha.downloadAndSaveMediaMessage(qmsg)
-                let ran = `./database/temp/${getRandom('.png')}`;
-                exec(`convert ${media}[0] ${ran}`, (err) => {
-                    fs.unlinkSync(media)
-                    if (err) return m.reply('Failed!')
-                    let buffer = fs.readFileSync(ran)
-                    m.reply({ image: buffer })
-                    fs.unlinkSync(ran)
-                })
-            }
-            break
-            case 'toptv': {
-                if (!/video/.test(mime)) return m.reply(`📌 Reply to a video with caption ${prefix + command}`)
-                if ((m.quoted ? m.quoted.type : m.type) === 'videoMessage') {
-                    const anu = await quoted.download()
-                    const message = await generateWAMessageContent({ video: anu }, { upload: nimesha.waUploadToServer })
-                    await nimesha.relayMessage(m.chat, { ptvMessage: message.videoMessage }, {})
-                } else m.reply('Reply to a video to convert to PTV!')
-            }
-            break
-            case 'tourl': {
-                try {
-                    if (/webp|video|sticker|audio|jpg|jpeg|png/.test(mime)) {
-                        m.reply(mess.wait)
-                        let media = await quoted.download()
-                        let anu = await UguuSe(media)
-                        m.reply('URL: ' + anu.url)
-                    } else m.reply('Send media to upload!')
-                } catch (e) {
-                    m.reply('Upload server offline!')
-                }
-            }
-            break
-            case 'texttospech': case 'tts': case 'tospech': {
-                if (!text) return m.reply('What text to convert to audio?')
-                let anu = await fetchApi('/tools/tts', { text }, { buffer: true });
-                m.reply({ audio: anu, ptt: true, mimetype: 'audio/mpeg' })
-            }
-            break
-            case 'translate': case 'tr': {
-                if (text && text == 'list') {
-                    let list_tr = `╭──❍「 *Language Code* 」❍\n│• af : Afrikaans\n│• ar : Arab\n│• zh : Chinese\n│• en : English\n│• en-us : English (United States)\n│• fr : French\n│• de : German\n│• hi : Hindi\n│• hu : Hungarian\n│• is : Icelandic\n│• id : Indonesian\n│• it : Italian\n│• ja : Japanese\n│• ko : Korean\n│• la : Latin\n│• no : Norwegian\n│• pt : Portuguese\n│• pt-br : Portuguese (Brazil)\n│• ro : Romanian\n│• ru : Russian\n│• sr : Serbian\n│• es : Spanish\n│• sv : Swedish\n│• ta : Tamil\n│• th : Thai\n│• tr : Turkish\n│• vi : Vietnamese\n╰──────❍`;
-                    m.reply(list_tr)
-                } else {
-                    if (!m.quoted && (!text|| !args[1])) return m.reply(`📌 Reply/Send text (caption: *${prefix + command}*)`)
-                    let lang = args[0] ? args[0] : 'id'
-                    let teks = args[1] ? args.slice(1).join(' ') : m.quoted.text
-                    try {
-                        let hasil = await fetchApi('/tools/translate', { text: teks, lang });
-                        m.reply(`Target: ${lang}\n${hasil.result.translate}`)
-                    } catch (e) {
-                        m.reply(`Language *${lang}* not found!\nSee list: ${prefix + command} list`)
-                    }
-                }
-            }
-            break
-            case 'toqr': case 'qr': {
-                if (!text) return m.reply(`Convert text to QR: *${prefix + command}* text`)
-                m.reply(mess.wait)
-                let anu = await fetchApi('/tools/to-qr', { data: text }, { buffer: true });
-                await m.reply({ image: anu, caption: 'Take it' })
-            }
-            break
-            case 'tohd': case 'remini': case 'hd': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (/image/.test(mime)) {
-                    try {
-                        let media = await quoted.download();
-                        const form = new FormData();
-                        form.append('buffer', media, {
-                            filename: 'image.jpg',
-                            contentType: 'image/jpeg'
-                        });
-                        let hasil = await fetchApi('/tools/remini', form, { buffer: true });
-                        m.reply({ image: hasil, caption: 'Correct' })
-                        setLimit(m, db)
-                    } catch (e) {
-                        let media = await nimesha.downloadAndSaveMediaMessage(qmsg)
-                        let ran = `./database/temp/${getRandom('.jpg')}`;
-                        const scaleFactor = isNaN(parseInt(text)) ? 4 : parseInt(text) < 10 ? parseInt(text) : 4;
-                        exec(`ffmpeg -i "${media}" -vf "scale=iw*${scaleFactor}:ih*${scaleFactor}:flags=lanczos" -q:v 1 "${ran}"`, async (err, stderr, stdout) => {
-                            fs.unlinkSync(media)
-                            if (err) return m.reply(String(err))
-                            let buff = fs.readFileSync(ran)
-                            await nimesha.sendMedia(m.chat, buff, '', 'Correct', m);
-                            fs.unlinkSync(ran)
-                            setLimit(m, db)
-                        });
-                    }
-                } else m.reply(`📌 Reply/Send an image\nExample: ${prefix + command}`)
-            }
-            break
-            case 'dehaze': case 'colorize': case 'colorfull': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (/image/.test(mime)) {
-                    let media = await quoted.download()
-                    const form = new FormData();
-                    form.append('buffer', media, {
-                        filename: 'image.jpg',
-                        contentType: 'image/jpeg'
-                    });
-                    let hasil = await fetchApi('/tools/recolor', form, { buffer: true });
-                    m.reply({ image: hasil, caption: 'Correct' });
-                    setLimit(m, db)
-                } else m.reply(`📌 Reply/Send an image\nExample: ${prefix + command}`)
-            }
-            break
-            case 'hitamkan': case 'toblack': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (/image/.test(mime)) {
-                    let media = await quoted.download()
-                    const form = new FormData();
-                    form.append('style', 'summer');
-                    form.append('buffer', media, {
-                        filename: 'image.jpg',
-                        contentType: 'image/jpeg'
-                    });
-                    let hasil = await fetchApi('/create/skin-tone', form, { buffer: true });
-                    m.reply({ image: hasil, caption: 'Correct' });
-                    setLimit(m, db)
-                } else m.reply(`📌 Reply/Send an image\nExample: ${prefix + command}`)
-            }
-            break
-            case 'ssweb': {
-                if (!isPremium) return m.reply(mess.prem)
-                if (!text) return m.reply(`Example: ${prefix + command} https://github.com/luckyfelistine-bot/maureonix`)
-                try {
-                    let anu = 'https://' + text.replace(/^https?:\/\//, '')
-                    let hasil = await fetchApi('/tools/ss', { url: anu }, { buffer: true });
-                    await m.reply({ image: hasil, caption: 'Correct' });
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('SS Web server offline!')
-                }
-            }
-            break
-            case 'readmore': {
-                let teks1 = text.split`|`[0] ? text.split`|`[0] : ''
-                let teks2 = text.split`|`[1] ? text.split`|`[1] : ''
-                const _msg_readmore = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: teks1 + readmore + teks2, edit: _msg_readmore.key });
-            }
-            break
-            case 'getexif': {
-                if (!m.quoted) return m.reply(`Reply to a sticker with caption ${prefix + command}`)
-                if (!/sticker|webp/.test(quoted.type)) return m.reply(`Reply to a sticker with caption ${prefix + command}`)
-                const img = new webp.Image()
-                await img.load(await m.quoted.download())
-                if (!img.exif) return m.reply('This sticker has no metadata/EXIF.')
-                try {
-                    const exifData = JSON.parse(img.exif.slice(22).toString());
-                    m.reply(util.format(exifData))
-                } catch (e) {
-                    m.reply(`⚠️ Sticker has EXIF but not in JSON format:\n\n${img.exif.toString()}`);
-                }
-            }
-            break
-            case 'cuaca': case 'weather': {
-                if (!text) return m.reply(`Example: ${prefix + command} Jakarta`)
-                try {
-                    let { result: data } = await fetchApi('/tools/cuaca', { city: text });
-                    m.reply(`*🏙 Weather in ${data.name}*\n\n*🌤️ Weather:* ${data.weather[0].main}\n*📝 Description:* ${data.weather[0].description}\n*🌡️ Average Temperature:* ${data.main.temp} °C\n*🤔 Feels like:* ${data.main.feels_like} °C\n*🌬️ Pressure:* ${data.main.pressure} hPa\n*💧 Humidity:* ${data.main.humidity}%\n*🌪️ Wind Speed:* ${data.wind.speed} Km/h\n*📍 Coordinates:*\n- *Latitude:* ${data.coord.lat}\n- *Longitude:* ${data.coord.lon}\n*🌏 Country:* ${data.sys.country}`)
-                } catch (e) {
-                    m.reply('City not found!')
-                }
-            }
-            break
-            case 'sticker': case 'stiker': case 's': case 'stickergif': case 'stikergif': case 'sgif': case 'stickerwm': case 'swm': case 'curi': case 'colong': case 'take': case 'stickergifwm': case 'sgifwm': {
-                if (!/image|video|sticker/.test(quoted.type)) return m.reply(`Reply/Send an image/video/GIF with caption ${prefix + command}\nDuration 1-9 seconds`)
-                let media = await quoted.download()
-                let teks1 = text.split`|`[0] ? text.split`|`[0] : packname
-                let teks2 = text.split`|`[1] ? text.split`|`[1] : author
-                if (/image|webp/.test(mime)) {
-                    m.reply(mess.wait)
-                    await nimesha.sendAsSticker(m.chat, media, m, { packname: teks1, author: teks2 })
-                } else if (/video/.test(mime)) {
-                    if ((qmsg).seconds > 11) return m.reply('Maximum 10 seconds!')
-                    m.reply(mess.wait)
-                    await nimesha.sendAsSticker(m.chat, media, m, { packname: teks1, author: teks2 })
-                } else m.reply(`Reply/Send an image/video/GIF with caption ${prefix + command}\nDuration 1-9 seconds`)
-            }
-            break
-            case 'smeme': case 'stickmeme': case 'stikmeme': case 'stickermeme': case 'stikermeme': {
-                try {
-                    if (!isLimit) return m.reply(mess.limit)
-                    if (!/image|webp/.test(mime)) return m.reply(`Reply/Send an image/sticker with caption ${prefix + command} top|bottom`)
-                    if (!text) return m.reply(`Reply/Send an image/sticker with caption ${prefix + command} top|bottom`)
-                    m.reply(mess.wait)
-                    let atas = text.split`|`[0] ? text.split`|`[0] : '-'
-                    let bawah = text.split`|`[1] ? text.split`|`[1] : '-'
-                    let media = await quoted.download()
-                    let mem = await UguuSe(media);
-                    let smeme = await fetchApi('/create/meme2', { url: mem.url, text: atas, text2: bawah }, { buffer: true });
-                    await nimesha.sendAsSticker(m.chat, smeme, m, { packname, author })
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log(e)
-                    m.reply('Meme server offline!')
-                }
-            }
-            break
-            case 'emojimix': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} 😅+🤔`)
-                let [emoji1, emoji2] = text.split`+`
-                if (!emoji1 && !emoji2) return m.reply(`Example: ${prefix + command} 😅+🤔`)
-                try {
-                    let { result } = await fetchApi('/tools/emojimix', { emoji1, emoji2 });
-                    if (result.length < 1) return m.reply(`❌ *${text}* Emoji mix not found!`)
-                    for (let res of result) {
-                        await nimesha.sendAsSticker(m.chat, res.url, m, { packname, author })
-                    }
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Emoji mix failed!')
-                }
-            }
-            break
-            case 'hack': case 'hacker': case 'hackwifi': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} +94xxxxxxxx\nExample: ${prefix + command} @mention`)
-                const target = text.replace(/[^0-9+]/g, '') || text
-                const displayTarget = text
-                const steps = [
-                    `⚠️ *[ HACK SYSTEM INITIATED ]*`,
-                    `🔍 *Target Detected:* \`${displayTarget}\``,
-                    `📡 *Scanning IP Address...*\n\`192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}\``,
-                    `🌐 *Locating Device...*\n\`${['Samsung Galaxy', 'iPhone 15', 'Xiaomi Redmi', 'Huawei P40'][Math.floor(Math.random()*4)]}\``,
-                    `🔓 *Bypassing WhatsApp Encryption...*\n\`SHA-256 ▓▓▓▓▓▓░░░░ 60%\``,
-                    `💀 *Breaking Security Layers...*\n\`Layer 1 ✅ | Layer 2 ✅ | Layer 3 🔄\``,
-                    `📲 *Accessing Device Camera...*\n\`[GRANTED]\``,
-                    `📂 *Extracting Files...*\n\`Contacts ✅ | Messages ✅ | Gallery ✅\``,
-                    `🔐 *WhatsApp Session Hijacked!*\n\`Token: 7f4a2b9c1e6d3f8a\``,
-                    `✅ *HACK COMPLETE!*\n\`${displayTarget}\`'s WhatsApp has been fully HACKED! 💀`
-                ]
-                try {
-                    let msg = await m.reply(steps[0])
-                    await sleep(1500)
-                    for (let i = 1; i < steps.length; i++) {
-                        await nimesha.sendMessage(m.chat, { text: steps[i], edit: msg.key })
-                        await sleep(1500)
-                    }
-                    setLimit(m, db)
-                } catch(e) {
-                    m.reply(steps.join('\n\n'))
-                }
-            }
-            break
-            case 'attp': case 'attp2': {
-                // Handled in nmd_axis.js
-            }
-            break
-            case 'qc':
-            case 'quote':
-            case 'fakechat': {
-              if (!isLimit) return m.reply(mess.limit)
-              if (!text && !m.quoted) return m.reply(`📌 Reply/Send: *${prefix + command}*`)
-            
-              try {
-                let mediaBuffer
-                let quotedMediaBuffer
-                let ppUrl = await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://i.pinimg.com/564x/8a/e9/e9/8ae9e92fa4e69967aa61bf2bda967b7b.jpg')
-                let bufferPp = await getBuffer(ppUrl);
-                if (m.isMedia) {
-                  mediaBuffer = await m.download()
-                }
-                if (m.quoted && m.quoted.isMedia) {
-                  quotedMediaBuffer = await m.quoted.download()
-                }
-                const senderName = m.pushName || store.contacts?.[m.sender]?.name || '+' + m.sender.split('@')[0]
-                const quotedName = store.contacts?.[m.quoted?.sender]?.name || '+' + (m.quoted?.sender || '').split('@')[0]
-                const params = {
-                  type: 'quote',
-                  backgroundColor: '#1b2226',
-                  width: 512,
-                  scale: 2,
-                  text,
-                  messages: [
-                    {
-                      avatar: true,
-                      from: {
-                        id: 1,
-                        name: senderName,
-                        number: '+' + m.sender.split('@')[0],
-                        time: new Date().toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }),
-                        photo: { buffer: bufferPp.toString('base64') }
-                      },
-                      text: m.text || m.body || '',
-                      ...(mediaBuffer ? { media: { buffer: mediaBuffer.toString('base64') } } : {}),
-                      ...(m.quoted ? {
-                            replyMessage: {
-                              chatId: Math.floor(Math.random() * 9999999),
-                              name: quotedName,
-                              text: m?.quoted?.text || '',
-                              number: '+' + m.quoted.sender.split('@')[0],
-                              ...(quotedMediaBuffer ? { media: { buffer: quotedMediaBuffer.toString('base64') } } : {})
-                            }
-                          }  : {})
-                    }
-                  ]
-                };
-                let res = await fetchApi('/create/qc', params, { method: 'POST', buffer: true });
-                await nimesha.sendAsSticker(m.chat, Buffer.from(res, 'base64'), m, { packname, author })
-                setLimit(m, db)
-              } catch (e) {
-                console.error(e)
-                m.reply('Failed to create fake chat.')
-              }
-            }
-            break
-            case 'brat': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text && (!m.quoted || !m.quoted.text)) return m.reply(`📌 Reply to *${prefix + command}* with text`)
-                try {
-                    let res = await fetchApi('/create/brat', { text }, { buffer: true });
-                    await nimesha.sendAsSticker(m.chat, res, m)
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Brat server offline!')
-                }
-            }
-            break
-            case 'bratvid': case 'bratvideo': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text && (!m.quoted || !m.quoted.text)) return m.reply(`📌 Reply to *${prefix + command}* with text`)
-                const teks = (m.quoted ? m.quoted.text : text).split(' ');
-                const tempDir = path.join(process.cwd(), 'database/temp');
-                try {
-                    const framePaths = [];
-                    for (let i = 0; i < teks.length; i++) {
-                        const currentText = teks.slice(0, i + 1).join(' ');
-                        let res = await fetchApi('/create/brat2', { text: currentText }, { buffer: true });
-                        const framePath = path.join(tempDir, `${time + '-' + m.sender + i}.mp4`);
-                        fs.writeFileSync(framePath, res);
-                        framePaths.push(framePath);
-                    }
-                    const fileListPath = path.join(tempDir, `${time + '-' + m.sender}.txt`);
-                    let fileListContent = '';
-                    for (let i = 0; i < framePaths.length; i++) {
-                        fileListContent += `file '${framePaths[i]}'\n`;
-                        fileListContent += `duration 0.5\n`;
-                    }
-                    fileListContent += `file '${framePaths[framePaths.length - 1]}'\n`;
-                    fileListContent += `duration 3\n`;
-                    fs.writeFileSync(fileListPath, fileListContent);
-                    const outputVideoPath = path.join(tempDir, `${time + '-' + m.sender}-output.mp4`);
-                    execSync(`ffmpeg -y -f concat -safe 0 -i ${fileListPath} -vf 'fps=30' -c:v libx264 -preset veryfast -pix_fmt yuv420p -t 00:00:10 ${outputVideoPath}`);
-                    nimesha.sendAsSticker(m.chat, outputVideoPath, m, { packname, author })
-                    framePaths.forEach((filePath) => fs.unlinkSync(filePath));
-                    fs.unlinkSync(fileListPath);
-                    fs.unlinkSync(outputVideoPath);
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log(e)
-                    m.reply('Error processing request!')
-                }
-            }
-            break
-            case 'wasted': {
-                if (!isLimit) return m.reply(mess.limit)
-                try {
-                    if (/jpg|jpeg|png/.test(mime)) {
-                        m.reply(mess.wait)
-                        let media = await quoted.download()
-                        const form = new FormData();
-                        form.append('buffer', media, {
-                            filename: 'image.jpg',
-                            contentType: 'image/jpeg'
-                        });
-                        let hasil = await fetchApi('/create/wasted', form, { buffer: true });
-                        await nimesha.sendMedia(m.chat, hasil, '', 'Take it', m);
-                        setLimit(m, db)
-                    } else m.reply('Send media to upload!')
-                } catch (e) {
-                    m.reply('Canvas server offline!')
-                }
-            }
-            break
-            case 'trigger': case 'triggered': {
-                if (!isLimit) return m.reply(mess.limit)
-                try {
-                    if (/jpg|jpeg|png/.test(mime)) {
-                        m.reply(mess.wait)
-                        let media = await quoted.download()
-                        let anu = await UguuSe(media)
-                        let hasil = await fetchApi('/create/triggered', form, { buffer: true });
-                        await nimesha.sendMedia(m.chat, hasil, '', 'Take it', m);
-                        setLimit(m, db)
-                    } else m.reply('Send media to upload!')
-                } catch (e) {
-                    m.reply('Canvas server offline!')
-                }
-            }
-            break
-            case 'nulis': {
-                const _msg_nulis = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: `*Examples*\n${prefix}nuliskiri\n${prefix}nuliskanan\n${prefix}foliokiri\n${prefix}foliokanan`, edit: _msg_nulis.key });
-            }
-            break
-            case 'nuliskanan': case 'nuliskiri': case 'foliokanan': case 'foliokiri': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`📌 Send *${prefix + command}* *(text)*`)
-                m.reply(mess.wait)
-                const splitText = text.replace(/(\S+\s*){1,9}/g, '$&\n')
-                const fixHeight = splitText.split('\n').slice(0, 31).join('\n')
-                let hasil = await fetchApi('/create/nulis/' + command, { text: fixHeight }, { buffer: true });
-                await m.reply({ image: hasil, caption: 'Don\'t be lazy. Be a good student ರ_ರ' });
-                setLimit(m, db)
-            }
-            break
-            case 'bass': case 'blown': case 'deep': case 'earrape': case 'fast': case 'fat': case 'nightcore': case 'reverse': case 'robot': case 'slow': case 'smooth': case 'tupai': {
-                try {
-                    let set;
-                    if (/bass/.test(command)) set = '-af equalizer=f=54:width_type=o:width=2:g=20'
-                    if (/blown/.test(command)) set = '-af acrusher=.1:1:64:0:log'
-                    if (/deep/.test(command)) set = '-af atempo=4/4,asetrate=44500*2/3'
-                    if (/earrape/.test(command)) set = '-af volume=12'
-                    if (/fast/.test(command)) set = '-filter:a "atempo=1.63,asetrate=44100"'
-                    if (/fat/.test(command)) set = '-filter:a "atempo=1.6,asetrate=22100"'
-                    if (/nightcore/.test(command)) set = '-filter:a atempo=1.06,asetrate=44100*1.25'
-                    if (/reverse/.test(command)) set = '-filter_complex "areverse"'
-                    if (/robot/.test(command)) set = '-filter_complex "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75"'
-                    if (/slow/.test(command)) set = '-filter:a "atempo=0.7,asetrate=44100"'
-                    if (/smooth/.test(command)) set = '-filter:v "minterpolate=\'mi_mode=mci:mc_mode=aobmc:vsbmc=1:fps=120\'"'
-                    if (/tupai/.test(command)) set = '-filter:a "atempo=0.5,asetrate=65100"'
-                    if (/audio/.test(mime)) {
-                        m.reply(mess.wait)
-                        let media = await nimesha.downloadAndSaveMediaMessage(qmsg)
-                        let ran = `./database/temp/${getRandom('.mp3')}`;
-                        exec(`ffmpeg -i ${media} ${set} ${ran}`, (err, stderr, stdout) => {
-                            fs.unlinkSync(media)
-                            if (err) return m.reply(err)
-                            let buff = fs.readFileSync(ran)
-                            m.reply({ audio: buff, mimetype: 'audio/mpeg' })
-                            fs.unlinkSync(ran)
-                        });
-                    } else m.reply(`📌 Reply/Send an audio file (caption: *${prefix + command}*)`)
-                } catch (e) {
-                    m.reply('Failed!')
-                }
-            }
-            break
-            case 'tinyurl': case 'shorturl': case 'shortlink': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text || !isUrl(text)) return m.reply(`Example: ${prefix + command} https://github.com/luckyfelistine-bot/maureonix`)
-                try {
-                    let hasil = await fetchApi('/other/tinyurl', { url: text });
-                    m.reply('URL: ' + hasil.result)
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Failed!')
-                }
-            }
-            break
-            case 'git': case 'gitclone': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!args[0]) return m.reply(`Example: ${prefix + command} https://github.com/luckyfelistine-bot/maureonix`)
-                if (!isUrl(args[0]) && !args[0].includes('github.com')) return m.reply('Use a GitHub URL!')
-                let [, user, repo] = args[0].match(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i) || []
-                try {
-                    m.reply({ document: { url: `https://api.github.com/repos/${user}/${repo}/zipball` }, fileName: repo + '.zip', mimetype: 'application/zip' }).catch((e) => m.reply(mess.error))
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Failed!')
-                }
-            }
-            break
-            
-            // AI Menu
-            case 'ai': case 'google': case 'bard': case 'gemini': {
-                if (!text) return m.reply(`Example: ${prefix + command} query`)
-                try {
-                    let hasil = await fetchApi('/ai/gemini-flash-lite', { query: text });
-                    m.reply(hasil.result.text)
-                } catch (e) {
-                    m.reply(pickRandom(['AI feature is experiencing issues!','Cannot connect to AI!','AI system is currently busy!','Feature currently unavailable!']))
-                }
-            }
-            break
-            
-            // Search Menu
-            case 'gimage': case 'bingimg': {
-                if (!text) return m.reply(`Example: ${prefix + command} query`)
-                try {
-                    let anu = await fetchApi('/search/google', { query: text });
-                    let una = pickRandom(anu.result)
-                    await m.reply({ image: { url: una.pagemap?.cse_thumbnail?.[0]?.src || una.pagemap?.cse_image?.[0].src || una.pagemap?.metatags?.[0]?.["og:image"] }, caption: 'Search result for ' + text + '\nTitle: ' + una.title + '\nSnippet: ' + una.snippet + '\nSource: ' + una.link || una.formattedUrl })
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Search not found!')
-                }
-            }
-            break
-            case 'play': case 'ytplay': case 'yts': case 'ytsearch': case 'youtubesearch': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} Shape of You`)
-                try {
-                    let statusMsg = await m.reply(`🔍 *Searching...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Request:* ${text}\n⏳ Searching YouTube...\n━━━━━━━━━━━━━━━━━━━━━━`)
-
-                    const searchRes = await yts(text)
-                    const video = searchRes?.videos?.[0] || searchRes?.all?.[0]
-                    if (!video) return m.reply('❌ No YouTube results found!')
-
-                    const _vid = video.videoId || video.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1]
-                    if (!_vid) return m.reply('❌ YouTube video ID not found!')
-                    const videoUrl = `https://www.youtube.com/watch?v=${_vid}`
-                    const videoTitle = video.title || text
-
-                    await nimesha.sendMessage(m.chat, {
-                        text: `⬇️ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${videoTitle}\n⏳ *URL:* ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━`
-                    }, { quoted: m, edit: statusMsg.key })
-
-                    const _sendProgress = async (txt) => {
-                        try { await nimesha.sendMessage(m.chat, { text: txt }, { quoted: m, edit: statusMsg.key }) } catch {}
-                    }
-
-                    const hasil = await ytMp3(videoUrl, _sendProgress)
-                    const isBuffer = Buffer.isBuffer(hasil.result)
-                    const audioPayload = isBuffer ? hasil.result : { url: hasil.result?.url || hasil.result }
-
-                    if (isBuffer && hasil.result.length > 16 * 1024 * 1024) {
-                        return m.reply(`❌ *File too large!*\n📁 Size: ${hasil.size}\n⚠️ WhatsApp limit: 16MB`)
-                    }
-
-                    await m.reply({
-                        audio: audioPayload,
-                        mimetype: 'audio/mpeg',
-                        contextInfo: {
-                            externalAdReply: {
-                                title: hasil.title || videoTitle,
-                                body: hasil.channel || video.author?.name || '',
-                                previewType: 'PHOTO',
-                                thumbnailUrl: hasil.thumb || video.thumbnail || '',
-                                mediaType: 1,
-                                renderLargerThumbnail: true,
-                                sourceUrl: videoUrl
-                            }
-                        }
-                    })
-
-                    await nimesha.sendMessage(m.chat, {
-                        text: `✅ *Success!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${hasil.title || videoTitle}\n━━━━━━━━━━━━━━━━━━━━━━`
-                    }, { quoted: m, edit: statusMsg.key })
-
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('❌ Download failed: ' + e.message.substring(0, 100))
-                }
-            }
-            break
-            case 'pixiv': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} hu tao`)
-                try {
-                    m.reply(mess.wait)
-                    const res = await fetchApi('/search/pixiv', { query: text });
-                    let hasil = pickRandom(res.result.body.illusts);
-                    const response = await fetch(hasil.url, { headers: { 'referer': 'https://www.pixiv.net' }});
-                    const image = await response.buffer();
-                    m.reply({ image, caption: `Title: ${hasil.title}\nDescription: ${hasil.alt}\nTags:\n${hasil.tags.map(a => '- ' + a).join('\n')}` });
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log(e)
-                    m.reply('Unable to get post!')
-                }
-            }
-            break
-            case 'pinterest': case 'pint': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} hu tao`)
-                try {
-                    const res = await fetchApi('/search/pinterest', { query: text });
-                    const hasil = pickRandom(res.result)
-                    const image = await getBuffer(hasil);
-                    await m.reply({ image, caption: 'Result from: ' + text })
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Search not found!');
-                }
-            }
-            break
-            case 'wallpaper': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} hu tao`)
-                try {
-                    let anu = await fetchApi('/search/pinterest', { query: text });
-                    if (anu.length < 1) {
-                        m.reply('Unable to get post!');
-                    } else {
-                        let result = pickRandom(anu.result)
-                        await m.reply({ image: { url: result.urls.original }, caption: `*Media URL:* ${result.pin}${result.description ? '\n*Description:* ' + result.description : ''}` })
-                        setLimit(m, db)
-                    }
-                } catch (e) {
-                    m.reply('Wallpaper server offline!')
-                }
-            }
-            break
-            case 'ringtone': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} black rover`)
-                try {
-                    let anu = await fetchApi('/search/meloboom', { query: text });
-                    let result = pickRandom(anu.result.data)
-                    await m.reply({ audio: { url: anu.result.populated.media[result.media.audio[0]].url }, fileName: result.slug + '.mp3', mimetype: 'audio/mpeg' })
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Audio not found!')
-                }
-            }
-            break
-            case 'npm': case 'npmjs': {
-                if (!text) return m.reply(`Example: ${prefix + command} axios`)
-                try {
-                    let anu = await fetchApi('/search/npm', { query: text });
-                    if (anu.result.objects.length > 1) return m.reply('Search results not found')
-                    let txt = anu.result.objects.map(({ package: pkg }) => {
-                        return `*${pkg.name}* (v${pkg.version})\n_${pkg.links.npm}_\n_${pkg.description}_`
-                    }).join`\n\n`
-                    m.reply(txt)
-                } catch (e) {
-                    m.reply('Search results not found')
-                }
-            }
-            break
-            case 'style': {
-                if (!text) return m.reply(`Example: ${prefix + command} name`)
-                let anu = await fetchApi('/search/styletext', { text });
-                let txt = anu.result.map(a => `*${a.name}*\n${a.result}`).join`\n\n`
-                m.reply(txt)
-            }
-            break
-            case 'spotify': case 'spotifysearch': {
-                if (!text) return m.reply(`Example: ${prefix + command} alan walker alone`)
-                try {
-                    let hasil = await fetchApi('/search/spotify', { query: text });
-                    let txt = hasil.result.map(a => {
-                        return `*Title: ${a.title}*\n- Artist: ${a.artist}\n- URL: ${a.url}`
-                    }).join`\n\n`
-                    m.reply(txt)
-                } catch (e) {
-                    m.reply('Search server offline!')
-                }
-            }
-            break
-            case 'tenor': {
-                if (!text) return m.reply(`Example: ${prefix + command} alone`)
-                try {
-                    const anu = await fetchApi('/search/tenor', { query: text });
-                    const hasil = pickRandom(anu.result)
-                    await m.reply({ video: { url: hasil.media[0].mp4.url }, caption: `👀 *Media:* ${hasil.url}\n📋 *Description:* ${hasil.content_description}\n🔛 *URL:* ${hasil.itemurl}`, gifPlayback: true, gifAttribution: 2 })
-                } catch (e) {
-                    m.reply('Result not found!')
-                }
-            }
-            break
-            case 'urban': {
-                if (!text) return m.reply(`Example: ${prefix + command} alone`)
-                try {
-                    const anu = await fetchJson('https://api.urbandictionary.com/v0/define?term=' + text)
-                    const hasil = pickRandom(anu.list)
-                    await m.reply(`${hasil.definition}\n\n📚 Source: ${hasil.permalink}`)
-                } catch (e) {
-                    m.reply('Result not found!')
-                }
-            }
-            break
-            
-            // Stalker Menu
-            case 'wastalk': case 'whatsappstalk': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} @tag / 94xxx`)
-                try {
-                    let num = m.quoted?.sender || m.mentionedJid?.[0] || text
-                    if (!num) return m.reply(`Example: ${prefix + command} @tag / 94xxx`)
-                    num = num.replace(/\D/g, '') + '@s.whatsapp.net'
-                    if (!(await nimesha.onWhatsApp(num))[0]?.exists) return m.reply('Number not registered on WhatsApp!')
-                    let img = await nimesha.profilePictureUrl(num, 'image').catch(_ => 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png?q=60')
-                    let bio = await nimesha.fetchStatus(num).catch(_ => { })
-                    let name = await nimesha.getName(num)
-                    let business = await nimesha.getBusinessProfile(num)
-                    let format = PhoneNum(`+${num.split('@')[0]}`)
-                    let regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
-                    let country = regionNames.of(format.getRegionCode('international'));
-                    let wea = `WhatsApp Info\n\n*° Country:* ${country.toUpperCase()}\n*° Name:* ${name ? name : '-'}\n*° Formatted Number:* ${format.getNumber('international')}\n*° URL:* wa.me/${num.split('@')[0]}\n*° Mention:* @${num.split('@')[0]}\n*° Status:* ${bio?.status || '-'}\n*° Status Date:* ${bio?.setAt ? moment(bio.setAt.toDateString()).locale('en').format('LL') : '-'}\n\n${business ? `*WhatsApp Business Info*\n\n*° Business ID:* ${business.wid}\n*° Website:* ${business.website ? business.website : '-'}\n*° Email:* ${business.email ? business.email : '-'}\n*° Category:* ${business.category}\n*° Address:* ${business.address ? business.address : '-'}\n*° Timezone:* ${business.business_hours.timezone ? business.business_hours.timezone : '-'}\n*° Description:* ${business.description ? business.description : '-'}` : '*Regular WhatsApp account*'}`
-                    img ? await nimesha.sendMessage(m.chat, { image: { url: img }, caption: wea, mentions: [num] }, { quoted: m }) : m.reply(wea)
-                } catch (e) {
-                    m.reply('Number not found!')
-                }
-            }
-            break
-            case 'ghstalk': case 'githubstalk': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} username`)
-                try {
-                    const res = await fetchJson('https://api.github.com/users/' + text)
-                    m.reply({ image: { url: res.avatar_url }, caption: `*Username:* ${res.login}\n*Nickname:* ${res.name || 'N/A'}\n*Bio:* ${res.bio || 'N/A'}\n*ID:* ${res.id}\n*Node ID:* ${res.node_id}\n*Type:* ${res.type}\n*Admin:* ${res.admin ? 'Yes' : 'No'}\n*Company:* ${res.company || 'N/A'}\n*Blog:* ${res.blog || 'N/A'}\n*Location:* ${res.location || 'N/A'}\n*Email:* ${res.email || 'N/A'}\n*Public Repos:* ${res.public_repos}\n*Public Gists:* ${res.public_gists}\n*Followers:* ${res.followers}\n*Following:* ${res.following}\n*Created At:* ${res.created_at} *Updated At:* ${res.updated_at}` })
-                } catch (e) {
-                    m.reply('Username not found!')
-                }
-            }
-            break
-            
-            // Downloader Menu
-            
-            // 🎵 SONG DOWNLOAD - handled in nmd_axis.js
-            case 'song': case 'mp3': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} Shape of You`)
-                // nmd_axis.js handles this
-            }
-            break
-            
-            case 'ytmp3': case 'ytaudio': case 'ytplayaudio': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} Shape of You or ${prefix + command} https://youtu.be/xxx`)
-
-                const isUrl = /https?:\/\//.test(text)
-                let ytUrl = text
-                let ytTitle = text
-                let statusMsg = await m.reply(`🔍 *${isUrl ? 'Recognizing URL' : 'Searching'}...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Request:* ${text}\n━━━━━━━━━━━━━━━━━━━━━━`)
-
-                if (!isUrl) {
-                    try {
-                        const searchRes = await yts(text)
-                        const video = searchRes?.videos?.[0] || searchRes?.all?.[0]
-                        if (!video) return m.reply('❌ No YouTube results found!')
-                        const videoId = video.videoId || video.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1]
-                        if (!videoId) return m.reply('❌ YouTube video ID not found!')
-                        ytUrl = `https://www.youtube.com/watch?v=${videoId}`
-                        ytTitle = video.title || text
-                        await nimesha.sendMessage(m.chat, {
-                            text: `🎯 *Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${ytTitle}\n🔗 ${ytUrl}\n⬇️ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━`
-                        }, { quoted: m, edit: statusMsg.key })
-                    } catch (se) {
-                        return m.reply('❌ YouTube search failed: ' + se.message.substring(0, 80))
-                    }
-                } else {
-                    await nimesha.sendMessage(m.chat, {
-                        text: `⬇️ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🔗 *URL:* ${ytUrl}\n━━━━━━━━━━━━━━━━━━━━━━`
-                    }, { quoted: m, edit: statusMsg.key })
-                }
-
-                const _sendProgress = async (txt) => {
-                    try { await nimesha.sendMessage(m.chat, { text: txt }, { quoted: m, edit: statusMsg.key }) } catch {}
-                }
-
-                try {
-                    const hasil = await ytMp3(ytUrl, _sendProgress)
-                    const isBuffer = Buffer.isBuffer(hasil.result)
-                    const audioPayload = isBuffer ? hasil.result : { url: hasil.result?.url || hasil.result }
-
-                    if (isBuffer && hasil.result.length > 16 * 1024 * 1024) {
-                        return nimesha.sendMessage(m.chat, {
-                            text: `❌ *File too large!*\n📁 Size: ${hasil.size}\n⚠️ WhatsApp limit: 16MB`
-                        }, { quoted: m, edit: statusMsg.key })
-                    }
-
-                    await m.reply({
-                        audio: audioPayload,
-                        mimetype: 'audio/mpeg',
-                        contextInfo: {
-                            externalAdReply: {
-                                title: hasil.title || ytTitle,
-                                body: hasil.channel || '',
-                                previewType: 'PHOTO',
-                                thumbnailUrl: hasil.thumb || '',
-                                mediaType: 1,
-                                renderLargerThumbnail: true,
-                                sourceUrl: ytUrl
-                            }
-                        }
-                    })
-
-                    await nimesha.sendMessage(m.chat, {
-                        text: `✅ *Success!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${hasil.title || ytTitle}\n━━━━━━━━━━━━━━━━━━━━━━`
-                    }, { quoted: m, edit: statusMsg.key })
-
-                    setLimit(m, db)
-                } catch (e) {
-                    nimesha.sendMessage(m.chat, {
-                        text: '❌ Download failed: ' + e.message.substring(0, 100)
-                    }, { quoted: m, edit: statusMsg.key })
-                }
-            }
-            break
-            case 'ytmp4': case 'ytvideo': case 'ytplayvideo': case 'video': case 'mp4': {
-                // Handled in nmd_axis.js
-            }
-            break
-            case 'ig': case 'instagram': case 'instadl': case 'igdown': case 'igdl': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} Instagram URL`)
-                if (!text.includes('instagram.com')) return m.reply('URL does not contain Instagram!')
-                const statusMsg = await m.reply(`⬇ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n📷 *Instagram:* ${text.substring(0, 50)}...\n━━━━━━━━━━━━━━━━━━━━━━`)
-                try {
-                    const hasil = await igDownload(text)
-                    if (hasil.type === 'album') {
-                        await nimesha.sendAlbumMessage(m.chat, {
-                            album: hasil.items.map(a => (a.is_video ? { video: { url: a.url } } : { image: { url: a.url } })),
-                            caption: hasil.caption || ''
-                        }, { quoted: m })
-                    } else if (hasil.type === 'video') {
-                        await m.reply({ video: { url: hasil.url }, caption: hasil.caption || '' })
-                    } else {
-                        await m.reply({ image: { url: hasil.url }, caption: hasil.caption || '' })
-                    }
-                    await nimesha.sendMessage(m.chat, { text: '✅ *Success!*', edit: statusMsg.key }).catch(() => {})
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log('[IG DL]', e.message)
-                    await nimesha.sendMessage(m.chat, { text: '❌ Unable to get post or private!', edit: statusMsg.key }).catch(() => {})
-                }
-            }
-            break
-            case 'tiktok': case 'tiktokdown': case 'ttdown': case 'ttdl': case 'tt': case 'ttmp4': case 'ttvideo': case 'tiktokmp4': case 'tiktokvideo': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} TikTok URL`)
-                if (!text.includes('tiktok.com') && !text.includes('vm.tiktok') && !text.includes('vt.tiktok')) return m.reply('URL does not contain TikTok!')
-
-                const _ttButtons = [
-                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '✅ Without watermark', id: `${prefix}tt_nowm ${text}` }) },
-                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💧 With watermark', id: `${prefix}tt_wm ${text}` }) }
-                ]
-                await nimesha.sendListMsg(m.chat, {
-                    text: `🎵 *TikTok Download*\n━━━━━━━━━━━━━━━━━━━━━━\n🔗 ${text.substring(0, 50)}\n━━━━━━━━━━━━━━━━━━━━━━\n\nHow would you like to download?`,
-                    footer: '🦊 MAUREONIX',
-                    buttons: _ttButtons
-                }, { quoted: m })
-            }
-            break
-            case 'tt_nowm': case 'tt_wm': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} TikTok URL`)
-                const _isNoWm = command === 'tt_nowm'
-                const ttVidStatus = await m.reply(`⬇ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *TikTok Video:* ${text.substring(0, 45)}...\n${_isNoWm ? '✅ Without watermark' : '💧 With watermark'}\n━━━━━━━━━━━━━━━━━━━━━━`)
-                try {
-                    const hasil = await tiktokDownload(text)
-
-                    const _fixUrl = (u) => {
-                        if (!u) return null;
-                        if (u.startsWith('http')) return u;
-                        if (u.startsWith('/')) return 'https://tikwm.com' + u;
-                        return null;
-                    }
-
-                    if (hasil.type === 'slideshow') {
-                        await nimesha.sendAlbumMessage(m.chat, {
-                            album: hasil.items.map(u => ({ image: { url: _fixUrl(u) || u } })),
-                            caption: `*📍 ${hasil.title || ''}*\n*🎃 ${hasil.author || ''}*`
-                        }, { quoted: m })
-                    } else {
-                        const _rawUrl = (_isNoWm ? hasil.url : (hasil.urlWatermark || hasil.url))
-                        const videoUrl = _fixUrl(_rawUrl)
-                        if (!videoUrl) throw new Error('invalid video url: ' + _rawUrl)
-
-                        let videoPayload;
-                        try {
-                            const fetch2 = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
-                            const vRes = await fetch2(videoUrl, {
-                                headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.tiktok.com/' },
-                                signal: AbortSignal.timeout(60000)
-                            });
-                            if (!vRes.ok) throw new Error(`HTTP ${vRes.status}`);
-                            const vBuf = Buffer.from(await vRes.arrayBuffer());
-                            if (vBuf.length < 10000) throw new Error('file too small');
-
-                            let finalBuf = vBuf;
-                            try {
-                                const { execFile: _ffExecFile } = require('child_process');
-                                const _os = require('os'); const _fs = require('fs');
-                                const _tIn = _os.tmpdir() + '/tt_in_' + Date.now() + '.mp4';
-                                const _tOut = _os.tmpdir() + '/tt_out_' + Date.now() + '.mp4';
-                                _fs.writeFileSync(_tIn, vBuf);
-                                await new Promise((res, rej) => {
-                                    const _ffProc = _ffExecFile('ffmpeg', [
-                                        '-y', '-i', _tIn,
-                                        '-c:v', 'libx264', '-preset', 'fast', '-crf', '28',
-                                        '-c:a', 'aac', '-movflags', '+faststart',
-                                        _tOut
-                                    ], { timeout: 90000 }, (err) => {
-                                        if (err) return rej(err);
-                                        res();
-                                    });
-                                });
-                                const _reOut = _fs.readFileSync(_tOut);
-                                if (_reOut.length > 10000) finalBuf = _reOut;
-                                try { _fs.unlinkSync(_tIn); _fs.unlinkSync(_tOut); } catch {}
-                                console.log('[TT DL] ffmpeg re-encode OK, size:', finalBuf.length);
-                            } catch(_ffErr) {
-                                console.log('[TT DL] ffmpeg skip:', _ffErr.message);
-                            }
-                            videoPayload = finalBuf;
-                        } catch(dlErr) {
-                            console.log('[TT DL] buffer fail, try url direct:', dlErr.message);
-                            videoPayload = { url: videoUrl };
-                        }
-
-                        await m.reply({
-                            video: videoPayload,
-                            caption: `*📍 ${hasil.title || 'TikTok Video'}*\n*🎃 ${hasil.author || ''}*`,
-                            mimetype: 'video/mp4'
-                        })
-                    }
-                    await nimesha.sendMessage(m.chat, { text: '✅ *Success!*', edit: ttVidStatus.key }).catch(() => {})
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log('[TT DL]', e.message)
-                    await nimesha.sendMessage(m.chat, { text: '❌ TikTok download failed!', edit: ttVidStatus.key }).catch(() => {})
-                }
-            }
-            break
-            case 'ttmp3': case 'tiktokmp3': case 'ttaudio': case 'tiktokaudio': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} TikTok URL`)
-                if (!text.includes('tiktok.com') && !text.includes('vm.tiktok') && !text.includes('vt.tiktok')) return m.reply('URL does not contain TikTok!')
-                const ttAudStatus = await m.reply(`⬇ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *TikTok Audio:* ${text.substring(0, 45)}...\n━━━━━━━━━━━━━━━━━━━━━━`)
-                try {
-                    const hasil = await tiktokDownload(text)
-                    let audioUrl = hasil.audio || hasil.url || '';
-                    if (audioUrl.startsWith('/')) audioUrl = 'https://tikwm.com' + audioUrl;
-                    if (!audioUrl.startsWith('http')) throw new Error('invalid audio url: ' + audioUrl);
-
-                    await m.reply({
-                        audio: { url: audioUrl },
-                        mimetype: 'audio/mpeg',
-                        contextInfo: {
-                            externalAdReply: {
-                                title: 'TikTok • ' + (hasil.author || ''),
-                                body: hasil.title || '',
-                                previewType: 'PHOTO',
-                                thumbnailUrl: hasil.thumb || '',
-                                mediaType: 1,
-                                renderLargerThumbnail: true,
-                                sourceUrl: text
-                            }
-                        }
-                    })
-                    await nimesha.sendMessage(m.chat, { text: '✅ *Success!*', edit: ttAudStatus.key }).catch(() => {})
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log('[TT MP3]', e.message)
-                    await nimesha.sendMessage(m.chat, { text: '❌ TikTok audio download failed!', edit: ttAudStatus.key }).catch(() => {})
-                }
-            }
-            break
-            case 'fb': case 'fbdl': case 'fbdown': case 'facebook': case 'facebookdl': case 'facebookdown': case 'fbdownload': case 'fbmp4': case 'fbvideo': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} Facebook URL`)
-                if (!text.includes('facebook.com') && !text.includes('fb.watch')) return m.reply('URL does not contain Facebook!')
-                const fbStatus = await m.reply(`⬇ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n📸 *Facebook:* ${text.substring(0, 50)}...\n━━━━━━━━━━━━━━━━━━━━━━`)
-                try {
-                    const hasil = await fbDownload(text)
-                    const videoUrl = hasil.hd || hasil.sd
-                    if (!videoUrl) throw new Error('no url')
-                    await nimesha.sendMessage(m.chat, { text: `⬇️ *Sending...*\n🎥 *${hasil.title || 'Facebook Video'}*`, edit: fbStatus.key }).catch(() => {})
-                    await nimesha.sendFileUrl(m.chat, videoUrl, `*🎐 ${hasil.title || 'Facebook Video'}*`, m)
-                    await nimesha.sendMessage(m.chat, { text: '✅ *Success!* Facebook video found.', edit: fbStatus.key }).catch(() => {})
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log('[FB DL]', e.message)
-                    await nimesha.sendMessage(m.chat, { text: '❌ Facebook download failed!', edit: fbStatus.key }).catch(() => {})
-                }
-            }
-            break
-            case 'mediafire': case 'mf': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} https://www.mediafire.com/file/xxxxxxxxx/xxxxx.zip/file`)
-                if (!isUrl(args[0]) && !args[0].includes('mediafire.com')) return m.reply('Invalid URL!')
-                try {
-                    let { result: res } = await fetchApi('/download/mediafire', { url: text })
-                    await nimesha.sendMedia(m.chat, res.link, res.filename, `*MEDIAFIRE DOWNLOADER*\n\n*${setv} Name*: ${res.filename}\n*${setv} Size*: ${res.size}`, m)
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Download server offline!')
-                }
-            }
-            break
-            case 'spotifydl': {
-                if (!isLimit) return m.reply(mess.limit)
-                if (!text) return m.reply(`Example: ${prefix + command} https://open.spotify.com/track/0JiVRyTJcJnmlwCZ854K4p`)
-                if (!isUrl(args[0]) && !args[0].includes('open.spotify.com/track')) return m.reply('Invalid URL!')
-                try {
-                    let statusMsg = await m.reply(`⬇ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n💚 *Spotify:* ${text.substring(0,50)}...\n━━━━━━━━━━━━━━━━━━━━━━`)
-                    const { result: hasil } = await fetchApi('/download/spotify', { url: text })
-                    await nimesha.sendMessage(m.chat, { text: `⬇️ *Downloading...*\n🎵 *${hasil.artist} - ${hasil.title}*` }, { quoted: m, edit: statusMsg.key })
-                    const buffer = await fetchApi('/download/spotify/audio', { url: text }, { buffer: true })
-                    await m.reply({
-                        audio: buffer,
-                        mimetype: 'audio/mpeg',
-                        contextInfo: {
-                            externalAdReply: {
-                                title: hasil.artist + ' • ' + hasil.title,
-                                body: hasil.duration,
-                                previewType: 'PHOTO',
-                                thumbnailUrl: hasil.cover,
-                                mediaType: 1,
-                                renderLargerThumbnail: true,
-                                sourceUrl: text
-                            }
-                        }
-                    })
-                    await nimesha.sendMessage(m.chat, { text: '✅ *Success!* Spotify download found.', edit: statusMsg.key })
-                    setLimit(m, db)
-                } catch (e) {
-                    console.log(e)
-                    m.reply('Download server offline!')
-                }
-            }
-            break
-            
-            // Quotes Menu
-            case 'motivasi': {
-                const hasil = await fetchApi('/random/motivasi');
-                const _msg_bijak = await m.reply('⏳ 💡 *Getting...*');
-                await nimesha.sendMessage(m.chat, { text: hasil.result, edit: _msg_bijak.key });
-            }
-            break
-            case 'bijak': {
-                const hasil = await fetchApi('/random/bijak');
-                const _msg_dare = await m.reply('⏳ 🎯 *Getting dare...*');
-                await nimesha.sendMessage(m.chat, { text: hasil.result, edit: _msg_dare.key });
-            }
-            break
-            case 'dare': {
-                const hasil = await fetchApi('/random/dare');
-                const _msg_bucin = await m.reply('⏳ 💕 *Getting...*');
-                await nimesha.sendMessage(m.chat, { text: hasil.result, edit: _msg_bucin.key });
-            }
-            break
-            case 'quotes': {
-                const { result: hasil } = await fetchApi('/random/quotes');
-                const _msg_quotes = await m.reply('⏳ 💬 *Getting quote...*');
-                await nimesha.sendMessage(m.chat, { text: `_${hasil.quotes}_\n\n*- ${hasil.author}*`, edit: _msg_quotes.key });
-            }
-            break
-            case 'truth': {
-                const hasil = await fetchApi('/random/truth');
-                const _msg_truth = await m.reply('⏳ 🤔 *Getting truth...*');
-                await nimesha.sendMessage(m.chat, { text: `_${pickRandom(hasil.result)}_`, edit: _msg_truth.key });
-            }
-            break
-            case 'renungan': {
-                const hasil = await fetchApi('/random/renungan');
-                const _msg_renungan = await m.reply('⏳ *Getting...*');
-                await nimesha.sendMessage(m.chat, { text: hasil.result || '', contextInfo: { forwardingScore: 10, isForwarded: true, externalAdReply: { title: (m.pushName || 'Anon'), thumbnailUrl: hasil.result, mediaType: 1, previewType: 'PHOTO', renderLargerThumbnail: true } }, edit: _msg_renungan.key });
-            }
-            break
-            case 'bucin': {
-                const hasil = await fetchApi('/random/bucin');
-                const _msg_bucin = await m.reply('⏳ *Processing...*');
-                await nimesha.sendMessage(m.chat, { text: hasil.result, edit: _msg_bucin.key });
-            }
-            break
-            
-            // Random Menu
-            case 'coffe': case 'kopi': {
-                try {
-                    await nimesha.sendFileUrl(m.chat, 'https://coffee.alexflipnote.dev/random', '☕ Random Coffee', m)
-                } catch (e) {
-                    try {
-                        const anu = await fetchJson('https://api.sampleapis.com/coffee/hot')
-                        await nimesha.sendFileUrl(m.chat, pickRandom(anu).image, '☕ Random Coffee', m)
-                    } catch (e) {
-                        const _msg_kopi = await m.reply('⏳ *Processing...*');
-                        await nimesha.sendMessage(m.chat, { text: 'Server offline!', edit: _msg_kopi.key });
-                    }
-                }
-            }
-            break
-            
-            // Anime Menu
-            case 'waifu': case 'neko': {
-                try {
-                    if (!isNsfw && text === 'nsfw') return m.reply('NSFW filter is active!')
-                    const res = await fetchJson('https://api.waifu.pics/' + (text === 'nsfw' ? 'nsfw' : 'sfw') + '/' + command)
-                    await nimesha.sendFileUrl(m.chat, res.url, 'Random Waifu', m)
-                    setLimit(m, db)
-                } catch (e) {
-                    m.reply('Server offline!')
-                }
-            }
-            break
-            
-            // Fun Menu
-            case 'dadu': {
-                let ddsa = [{ url: 'https://telegra.ph/file/9f60e4cdbeb79fc6aff7a.png', no: 1 },{ url: 'https://telegra.ph/file/797f86e444755282374ef.png', no: 2 },{ url: 'https://telegra.ph/file/970d2a7656ada7c579b69.png', no: 3 },{ url: 'https://telegra.ph/file/0470d295e00ebe789fb4d.png', no: 4 },{ url: 'https://telegra.ph/file/a9d7332e7ba1d1d26a2be.png', no: 5 },{ url: 'https://telegra.ph/file/99dcd999991a79f9ba0c0.png', no: 6 }]
-                let media = pickRandom(ddsa)
-                try {
-                    await nimesha.sendAsSticker(m.chat, media.url, m, { packname, author, isAvatar: 1 })
-                } catch (e) {
-                    let anu = await fetch(media.url)
-                    let una = await anu.buffer()
-                    await nimesha.sendAsSticker(m.chat, una, m, { packname, author, isAvatar: 1 })
-                }
-            }
-            break
-            case 'halah': case 'hilih': case 'huluh': case 'heleh': case 'holoh': {
-                if (!m.quoted && !text) return m.reply(`📌 Reply/Send text (caption: *${prefix + command}*)`)
-                ter = command[1].toLowerCase()
-                tex = m.quoted ? m.quoted.text ? m.quoted.text : q ? q : m.text : q ? q : m.text
-                m.reply(tex.replace(/[aiueo]/g, ter).replace(/[AIUEO]/g, ter.toUpperCase()))
-            }
-            break
-            case 'bisakah': {
-                if (!text) return m.reply(`Example: ${prefix + command} Can I win?`)
-                let bisa = ['Yes','Maybe','Probably','No','Definitely','Try again','Impossible','Dream on?','Are you sure?']
-                let keh = bisa[Math.floor(Math.random() * bisa.length)]
-                m.reply(`*Question: ${text}*\nAnswer: ${keh}`)
-            }
-            break
-            case 'apakah': {
-                if (!text) return m.reply(`Example: ${prefix + command} Can I succeed?`)
-                let apa = ['Yes','No','Maybe','Try again','Probably','Probably not','Could be','I doubt it']
-                let kah = apa[Math.floor(Math.random() * apa.length)]
-                m.reply(`*${command} ${text}*\nAnswer: ${kah}`)
-            }
-            break
-            case 'kapan': case 'kapankah': {
-                if (!text) return m.reply(`Example: ${prefix + command} Will I win?`)
-                let kapan = ['Tomorrow','Next week','Next month','Next year','Soon','Never','In 5 years','In 10 years','Maybe someday','Not in this lifetime']
-                let koh = kapan[Math.floor(Math.random() * kapan.length)]
-                m.reply(`*${command} ${text}*\nAnswer: ${koh}`)
-            }
-            break
-            case 'siapa': case 'siapakah': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (!text) return m.reply(`Example: ${prefix + command} Who is the best?`)
-                let member = (store.groupMetadata[m.chat] ? store.groupMetadata[m.chat].participants : m.metadata.participants).map(a => a.id)
-                let siapakh = pickRandom(member)
-                m.reply(`@${siapakh.split('@')[0]}`);
-            }
-            break
-            case 'tanyakerang': case 'kerangajaib': case 'kerang': {
-                if (!text) return m.reply(`Example: ${prefix + command} Can I borrow money?`)
-                let krng = ['Maybe someday','Probably not','No','Yes','Ask again later','I doubt it','Not likely','Definitely not','For sure']
-                let jwb = pickRandom(krng)
-                m.reply(`*Question: ${text}*\n*Answer: ${jwb}*`)
-            }
-            break
-            case 'cekmati': {
-                if (!text) return m.reply(`Example: ${prefix + command} name`)
-                let teksnya = text.replace(/@|[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/\d/g, '');
-                let data = await axios.get(`https://api.agify.io/?name=${teksnya ? teksnya : 'bot'}`).then(res => res.data).catch(e => ({ age: Math.floor(Math.random() * 90) + 20 }));
-                m.reply(`Name: ${text}\n*Predicted age at death:* ${data.age == null ? (Math.floor(Math.random() * 90) + 20) : data.age} years.\n\n_Just for fun, life is unpredictable._`)
-            }
-            break
-            case 'ceksifat': {
-                let sifat_a = ['Wise','Patient','Creative','Humorous','Easygoing','Independent','Loyal','Honest','Generous','Idealistic','Fair','Polite','Diligent','Hardworking','Forgiving','Kind','Cheerful','Confident','Loving','Disciplined','Optimistic','Brave','Grateful','Responsible','Reliable','Calm','Logical']
-                let sifat_b = ['Arrogant','Insecure','Vengeful','Sensitive','Perfectionist','Attention-seeker','Stingy','Selfish','Pessimistic','Loner','Manipulative','Unstable','Cowardly','Vulgar','Disloyal','Lazy','Rude','Complicated','Wasteful','Stubborn','Foolish','Traitor','Greedy','Ravenous','Gossip','Racist','Careless','Intolerant']
-                let teks = `╭──❍「 *Personality Check* 」❍\n│• User: ${text && m.mentionedJid ? text : '@' + m.sender.split('@')[0]}${(text && m.mentionedJid ? '' : (`\n│• Name: *${text ? text : m.pushName}*` || '\n│• Name: *No name*'))}\n│• Positive trait: *${pickRandom(sifat_a)}*\n│• Negative trait: *${pickRandom(sifat_b)}*\n│• Courage: *${Math.floor(Math.random() * 100)}%*\n│• Care: *${Math.floor(Math.random() * 100)}%*\n│• Anxiety: *${Math.floor(Math.random() * 100)}%*\n│• Fear: *${Math.floor(Math.random() * 100)}%*\n│• Good traits: *${Math.floor(Math.random() * 100)}%*\n│• Bad traits: *${Math.floor(Math.random() * 100)}%*\n╰──────❍`
-                m.reply(teks)
-            }
-            break
-            case 'cekkhodam': {
-                if (!text) return m.reply(`Example: ${prefix + command} name`)
-                try {
-                    const { result: hasil } = await fetchApi('/primbon/cekkhodam');
-                    m.reply(`The spiritual energy of *${text}* is *${hasil.nama}*\n_${hasil.deskripsi}_`)
-                } catch (e) {
-                    m.reply(pickRandom(['Mystical aura','Mysterious energy','Unknown entity','Spiritual presence']))
-                }
-            }
-            break
-            case 'rate': case 'nilai': {
-                const _msg_rate = await m.reply('⏳ ⭐ *Rating...*');
-                await nimesha.sendMessage(m.chat, { text: `🤖 Bot Rate: *${Math.floor(Math.random() * 100)}%*`, edit: _msg_rate.key });
-            }
-            break
-            case 'jodohku': {
-                if (!m.isGroup) return m.reply(mess.group)
-                let member = (store.groupMetadata?.[m.chat]?.participants || m.metadata?.participants || []).map(a => a.id)
-                let jodoh = pickRandom(member)
-                m.reply(`👫 Your soulmate\n@${m.sender.split('@')[0]} ❤ @${jodoh ? jodoh.split('@')[0] : '0'}`);
-            }
-            break
-            case 'jadian': {
-                if (!m.isGroup) return m.reply(mess.group)
-                let member = (store.groupMetadata?.[m.chat]?.participants || m.metadata?.participants || []).map(a => a.id)
-                let jadian1 = pickRandom(member)
-                let jadian2 = pickRandom(member)
-                m.reply(`Love game 💖 Don't forget to support 🗿\n@${jadian1.split('@')[0]} ❤ @${jadian2.split('@')[0]}`);
-            }
-            break
-            case 'fitnah': {
-                let [teks1, teks2, teks3] = text.split`|`
-                if (!teks1 || !teks2 || !teks3) return m.reply(`Example: ${prefix + command} target message|your message|number/tag`)
-                let ftelo = { key: { fromMe: false, participant: teks3.replace(/[^0-9]/g, '') + '@s.whatsapp.net', ...(m.isGroup ? { remoteJid: m.chat } : { remoteJid: teks3.replace(/[^0-9]/g, '') + '@s.whatsapp.net'})}, message: { conversation: teks1 }}
-                nimesha.sendMessage(m.chat, { text: teks2 }, { quoted: ftelo });
-            }
-            break
-            case 'coba': {
-                let anu = ['I am a monkey','I am an ape','I am stupid','I am rich','I am a god','I am a dog','I am a fool','I am a king','I am a sultan','I am good','I am black','I like it']
-                await nimesha.sendButtonMsg(m.chat, {
-                    text: 'Choose one 🙂',
-                    buttons: [{
-                        buttonId: 'teshoki',
-                        buttonText: { displayText: '\n' + pickRandom(anu)},
-                        type: 1
-                    },{
-                        buttonId: 'cobacoba',
-                        buttonText: { displayText: '\n' + pickRandom(anu)},
-                        type: 1
-                    }]
-                })
-            }
-            break
-            
-            // Game Menu
-            case 'slot': {
-                await gameSlot(nimesha, m, db)
-            }
-            break
-            case 'casino': {
-                await gameCasinoSolo(nimesha, m, prefix, db)
-            }
-            break
-            case 'samgong': case 'kartu': {
-                await gameSamgongSolo(nimesha, m, db)
-            }
-            break
-            case 'rampok': case 'merampok': {
-                await gameMerampok(m, db)
-            }
-            break
-            case 'begal': {
-                await gameBegal(nimesha, m, db)
-            }
-            break
-            case 'suitpvp': case 'suit': {
-                if (Object.values(suit).find(roof => roof.id.startsWith('suit') && [roof.p, roof.p2].includes(m.sender))) return m.reply(`Please finish your existing suit session first.`)
-                if (m.mentionedJid[0] === m.sender) return m.reply(`You can't play with yourself!`)
-                if (!m.mentionedJid[0]) return m.reply(`_Who do you want to challenge?_\nTag them..\n\nExample: ${prefix}suit @${ownerNumber[0]}`, m.chat, { mentions: [ownerNumber[0] + '@s.whatsapp.net'] })
-                if (Object.values(suit).find(roof => roof.id.startsWith('suit') && [roof.p, roof.p2].includes(m.mentionedJid[0]))) return m.reply(`The person you challenged is already in a suit game :(`)
-                let caption = `_*SUIT PvP*_\n\n@${m.sender.split('@')[0]} challenged @${m.mentionedJid[0].split('@')[0]} to a suit game.\n\nPlease @${m.mentionedJid[0].split('@')[0]} type accept/reject to respond.`
-                let id = 'suit_' + Date.now();
-                suit[id] = {
-                    chat: caption,
-                    id: id,
-                    p: m.sender,
-                    p2: m.mentionedJid[0],
-                    status: 'wait',
-                    poin: 10,
-                    poin_lose: 10,
-                    timeout: 3 * 60 * 1000
-                }
-                m.reply(caption)
-                await sleep(3 * 60 * 1000)
-                if (suit[id]) {
-                    m.reply(`⏰ _Suit request timed out!_`)
-                    delete suit[id]
-                }
-            }
-            break
-            case 'delsuit': case 'deletesuit': {
-                let roomnya = Object.values(suit).find(roof => roof.id.startsWith('suit') && [roof.p, roof.p2].includes(m.sender))
-                if (!roomnya) return m.reply(`⚠️ You are not in a suit room!`)
-                delete suit[roomnya.id]
-                m.reply(`✅ Suit room session deleted!`)
-            }
-            break
-            case 'ttc': case 'ttt': case 'tictactoe': {
-                if (Object.values(tictactoe).find(room => room.id.startsWith('tictactoe') && [room.game.playerX, room.game.playerO].includes(m.sender))) return m.reply(`⚠️ You are already in a game! To end: *${prefix}del${command}*`);
-                let room = Object.values(tictactoe).find(room => room.state === 'WAITING' && (text ? room.name === text : true))
-                if (room) {
-                    m.reply('Partner found!')
-                    room.o = m.chat
-                    room.game.playerO = m.sender
-                    room.state = 'PLAYING'
-                    if (!(room.game instanceof TicTacToe)) {
-                        room.game = Object.assign(new TicTacToe(room.game.playerX, room.game.playerO), room.game)
-                    }
-                    let arr = room.game.render().map(v => {
-                        return {X: '❌',O: '⭕',1: '1️⃣',2: '2️⃣',3: '3️⃣',4: '4️⃣',5: '5️⃣',6: '6️⃣',7: '7️⃣',8: '8️⃣',9: '9️⃣'}[v]
-                    })
-                    let str = `Room ID: ${room.id}\n\n${arr.slice(0, 3).join('')}\n${arr.slice(3, 6).join('')}\n${arr.slice(6).join('')}\n\nWaiting for @${room.game.currentTurn.split('@')[0]}\n\nType *nyerah* to surrender`
-                    if (room.x !== room.o) await nimesha.sendMessage(room.x, { text: str, mentions: parseMention(str) }, { quoted: m })
-                    await nimesha.sendMessage(room.o, { text: str, mentions: parseMention(str) }, { quoted: m })
-                } else {
-                    room = {
-                        id: 'tictactoe-' + (+new Date),
-                        x: m.chat,
-                        o: '',
-                        game: new TicTacToe(m.sender, 'o'),
-                        state: 'WAITING',
-                    }
-                    if (text) room.name = text
-                    nimesha.sendMessage(m.chat, { text: 'Waiting for a partner' + (text ? ` type ${prefix}${command} ${text}` : ''), mentions: m.mentionedJid }, { quoted: m })
-                    tictactoe[room.id] = room
-                    await sleep(300000)
-                    if (tictactoe[room.id]) {
-                        m.reply(`⏰ _Session timed out!_`)
-                        delete tictactoe[room.id]
-                    }
-                }
-            }
-            break
-            case 'delttc': case 'delttt': {
-                let roomnya = Object.values(tictactoe).find(room => room.id.startsWith('tictactoe') && [room.game.playerX, room.game.playerO].includes(m.sender))
-                if (!roomnya) return m.reply(`⚠️ You are not in a TicTacToe room!`)
-                delete tictactoe[roomnya.id]
-                m.reply(`✅ TicTacToe room session deleted!`)
-            }
-            break
-            case 'akinator': {
-                if (text == 'start') {
-                    if (akinator[m.sender]) return m.reply('You already have an unfinished session!')
-                    akinator[m.sender] = new Akinator({ region: 'en', childMode: false });
-                    try {
-                        await akinator[m.sender].start()
-                    } catch (e) {
-                        delete akinator[m.sender];
-                        return m.reply('Akinator server is experiencing issues\nPlease try again!')
-                    }
-                    let { key } = await m.reply(`🎮 Akinator Game :\n\n@${m.sender.split('@')[0]}\n${akinator[m.sender].question}\n\n- 0 - Yes\n- 1 - No\n- 2 - Don't know\n- 3 - Probably\n- 4 - Probably not\n\n${prefix + command} end (To exit session)`)
-                    akinator[m.sender].key = key.id
-                    await sleep(3600000)
-                    if (akinator[m.sender]) {
-                        m.reply(`⏰ _Session timed out!_`)
-                        delete akinator[m.sender];
-                    }
-                } else if (text == 'end') {
-                    if (!akinator[m.sender]) return m.reply('You are not playing Akinator!')
-                    delete akinator[m.sender];
-                    m.reply('Successfully ended Akinator session')
-                } else m.reply(`Example: ${prefix + command} start/end`)
-            }
-            break
-            case 'tebakbom': {
-                if (tebakbom[m.sender]) return m.reply('You already have an unfinished session!')
-                tebakbom[m.sender] = {
-                    petak: [0, 0, 0, 2, 0, 2, 0, 2, 0, 0].sort(() => Math.random() - 0.5),
-                    board: ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'],
-                    bomb: 3,
-                    lolos: 7,
-                    pick: 0,
-                    nyawa: ['❤️', '❤️', '❤️'],
-                }
-                await m.reply(`*Bomb Game*\n\n${tebakbom[m.sender].board.join("")}\n\nChoose a number! Avoid bombs!\nBombs: ${tebakbom[m.sender].bomb}\nLives: ${tebakbom[m.sender].nyawa.join("")}`);
-                await sleep(120000)
-                if (tebakbom[m.sender]) {
-                    m.reply(`⏰ _Session timed out!_`)
-                    delete tebakbom[m.sender];
-                }
-            }
-            break
-            case 'tekateki': {
-                if (iGame(tekateki, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tekateki');
-                let { key } = await m.reply(`🎮 Next riddle:\n\n${hasil.soal}\n\nTime: 60s\nReward: *+3499*`)
-                tekateki[m.chat + key.id] = {
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tekateki, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tekateki[m.chat + key.id].jawaban)
-                    delete tekateki[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebaklirik': {
-                if (iGame(tebaklirik, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebaklirik');
-                let { key } = await m.reply(`🎮 Identify the lyric:\n\n${hasil.soal}\n\nTime: 90s\nReward: *+4299*`)
-                tebaklirik[m.chat + key.id] = {
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(90000)
-                if (rdGame(tebaklirik, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebaklirik[m.chat + key.id].jawaban)
-                    delete tebaklirik[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebakkata': {
-                if (iGame(tebakkata, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebakkata');
-                let { key } = await m.reply(`🎮 Guess the word:\n\n${hasil.soal}\n\nTime: 60s\nReward: *+3499*`)
-                tebakkata[m.chat + key.id] = {
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebakkata, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebakkata[m.chat + key.id].jawaban)
-                    delete tebakkata[m.chat + key.id]
-                }
-            }
-            break
-            case 'family100': {
-                if (family100.hasOwnProperty(m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/family100');
-                let { key } = await m.reply(`🎮 Answer the following:\n\n${hasil.soal}\n\nTime: 5m\nReward: *+3499*`)
-                family100[m.chat] = {
-                    soal: hasil.soal,
-                    jawaban: hasil.jawaban,
-                    terjawab: Array.from(hasil.jawaban, () => false),
-                    id: key.id
-                }
-                await sleep(300000)
-                if (family100.hasOwnProperty(m.chat)) {
-                    m.reply('⏰ Time expired!\nAnswers:\n- ' + family100[m.chat].jawaban.join('\n- '))
-                    delete family100[m.chat]
-                }
-            }
-            break
-            case 'susunkata': {
-                if (iGame(susunkata, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/susunkata');
-                let { key } = await m.reply(`🎮 Arrange the word:\n\n${hasil.soal}\nType: ${hasil.tipe}\n\nTime: 60s\nReward: *+2989*`)
-                susunkata[m.chat + key.id] = {
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(susunkata, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + susunkata[m.chat + key.id].jawaban)
-                    delete susunkata[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebakkimia': {
-                if (iGame(tebakkimia, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebakkimia');
-                let { key } = await m.reply(`🎮 Identify the chemical element:\n\n${hasil.unsur}\n\nTime: 60s\nReward: *+3499*`)
-                tebakkimia[m.chat + key.id] = {
-                    jawaban: hasil.lambang.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebakkimia, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebakkimia[m.chat + key.id].jawaban)
-                    delete tebakkimia[m.chat + key.id]
-                }
-            }
-            break
-            case 'caklontong': {
-                if (iGame(caklontong, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/caklontong');
-                let { key } = await m.reply(`🎮 Answer the question:\n\n${hasil.soal}\n\nTime: 60s\nReward: *+9999*`)
-                caklontong[m.chat + key.id] = {
-                    ...hasil,
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(caklontong, m.chat, key.id)) {
-                    m.reply(`Time expired!\nAnswer: ${caklontong[m.chat + key.id].jawaban}\n"${caklontong[m.chat + key.id].deskripsi}"`)
-                    delete caklontong[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebaknegara': {
-                if (iGame(tebaknegara, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebaknegara');
-                let { key } = await m.reply(`🎮 Guess the country from the landmark:\n\n*Location: ${hasil.tempat}*\n\nTime: 60s\nReward: *+3499*`)
-                tebaknegara[m.chat + key.id] = {
-                    jawaban: hasil.negara.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebaknegara, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebaknegara[m.chat + key.id].jawaban)
-                    delete tebaknegara[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebakgambar': {
-                if (iGame(tebakgambar, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebakgambar');
-                let { key } = await nimesha.sendFileUrl(m.chat, hasil.img, `🎮 Identify the image:\n\n${hasil.deskripsi}\n\nTime: 60s\nReward: *+3499*`, m)
-                tebakgambar[m.chat + key.id] = {
-                    jawaban: hasil.jawaban.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebakgambar, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebakgambar[m.chat + key.id].jawaban)
-                    delete tebakgambar[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebakbendera': {
-                if (iGame(tebakbendera, m.chat)) return m.reply('You already have an unfinished session!')
-                const { result: hasil } = await fetchApi('/games/tebakbendera');
-                let { key } = await m.reply(`🎮 Guess the country from the flag:\n\n*Flag: ${hasil.bendera}*\n\nTime: 60s\nReward: *+3499*`)
-                tebakbendera[m.chat + key.id] = {
-                    jawaban: hasil.negara.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebakbendera, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebakbendera[m.chat + key.id].jawaban)
-                    delete tebakbendera[m.chat + key.id]
-                }
-            }
-            break
-            case 'tebakangka': case 'butawarna': case 'colorblind': {
-                if (iGame(tebakangka, m.chat)) return m.reply('You already have an unfinished session!')
-                const soal = await fetchJson('https://raw.githubusercontent.com/nima-axis/database/refs/heads/master/random/color_blind.json');
-                const hasil = pickRandom(soal);
-                let { key } = await m.reply({
-                    text: `Choose the correct answer!\nOptions: ${[hasil.number, ...hasil.similar].sort(() => Math.random() - 0.5).join(', ')}`,
-                    contextInfo: {
-                        externalAdReply: {
-                            renderLargerThumbnail: true,
-                            thumbnailUrl: hasil.color_blind[0],
-                            body: `Level: ${hasil.lv}`,
-                            previewType: 0,
-                            mediaType: 1,
-                        }
-                    }
-                });
-                tebakangka[m.chat + key.id] = {
-                    jawaban: hasil.number,
-                    id: key.id
-                }
-                await sleep(60000)
-                if (rdGame(tebakangka, m.chat, key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + tebakangka[m.chat + key.id].jawaban)
-                    delete tebakangka[m.chat + key.id]
-                }
-            }
-            break
-            case 'kuismath': case 'math': {
-                const { genMath, modes } = require('./lib/math');
-                const inputMode = ['noob', 'easy', 'medium', 'hard','extreme','impossible','impossible2'];
-                if (iGame(kuismath, m.chat)) return m.reply('You already have an unfinished session!')
-                if (!text) return m.reply(`Mode: ${Object.keys(modes).join(' | ')}\nExample: ${prefix}math medium`)
-                if (!inputMode.includes(text.toLowerCase())) return m.reply('Mode not found!')
-                let result = await genMath(text.toLowerCase())
-                let { key } = await m.reply(`*What is the result of: ${result.soal.toLowerCase()}*?\n\nTime: ${(result.waktu / 1000).toFixed(2)} seconds`)
-                kuismath[m.chat + key.id] = {
-                    jawaban: result.jawaban,
-                    mode: text.toLowerCase(),
-                    id: key.id
-                }
-                await sleep(kuismath, result.waktu)
-                if (rdGame(m.chat + key.id)) {
-                    m.reply('⏰ Time expired!\nAnswer: ' + kuismath[m.chat + key.id].jawaban)
-                    delete kuismath[m.chat + key.id]
-                }
-            }
-            break
-            case 'ulartangga': case 'snakeladder': case 'ut': {
-                if (!m.isGroup) return m.reply(mess.group)
-                if (ulartangga[m.chat] && !(ulartangga[m.chat] instanceof SnakeLadder)) {
-                    ulartangga[m.chat] = Object.assign(new SnakeLadder(ulartangga[m.chat]), ulartangga[m.chat]);
-                }
-                switch(args[0]) {
-                    case 'create': case 'join':
-                    if (ulartangga[m.chat]) {
-                        if (Object.keys(ulartangga[m.chat].players).length > 8) return m.reply(`⚠️ Player limit exceeded! To start: *${prefix + command} start*`);
-                        if (ulartangga[m.chat].players.some(a => a.id == m.sender)) return m.reply('You are already in the game!')
-                        ulartangga[m.chat].players.push({ id: m.sender, move: 0 });
-                        m.reply('Successfully joined the game session')
-                    } else {
-                        ulartangga[m.chat] = new SnakeLadder({ id: m.chat, host: m.sender });
-                        ulartangga[m.chat].players.push({ id: m.sender, move: 0 });
-                        ulartangga[m.chat].time = Date.now();
-                        m.reply('Successfully created a game session')
-                    }
-                    break
-                    case 'start':
-                    if (!ulartangga[m.chat]) return m.reply('No game session currently!')
-                    if (ulartangga[m.chat].players.length < 2) return m.reply('Not enough players!\nAt least 2 players required!')
-                    if (ulartangga[m.chat].start) return m.reply('Game session already started!')
-                    if (ulartangga[m.chat].host !== m.sender) return m.reply(`Only the host @${ulartangga[m.chat].host.split('@')[0]} can start the session!`)
-                    let { key } = await m.reply({ image: { url: ulartangga[m.chat].map.url }, caption: `🐍🪜 SNAKE AND LADDER GAME\n\n${ulartangga[m.chat].players.map((p, i) => `- @${p.id.split('@')[0]} (Piece ${['Red', 'Light Blue', 'Yellow', 'Green', 'Purple', 'Orange', 'Dark Blue', 'White'][i]})`).join('\n')}\n\nTurn: @${m.sender.split('@')[0]}\n\nReply to play!\nExample: Type "Roll"`, mentions: ulartangga[m.chat].players.map(p => p.id)});
-                    ulartangga[m.chat].id = key.id
-                    ulartangga[m.chat].start = true
-                    break
-                    case 'leave':
-                    if (!ulartangga[m.chat]) return m.reply('No game session currently!')
-                    if (!ulartangga[m.chat].players.some(a => a.id == m.sender)) return m.reply('You are not a player!')
-                    const player = ulartangga[m.chat].players.findIndex(a => a.id == m.sender)
-                    if (ulartangga[m.chat].start) return m.reply('⚠️ Game already started! Cannot leave now.')
-                    if (ulartangga[m.chat].players.length < 1 || ulartangga[m.chat].host === m.sender) {
-                        m.reply(ulartangga[m.chat].host === m.sender ? '🚪 Host left, game ended!' : 'Less than 1 player, game stopped!');
-                        delete ulartangga[m.chat];
-                        break;
-                    }
-                    ulartangga[m.chat].players.splice(player, 1);
-                    m.reply('✅ Left the game!');
-                    break
-                    case 'end':
-                    if (!ulartangga[m.chat]) return m.reply('No game session currently!')
-                    if (ulartangga[m.chat]?.host !== m.sender) return m.reply(`Only the host @${ulartangga[m.chat].host.split('@')[0]} can end the session!`)
-                    delete ulartangga[m.chat]
-                    m.reply('Game session successfully ended')
-                    break
-                    default:
-                    m.reply(`🐍🪜 SNAKE AND LADDER GAME\nCommand: ${prefix + command} <command>\n- create\n- join\n- start\n- leave\n- end`)
-                }
-            }
-            break
-            case 'chess': case 'catur': case 'ct': {
-                const { DEFAUT_POSITION } = require('chess.js');
-                if (!m.isGroup) return m.reply(mess.group)
-                if (chess[m.chat] && !(chess[m.chat] instanceof Chess)) {
-                    chess[m.chat] = Object.assign(new Chess(chess[m.chat].fen), chess[m.chat]);
-                }
-                switch(args[0]) {
-                    case 'start':
-                    if (!chess[m.chat]) return m.reply('No game session currently!')
-                    if (!chess[m.chat].acc) return m.reply('Players not complete!')
-                    if (chess[m.chat].player1 !== m.sender) return m.reply('⚠️ Only the main player can start!')
-                    if (chess[m.chat].turn !== m.sender && !chess[m.chat].start) {
-                        const encodedFen = encodeURI(chess[m.chat]._fen);
-                        let boardUrls = [`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside`,`https://www.chess.com/dynboard?fen=${encodedFen}&board=graffiti&piece=graffiti&size=3&coordinates=inside`,`https://chessboardimage.com/${encodedFen}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}`,`https://fen2image.chessvision.ai/${encodedFen}`];
-                        for (let url of boardUrls) {
-                            try {
-                                const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-                                let { key } = await m.reply({ image: data, caption: `♟️${command.toUpperCase()} GAME\n\nTurn: @${m.sender.split('@')[0]}\n\nReply to play!\nExample: b1 c3`, mentions: [m.sender] });
-                                chess[m.chat].start = true
-                                chess[m.chat].turn = m.sender
-                                chess[m.chat].id = key.id;
-                                return;
-                            } catch (e) {}
-                        }
-                        if (!chess[m.chat].key) {
-                            m.reply(`❌ Failed to start the game!`)
-                        }
-                    } else if ([chess[m.chat].player1, chess[m.chat].player2].includes(m.sender)) {
-                        const isPlayer2 = chess[m.chat].player2 === m.sender
-                        const nextPlayer = isPlayer2 ? chess[m.chat].player1 : chess[m.chat].player2;
-                        const encodedFen = encodeURI(chess[m.chat]._fen);
-                        const boardUrls = [`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside${!isPlayer2 ? '&flip=true' : ''}`,`https://www.chess.com/dynboard?fen=${encodedFen}&board=graffiti&piece=graffiti&size=3&coordinates=inside${!isPlayer2 ? '&flip=true' : ''}`,`https://chessboardimage.com/${encodedFen}${!isPlayer2 ? '-flip' : ''}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}&coordinates=true&size=765${!isPlayer2 ? '&orientation=black' : ''}`,`https://fen2image.chessvision.ai/${encodedFen}/${!isPlayer2 ? '?pov=black' : ''}`];
-                        for (let url of boardUrls) {
-                            try {
-                                chess[m.chat].turn = chess[m.chat].turn === m.sender ? m.sender : nextPlayer;
-                                const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-                                let { key } = await m.reply({ image: data, caption: `♟️CHESS GAME\n\nTurn: @${chess[m.chat].turn.split('@')[0]}\n\nReply to play!\nExample: b1 c3`, mentions: [chess[m.chat].turn] });
-                                chess[m.chat].id = key.id;
-                                break;
-                            } catch (e) {}
-                        }
-                    }
-                    break
-                    case 'join':
-                    if (chess[m.chat]) {
-                        if (chess[m.chat].player1 !== m.sender) {
-                            if (chess[m.chat].acc) return m.reply(`⚠️ Players already full! Try again later.`)
-                            let teks = chess[m.chat].player2 === m.sender ? 'Thanks for joining' : `Since @${chess[m.chat].player2.split('@')[0]} didn't respond\nYou will replace them, @${m.sender.split('@')[0]}`
-                            chess[m.chat].player2 = m.sender
-                            chess[m.chat].acc = true
-                            m.reply(`${teks}\nPlease ask @${chess[m.chat].player1.split('@')[0]} to start the game (${prefix + command} start)`)
-                        } else m.reply(`⚠️ You are already in the game!`)
-                    } else m.reply('No game session currently!')
-                    break
-                    case 'end': case 'leave':
-                    if (chess[m.chat]) {
-                        if (![chess[m.chat].player1, chess[m.chat].player2].includes(m.sender)) return m.reply('Only players can end the game!')
-                        delete chess[m.chat]
-                        m.reply('Successfully deleted game session')
-                    } else m.reply('No game session currently!')
-                    break
-                    case 'bot': case 'computer':
-                    if (chess[m.sender]) {
-                        delete chess[m.sender];
-                        return m.reply('Successfully deleted vs BOT session')
-                    } else {
-                        chess[m.sender] = new Chess(DEFAUT_POSITION);
-                        chess[m.sender]._fen = chess[m.sender].fen();
-                        chess[m.sender].turn = m.sender;
-                        chess[m.sender].botMode = true;
-                        chess[m.sender].time = Date.now();
-                        const encodedFen = encodeURI(chess[m.sender]._fen);
-                        const boardUrls = [`https://www.chess.com/dynboard?fen=${encodedFen}&size=3&coordinates=inside`,`https://www.chess.com/dynboard?fen=${encodedFen}&board=graffiti&piece=graffiti&size=3&coordinates=inside`,`https://chessboardimage.com/${encodedFen}.png`,`https://backscattering.de/web-boardimage/board.png?fen=${encodedFen}&coordinates=true&size=765`,`https://fen2image.chessvision.ai/${encodedFen}/`];
-                        for (let url of boardUrls) {
-                            try {
-                                const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-                                let { key } = await m.reply({ image: data, caption: `♟️CHESS GAME\n\nTurn: @${chess[m.sender].turn.split('@')[0]}\n\nReply to play!\nExample: b1 c3`, mentions: [chess[m.sender].turn] });
-                                chess[m.sender].id = key.id;
-                                break;
-                            } catch (e) {}
-                        }
-                    }
-                    break
-                    default:
-                    if (/^@?\d+$/.test(args[0])) {
-                        if (chess[m.chat]) return m.reply('You already have an unfinished session!')
-                        if (m.mentionedJid.length < 1) return m.reply('Tag the person you want to play with!')
-                        chess[m.chat] = new Chess(DEFAUT_POSITION);
-                        chess[m.chat]._fen = chess[m.chat].fen();
-                        chess[m.chat].player1 = m.sender
-                        chess[m.chat].player2 = m.mentionedJid ? m.mentionedJid[0] : null
-                        chess[m.chat].time = Date.now();
-                        chess[m.chat].turn = null
-                        chess[m.chat].acc = false
-                        m.reply(`♟️${command.toUpperCase()} GAME\n\n@${m.sender.split('@')[0]} challenged @${m.mentionedJid[0].split('@')[0]}\nType ${prefix + command} join to join`)
-                    } else {
-                        m.reply(`♟️${command.toUpperCase()} GAME\n\nExample: ${prefix + command} @tag/number\n- start\n- leave\n- join\n- computer\n- end`)
-                    }
-                }
-                
-            }
-            break
-            case 'blackjack': case 'bj': {
-                let session = null;
-                for (let id in blackjack) {
-                    if (blackjack[id].players.find(p => p.id === m.sender)) {
-                        session = blackjack[id];
+        case 'privacy': {
+            if (!isTrusted) return await sendAutoDelete(nimesha, m.chat, '❌ Owner command only!', botFooter, { quoted:m });
+            const privacyMenu = `🛡️ *PRIVACY MANAGER*\n────────────────────\n\n*Last Seen:* 1=All 2=Contacts 3=Nobody\n*Online:* 4=All 5=Match Last Seen\n*Profile Pic:* 6=All 7=Contacts 8=Nobody\n*Status:* 9=All 10=Contacts 11=Nobody\n*Read Receipts:* 12=On 13=Off\n*Groups Add:* 14=All 15=Contacts 16=Admins\n*Disappearing:* 17=Off 18=24h 19=7d 20=90d\n*Block List:* 21\n────────────────────`;
+            if (!q) return await sendAutoDelete(nimesha, m.chat, privacyMenu, botFooter, { quoted:m });
+            const choice = parseInt(q.trim());
+            if (isNaN(choice)||choice<1||choice>21) return await sendAutoDelete(nimesha, m.chat, '⚠️ Reply with number 1-21!', botFooter, { quoted:m });
+            try {
+                let resultMsg = '';
+                switch(choice) {
+                    case 1: await nimesha.updateLastSeenPrivacy('all'); resultMsg='✅ Last Seen → Everyone'; break;
+                    case 2: await nimesha.updateLastSeenPrivacy('contacts'); resultMsg='✅ Last Seen → Contacts'; break;
+                    case 3: await nimesha.updateLastSeenPrivacy('none'); resultMsg='✅ Last Seen → Nobody'; break;
+                    case 4: await nimesha.updateOnlinePrivacy('all'); resultMsg='✅ Online → Everyone'; break;
+                    case 5: await nimesha.updateOnlinePrivacy('match_last_seen'); resultMsg='✅ Online → Match Last Seen'; break;
+                    case 6: await nimesha.updateProfilePicturePrivacy('all'); resultMsg='✅ Profile Pic → Everyone'; break;
+                    case 7: await nimesha.updateProfilePicturePrivacy('contacts'); resultMsg='✅ Profile Pic → Contacts'; break;
+                    case 8: await nimesha.updateProfilePicturePrivacy('none'); resultMsg='✅ Profile Pic → Nobody'; break;
+                    case 9: await nimesha.updateStatusPrivacy('all'); resultMsg='✅ Status → Everyone'; break;
+                    case 10: await nimesha.updateStatusPrivacy('contacts'); resultMsg='✅ Status → Contacts'; break;
+                    case 11: await nimesha.updateStatusPrivacy('none'); resultMsg='✅ Status → Nobody'; break;
+                    case 12: await nimesha.updateReadReceiptsPrivacy('all'); resultMsg='✅ Read Receipts → On'; break;
+                    case 13: await nimesha.updateReadReceiptsPrivacy('none'); resultMsg='✅ Read Receipts → Off'; break;
+                    case 14: await nimesha.updateGroupsAddPrivacy('all'); resultMsg='✅ Groups Add → Everyone'; break;
+                    case 15: await nimesha.updateGroupsAddPrivacy('contacts'); resultMsg='✅ Groups Add → Contacts'; break;
+                    case 16: await nimesha.updateGroupsAddPrivacy('contact_blacklist'); resultMsg='✅ Groups Add → Admins Only'; break;
+                    case 17: await nimesha.updateDefaultDisappearingMode(0); resultMsg='✅ Disappearing → Off'; break;
+                    case 18: await nimesha.updateDefaultDisappearingMode(86400); resultMsg='✅ Disappearing → 24h'; break;
+                    case 19: await nimesha.updateDefaultDisappearingMode(604800); resultMsg='✅ Disappearing → 7 days'; break;
+                    case 20: await nimesha.updateDefaultDisappearingMode(7776000); resultMsg='✅ Disappearing → 90 days'; break;
+                    case 21: {
+                        const bl = await nimesha.fetchBlocklist();
+                        resultMsg = bl?.length ? `📋 *Block List (${bl.length})*\n\n${bl.map((j,i)=>`${i+1}. +${j.replace('@s.whatsapp.net','')}`).join('\n')}` : '📋 *Block List*\n\nEmpty.';
                         break;
                     }
                 }
-                if (session && !(session instanceof Blackjack)) {
-                    session = Object.assign(new Blackjack(session), session)
-                }
-                if (blackjack[m.chat] && !(blackjack[m.chat] instanceof Blackjack)) {
-                    blackjack[m.chat] = Object.assign(new Blackjack(blackjack[m.chat]), blackjack[m.chat])
-                }
-                switch(args[0]) {
-                    case 'create': case 'join':
-                    if (!m.isGroup) return m.reply(mess.group)
-                    if (blackjack[m.chat] || session) {
-                        if (blackjack[m.chat]?.players?.some(a => a.id === m.sender)) return m.reply('You are already in the game!')
-                        if (session) return m.reply('You are already in another group session! Please leave it first.')
-                        if (blackjack[m.chat].players.length > 10) return m.reply(`⚠️ Player limit reached! To start: *${prefix + command} start*`);
-                        blackjack[m.chat].players.push({ id: m.sender, cards: [] });
-                        m.reply('Successfully joined the Blackjack game')
-                    } else {
-                        blackjack[m.chat] = new Blackjack({ id: m.chat, host: m.sender });
-                        blackjack[m.chat].players.push({ id: m.sender, cards: [] });
-                        m.reply('Successfully created a Blackjack game')
-                    }
-                    break
-                    case 'start':
-                    if (!m.isGroup) return m.reply(mess.group)
-                    if (!blackjack[m.chat]) return m.reply('No Blackjack game session currently!')
-                    if (blackjack[m.chat]?.host !== m.sender) return m.reply(`Only the host @${blackjack[m.chat].host.split('@')[0]} can start the session!`)
-                    if (blackjack[m.chat].players.length < 2) return m.reply('⚠️ Need at least 2 players to start!');
-                    if (blackjack[m.chat].started) return m.reply('Game already started!')
-                    blackjack[m.chat].distributeCards();
-                    m.reply(`🃏 BLACKJACK GAME ♦️\nStarting card: ${blackjack[m.chat].startCard.rank + blackjack[m.chat].startCard.suit}\nDeck count: ${blackjack[m.chat].deck.length}\n${blackjack[m.chat].players.map(a => `- @${a.id.split('@')[0]} : (${a.cards.length} cards)`).join('\n')}\n\nCheck your private chat\nwa.me/${botNumber.split('@')[0]}`);
-                    for (let p of blackjack[m.chat].players) {
-                        const startCard = blackjack[m.chat].startCard;
-                        let buttons = p.cards.map(a => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${a.rank}${a.suit}`, id: `.${command} play ${a.rank}${a.suit}` })}));
-                        if (!blackjack[m.chat].hasMatching(p.id)) buttons.push({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Drink', id: `.${command} minum` }) });
-                        await nimesha.sendListMsg(p.id, { text: `Starting card: ${startCard.rank + startCard.suit}`, footer: `${p.cards.map(c => c.rank + c.suit).join(', ')}`, buttons }, { quoted: m });
-                    }
-                    break
-                    case 'hit': case 'minum': {
-                        if (!session) return m.reply('No Blackjack game session currently!')
-                        if (!session.started) return m.reply('Game has not started yet!')
-                        if (session.players.length < 2) return m.reply('⚠️ Need at least 2 players to start!');
-                        if (!session.players?.some(a => a.id === m.sender)) return m.reply('You are not in the game!');
-                        if (!args[0]) return m.reply(`Use format:\n${prefix + command} play <card>\nExample: ${prefix + command} hit`);
-                        const player = session.players.find(p => p.id === m.sender);
-                        const hitIndex = player.cards.findIndex(c => (c.rank + c.suit) === (session.startCard.rank + session.startCard.suit));
-                        if (session.submitCard.some(s => s.id === m.sender) || session.skip.includes(m.sender)) {
-                            return m.reply('You have already played in this round!');
-                        }
-                        if (!session.hasMatching(m.sender)) {
-                            if (session.deck.length) {
-                                const newCard = session.deck.shift();
-                                player.cards.push(newCard);
-                                await sleep(1000);
-                                let buttons = player.cards.map(a => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${a.rank}${a.suit}`, id: `.${command} play ${a.rank}${a.suit}` })}));
-                                if (!session.hasMatching(player.id)) buttons.push({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Drink', id: `.${command} minum` }) });
-                                await nimesha.sendListMsg(player.id, { text: `Starting card: ${session.startCard.rank + session.startCard.suit}`, footer: `${player.cards.map(c => c.rank + c.suit).join(', ')}`, buttons }, { quoted: m });
-                            } else {
-                                let reuse = session.reuseSubmitCardsForDrinking()
-                                await m.reply(reuse.msg)
-                                if (!session.skip.find(a => a.id === player.id)) session.skip.push({ id: player.id });
-                                await m.reply('Deck empty, you cannot draw more cards. Skipped.');
-                                await nimesha.sendText(session.id, `@${m.sender.split('@')[0]} skipped because deck is empty.`, m);
-                                if ((session.submitCard.length + session.skip.length) === session.players.length) {
-                                    const result = session.resolveRound();
-                                    if (result) {
-                                        await nimesha.sendText(session.id, result, m);
-                                        if (session.players.length === 1) {
-                                            await nimesha.sendText(session.id, `Only one player left (@${session.players[0].id.split('@')[0]}), Blackjack session ended.`, m);
-                                            delete blackjack[session.id];
-                                            return;
-                                        }
-                                        const leaderCards = session.players.find(a => a.id === session.leader);
-                                        let buttons = leaderCards.cards.map(c => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${c.rank}${c.suit}`, id: `.${command} play ${c.rank}${c.suit}` })}));
-                                        await nimesha.sendListMsg(session.leader, { text: 'Choose a card to start the next round', footer: leaderCards.cards.map(c => c.rank + c.suit).join(', '), buttons }, { quoted: m });
-                                    }
-                                }
-                            }
-                        } else m.reply(`You have a matching suit (${session.startCard.suit}), play before drinking!`);
-                        if ((session.submitCard.length + session.skip.length) === session.players.length) {
-                            const result = session.resolveRound();
-                            if (result) {
-                                await nimesha.sendText(session.id, result, m);
-                                if (session.players.length === 1) {
-                                    await nimesha.sendText(session.id, `Only one player left (@${session.players[0].id.split('@')[0]}), Blackjack session ended.`, m);
-                                    delete blackjack[session.id];
-                                    return;
-                                }
-                                const leaderCards = session.players.find(a => a.id === session.leader);
-                                let buttons = leaderCards.cards.map(c => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${c.rank}${c.suit}`, id: `.${command} play ${c.rank}${c.suit}` })}));
-                                await nimesha.sendListMsg(session.leader, { text: 'Choose a card to start the next round', footer: leaderCards.cards.map(c => c.rank + c.suit).join(', '), buttons }, { quoted: m });
-                            }
-                        }
-                    }
-                    break
-                    case 'play': {
-                        if (!session) return m.reply('No Blackjack game session currently!')
-                        if (!session.started) return m.reply('Game has not started yet!')
-                        if (session.players.length < 2) return m.reply('⚠️ Need at least 2 players to start!');
-                        if (!session.players?.some(a => a.id === m.sender)) return m.reply('You are not in the game!');
-                        if (!args[1]) return m.reply(`Use format:\n${prefix + command} play <card>\nExample: ${prefix + command} play 3♥️`);
-                        const player = session.players.find(p => p.id === m.sender);
-                        const idx = player.cards.findIndex(c => normalize(c.rank + c.suit) === normalize(args[1]));
-                        if (idx === -1) return m.reply('Invalid card!');
-                        if (session.submitCard.some(s => s.id === m.sender) || session.skip.includes(m.sender)) return m.reply('You have already played in this round!');
-                        const card = player.cards[idx];
-                        if (Object.keys(session.startCard).length) {
-                            if (card.suit !== session.startCard.suit) return m.reply(`❌ Card does not match! Suit required: ${session.startCard.suit}`);
-                        } else if (m.sender !== session.leader) return m.reply('Only the round leader can start!');
-                        player.cards.splice(idx, 1);
-                        session.secondDeck.push(card);
-                        session.submitCard.push({ id: m.sender, card: card });
-                        await sleep(1000);
-                        if (player.cards.length === 0) {
-                            session.winner.push({ id: player.id });
-                            session.leader = '';
-                            session.submitCard = [];
-                            session.players = session.players.filter(p => p.id !== player.id);
-                            await nimesha.sendText(session.id, `@${m.sender.split('@')[0]} wins the game!\nCards left: 0`, m);
-                            if (session.players.length === 1) {
-                                await nimesha.sendText(session.id, `Only one player left (@${session.players[0].id.split('@')[0]}), Blackjack session ended.`, m);
-                                delete blackjack[session.id];
-                                return;
-                            }
-                        }
-                        if (Object.keys(session.startCard).length === 0) {
-                            session.startCard = card;
-                            await nimesha.sendText(session.id, `@${m.sender.split('@')[0]} started the round with ${card.rank}${card.suit}`, m);
-                            for (let s of session.players) {
-                                if (s.id === session.leader) continue;
-                                const startCard = session.startCard;
-                                let buttons = s.cards.map(a => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${a.rank}${a.suit}`, id: `.${command} play ${a.rank}${a.suit}` })}));
-                                if (!session.hasMatching(s.id)) buttons.push({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Drink', id: `.${command} minum` }) });
-                                await nimesha.sendListMsg(s.id, { text: `Starting card: ${startCard.rank + startCard.suit}`, footer: `${s.cards.map(c => c.rank + c.suit).join(', ')}`, buttons }, { quoted: m });
-                            }
-                            return;
-                        }
-                        if ((session.submitCard.length + session.skip.length) === session.players.length) {
-                            const result = session.resolveRound();
-                            if (result) {
-                                await nimesha.sendText(session.id, result, m);
-                                if (session.players.length === 1) {
-                                    await nimesha.sendText(session.id, `Only one player left (@${session.players[0].id.split('@')[0]}), Blackjack session ended.`, m);
-                                    delete blackjack[session.id];
-                                    return;
-                                }
-                                const leaderCards = session.players.find(a => a.id === session.leader);
-                                let buttons = leaderCards.cards.map(c => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${c.rank}${c.suit}`, id: `.${command} play ${c.rank}${c.suit}` })}));
-                                await nimesha.sendListMsg(session.leader, { text: 'Choose a card to start the next round', footer: leaderCards.cards.map(c => c.rank + c.suit).join(', '), buttons }, { quoted: m });
-                            }
-                        }
-                        await m.reply(`✅ You played ${card.rank}${card.suit}`);
-                        await nimesha.sendText(session.id, `@${m.sender.split('@')[0]} played ${card.rank}${card.suit}`, m);
-                    }
-                    break
-                    case 'info':
-                    if (!session) return m.reply('No Blackjack game session currently!')
-                    if (!session.players?.some(a => a.id === m.sender)) return m.reply('You are not in the game!');
-                    const players = session.players.map((p, i) => `${i + 1}. @${p.id.split('@')[0]} ${p.id === session.host ? '(HOST) ' : p.id === session.leader ? '(Leader)' : ''}`).join('\n');
-                    if (m.isGroup) {
-                        m.reply(`🃏 BLACKJACK GAME INFO ♦️\n*Players:* ${session.players.length}\n*Host:* @${session.host.split('@')[0]}\n*Status:* ${session.started ? 'Started' : 'Not started'}${Object.keys(session.startCard).length > 1 ? `\n*Starting card:* ${session.startCard.rank + session.startCard.suit}` : ''}\n*Remaining cards in deck:* ${session.deck.length}\n\n*Player list:*\n${players}${session.secondDeck.length ? `\n\n*Card history:* ${session.secondDeck.map(c => `${c.rank}${c.suit}`).join(', ')}` : ''}`)
-                    } else {
-                        const player = session.players.find(p => p.id === m.sender);
-                        const cards = player.cards?.map(c => `${c.rank}${c.suit}`).join(', ') || 'No cards yet';
-                        m.reply(`🃏 BLACKJACK GAME INFO ♦️\n*Players:* ${session.players.length}\n*Host:* @${session.host.split('@')[0]}\n*Status:* ${session.started ? 'Started' : 'Not started'}${Object.keys(session.startCard).length > 1 ? `\n*Starting card:* ${session.startCard.rank + session.startCard.suit}` : ''}\n*Remaining cards in deck:* ${session.deck.length}\n\n*Player list:*\n${players}\n\n*Your cards:*\n${cards}${session.secondDeck.length ? `\n\n*Card history:* ${session.secondDeck.map(c => `${c.rank}${c.suit}`).join(', ')}` : ''}`)
-                    }
-                    break
-                    case 'end':
-                    if (!m.isGroup) return m.reply(mess.group)
-                    if (!blackjack[m.chat]) return m.reply('No Blackjack game session currently!')
-                    if (blackjack[m.chat]?.host !== m.sender) return m.reply(`Only the host @${blackjack[m.chat].host.split('@')[0]} can end the session!`)
-                    delete blackjack[m.chat]
-                    m.reply('Blackjack game session successfully ended')
-                    break
-                    default:
-                    m.reply(`🃏 BLACKJACK GAME ♦️\nCommand: ${prefix + command} <command>\n- create\n- join\n- start\n- info\n- hit\n- deck\n- end`)
-                }
-            }
-            break
-            
-            // Menu
-            case 'menu': {
-                if (args[0] == 'set') {
-                    if (['1','2','3'].includes(args[1])) {
-                        set.template = parseInt(Number(args[1]))
-                        m.reply('Successfully changed menu template')
-                    } else m.reply(`Choose template:\n- 1 (Button Menu)\n- 2 (List Menu)\n- 3 (Document Menu)`)
-                } else {
-                    const _baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : ('https://sincere-manifestation-production.up.railway.app')
-                    if (global.generateMenuCards) await global.generateMenuCards().catch(e => {})
-                    const carouselCards = [
-                        {
-                            url: _baseUrl + '/menucard/bot',
-                            body: '🤖 *BOT COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .alive\n▸ .bot\n▸ .ping\n▸ .speed\n▸ .runtime\n▸ .block\n▸ .unblock\n▸ .allblock\n▸ .allunblock\n▸ .listblock',
-                            footer: '👆 Tap — BOT menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Open BOT Menu', id: prefix + 'botmenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/group',
-                            body: '👥 *GROUP COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .tagall\n▸ .hidetag\n▸ .add\n▸ .kick\n▸ .promote\n▸ .demote\n▸ .welcome\n▸ .setname',
-                            footer: '👆 Tap — GROUP menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Open GROUP Menu', id: prefix + 'groupmenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/download',
-                            body: '⬇️ *DOWNLOAD COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .song\n▸ .mp3\n▸ .play\n▸ .ytmp3\n▸ .video\n▸ .mp4\n▸ .ytmp4',
-                            footer: '👆 Tap — DOWNLOAD menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Open DOWNLOAD Menu', id: prefix + 'downloadmenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/ai',
-                            body: '🤖 *AI COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .gpt\n▸ .gemini\n▸ .llama3\n▸ .ai\n▸ .chatai\n▸ .imagine\n▸ .flux\n▸ .sora',
-                            footer: '👆 Tap — AI menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Open AI Menu', id: prefix + 'aimenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/sticker',
-                            body: '🎨 *STICKER & IMAGE*\n━━━━━━━━━━━━━━━━━\n▸ .sticker\n▸ .attp\n▸ .simage\n▸ .removebg\n▸ .blur\n▸ .ss\n▸ .tts\n▸ .trt',
-                            footer: '👆 Tap — STICKER menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Open STICKER Menu', id: prefix + 'stickersmenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/fun',
-                            body: '😂 *FUN COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .joke\n▸ .quote\n▸ .fact\n▸ .8ball\n▸ .compliment\n▸ .hack\n▸ .ship\n▸ .flirt',
-                            footer: '👆 Tap — FUN menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Open FUN Menu', id: prefix + 'quotesmenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/games',
-                            body: '🎮 *GAMES COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .tictactoe\n▸ .suit\n▸ .chess\n▸ .akinator\n▸ .slot\n▸ .math\n▸ .blackjack',
-                            footer: '👆 Tap — GAMES menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Open GAMES Menu', id: prefix + 'gamemenu' }) }]
-                        },
-                        {
-                            url: _baseUrl + '/menucard/search',
-                            body: '🔍 *SEARCH COMMANDS*\n━━━━━━━━━━━━━━━━━\n▸ .google\n▸ .ytsearch\n▸ .define\n▸ .weather\n▸ .news\n▸ .lyrics\n▸ .fact',
-                            footer: '👆 Tap — SEARCH menu opens',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Open SEARCH Menu', id: prefix + 'searchmenu' }) }]
-                        },
-                        {
-                            url: await (async () => {
-                                try {
-                                    const ownerJid = (global.owner?.[0] || '').replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-                                    if (ownerJid && ownerJid !== '@s.whatsapp.net') {
-                                        const dpUrl = await nimesha.profilePictureUrl(ownerJid, 'image');
-                                        if (dpUrl) return dpUrl;
-                                    }
-                                } catch (_) {}
-                                try {
-                                    const botJid = nimesha.user?.id?.replace(':0@', '@') || nimesha.user?.id;
-                                    if (botJid) {
-                                        const dpUrl = await nimesha.profilePictureUrl(botJid, 'image');
-                                        if (dpUrl) return dpUrl;
-                                    }
-                                } catch (_) {}
-                                return 'https://i.ibb.co/MDcvDZqT/z-R.jpg';
-                            })(),
-                            body: '🔐 *PRIVACY MANAGER*\n━━━━━━━━━━━━━━━━━\n▸ .privacy 1-3 — Last Seen\n▸ .privacy 4-5 — Online Status\n▸ .privacy 6-8 — Profile Picture\n▸ .privacy 9-11 — Status Updates\n▸ .privacy 12-13 — Read Receipts\n▸ .privacy 14-16 — Groups Add\n▸ .privacy 17-20 — Disappearing\n▸ .privacy 21 — Block List',
-                            footer: '👆 Tap — Privacy settings open',
-                            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔐 Open Privacy Menu', id: prefix + 'privacy' }) }]
-                        },
-                    ]
-                    await nimesha.sendCarouselMsg(
-                        m.chat,
-                        `*🦊 MAUREONIX*\n\n👤 *User:* ${m.pushName || 'User'}\n🔧 *Prefix:* ${prefix}\n📅 ${date}  🕐 ${time}\n\n_Swipe and tap a category_ 👉`,
-                        '🦊 MAUREONIX | By Infinite Vybeflix',
-                        carouselCards
-                    )
-                }
-            }
-            break
-            case 'allmenu': {
-                try {
-                    const { generateMenuImage } = require('./lib/menuimage')
-                    const menuImg = await generateMenuImage({
-                        prefix,
-                        botName: set?.botname || '🦊 MAUREONIX',
-                        ownerName: global.author || 'Infinite Vybeflix',
-                        memberName: m.pushName || 'User',
-                        totalCmds: ((fs.readFileSync('./nima.js').toString()).match(/case '/g) || []).length,
-                        time: time,
-                        date: date,
-                    })
-                    await nimesha.sendMessage(m.chat, {
-                        image: menuImg,
-                        caption: '*' + (set?.botname || '🦊 MAUREONIX') + '* Menu\n👑 _By ' + (global.author || 'Infinite Vybeflix') + '_',
-                        mentions: [m.sender],
-                    }, { quoted: m })
-                    break
-                } catch(menuErr) {
-                    console.log('Menu image error, falling back:', menuErr.message)
-                }
-                let profile
-                try {
-                    profile = await nimesha.profilePictureUrl(m.sender, 'image');
-                } catch (e) {
-                    profile = fake.anonim
-                }
-                const menunya = `
-╭──❍「 *👤 USER DETAILS* 」❍
-├ *Name* : ${m.pushName ? m.pushName : 'Infinite Vybeflix'}
-├ *Number* : @${m.sender.split('@')[0]}
-├ *User* : ${isVip ? 'VIP' : isPremium ? 'PREMIUM' : 'FREE'}
-├ *Limit* : ${isVip ? 'VIP' : db.users[m.sender].limit }
-├ *Money* : ${db.users[m.sender] ? db.users[m.sender].money.toLocaleString('en-US') : '0'}
-╰─┬────❍
-╭─┴─❍「 *🤖 BOT DETAILS* 」❍
-├ *Bot Name* : ${set?.botname || '🦊 MAUREONIX'}
-├ *Owner* : @${ownerNumber[0].split('@')[0]}
-├ *Mode* : ${nimesha.public ? 'Public' : 'Self'}
-├ *Prefix* :${set.multiprefix ? '「 MULTI-PREFIX 」' : ' *'+prefix+'*' }
-├ *Total Features* : ${((fs.readFileSync('./nima.js').toString()).match(/case '/g) || []).length}
-╰─┬────❍
-╭─┴─❍「 *📅 DETAILS* 」❍
-├ *Date* : ${date}
-├ *Day* : ${day}
-├ *Time* : ${time}
-╰──────❍
-╭──❍「 *🤖 BOT COMMANDS* 」❍
-│${setv} ${prefix}alive (Check if bot is alive)
-│${setv} ${prefix}bot (Bot status)
-│${setv} ${prefix}ping (Response time)
-│${setv} ${prefix}runtime (Uptime)
-│${setv} ${prefix}speed (Speed test)
-│${setv} ${prefix}info (Bot info)
-│${setv} ${prefix}owner (Owner info)
-│${setv} ${prefix}vv (View once message)
-│${setv} ${prefix}jid (JID info)
-│${setv} ${prefix}groupinfo (Group info)
-│${setv} ${prefix}staff (Group admins)
-│${setv} ${prefix}github (GitHub repo)
-│${setv} ${prefix}profile (Profile info)
-│${setv} ${prefix}claim (Daily reward)
-│${setv} ${prefix}buy (Buy items)
-│${setv} ${prefix}transfer (Send money)
-│${setv} ${prefix}leaderboard (Leaderboard)
-│${setv} ${prefix}request (Request to owner)
-│${setv} ${prefix}react (React to message)
-│${setv} ${prefix}tagme (Tag yourself)
-│${setv} ${prefix}afk (Set AFK mode)
-│${setv} ${prefix}rvo (View once message)
-│${setv} ${prefix}inspect (Inspect group/channel)
-│${setv} ${prefix}addmsg (Save message)
-│${setv} ${prefix}delmsg (Delete saved message)
-│${setv} ${prefix}getmsg (Get saved message)
-│${setv} ${prefix}listmsg (List saved messages)
-│${setv} ${prefix}setcmd (Set custom command)
-│${setv} ${prefix}delcmd (Delete custom command)
-│${setv} ${prefix}listcmd (List custom commands)
-│${setv} ${prefix}lockcmd (Lock command)
-│${setv} ${prefix}q (Get quoted message)
-│${setv} ${prefix}menfes (Anonymous message)
-│${setv} ${prefix}confes (Confession)
-│${setv} ${prefix}roomai (AI chat room)
-│${setv} ${prefix}jadibot (Become a bot) 🔸️
-│${setv} ${prefix}stopjadibot (Stop jadibot)
-│${setv} ${prefix}listjadibot (List jadibot)
-│${setv} ${prefix}donasi (Donation)
-│${setv} ${prefix}addsewa (Add rental)
-│${setv} ${prefix}delsewa (Delete rental)
-│${setv} ${prefix}listsewa (Rental list)
-╰─┬────❍
-╭─┴❍「 *👥 GROUP COMMANDS* 」❍
-│${setv} ${prefix}add (Add member)
-│${setv} ${prefix}kick (Kick member)
-│${setv} ${prefix}promote (Promote to admin)
-│${setv} ${prefix}demote (Demote admin)
-│${setv} ${prefix}warn (Warn member)
-│${setv} ${prefix}unwarn (Remove warning)
-│${setv} ${prefix}setname (Set group name)
-│${setv} ${prefix}setdesc (Set group description)
-│${setv} ${prefix}setppgc (Set group icon)
-│${setv} ${prefix}delete (Delete message)
-│${setv} ${prefix}linkgrup (Get group link)
-│${setv} ${prefix}revoke (Revoke group link)
-│${setv} ${prefix}tagall (Tag all members)
-│${setv} ${prefix}pin (Pin message)
-│${setv} ${prefix}unpin (Unpin message)
-│${setv} ${prefix}hidetag (Hidden tag)
-│${setv} ${prefix}totag (Forward with tag)
-│${setv} ${prefix}listonline (List online members)
-│${setv} ${prefix}group set (Group settings)
-│${setv} ${prefix}group (Admin only)
-╰─┬────❍
-╭─┴❍「 *🔍 SEARCH COMMANDS* 」❍
-│${setv} ${prefix}ytsearch (YouTube search)
-│${setv} ${prefix}spotify (Spotify search)
-│${setv} ${prefix}pixiv (Pixiv search)
-│${setv} ${prefix}pinterest (Pinterest search)
-│${setv} ${prefix}wallpaper (Wallpaper search)
-│${setv} ${prefix}ringtone (Ringtone search)
-│${setv} ${prefix}google (Google search)
-│${setv} ${prefix}gimage (Google images)
-│${setv} ${prefix}npm (NPM search)
-│${setv} ${prefix}style (Text style)
-│${setv} ${prefix}cuaca (Weather)
-│${setv} ${prefix}tenor (GIF search)
-│${setv} ${prefix}urban (Urban dictionary)
-╰─┬────❍
-╭─┴❍「 *⬇️ DOWNLOAD COMMANDS* 」❍
-│${setv} ${prefix}mp3 (Song name / YouTube URL)
-│${setv} ${prefix}song (Song name / YouTube URL)
-│${setv} ${prefix}play (Song name / YouTube URL)
-│${setv} ${prefix}ytmp3 (Song name / YouTube URL)
-│${setv} ${prefix}ytmp4 (Video name / YouTube URL)
-│${setv} ${prefix}video (Video name / YouTube URL)
-│${setv} ${prefix}mp4 (Video name / YouTube URL)
-│${setv} ${prefix}instagram (Instagram video)
-│${setv} ${prefix}tiktok (TikTok video)
-│${setv} ${prefix}tiktokmp3 (TikTok audio)
-│${setv} ${prefix}facebook (Facebook video)
-│${setv} ${prefix}spotifydl (Spotify song)
-│${setv} ${prefix}mediafire (MediaFire file)
-╰─┬────❍
-╭─┴❍「 *💬 QUOTES* 」❍
-│${setv} ${prefix}motivasi (Motivation)
-│${setv} ${prefix}quotes (Quotes)
-│${setv} ${prefix}truth (Truth)
-│${setv} ${prefix}bijak (Wisdom)
-│${setv} ${prefix}dare (Dare)
-│${setv} ${prefix}bucin (Love quotes)
-│${setv} ${prefix}renungan (Reflection)
-╰─┬────❍
-╭─┴❍「 *🛠️ TOOLS* 」❍
-│${setv} ${prefix}get (Get data) 🔸️
-│${setv} ${prefix}hd (Enhance image)
-│${setv} ${prefix}toaudio (Convert to audio)
-│${setv} ${prefix}tomp3 (Convert to MP3)
-│${setv} ${prefix}tovn (Convert to voice note)
-│${setv} ${prefix}toimage (Convert to image)
-│${setv} ${prefix}toptv (Convert to PTV)
-│${setv} ${prefix}tourl (Upload to URL)
-│${setv} ${prefix}tts (Text to speech)
-│${setv} ${prefix}toqr (Generate QR code)
-│${setv} ${prefix}brat (Special sticker)
-│${setv} ${prefix}bratvid (Video sticker)
-│${setv} ${prefix}ssweb (Website screenshot) 🔸️
-│${setv} ${prefix}sticker (Make sticker)
-│${setv} ${prefix}attp (Animated text sticker)
-│${setv} ${prefix}colong (Take sticker)
-│${setv} ${prefix}smeme (Make meme sticker)
-│${setv} ${prefix}dehaze (Clarity)
-│${setv} ${prefix}colorize (Colorize)
-│${setv} ${prefix}hitamkan (Black & white)
-│${setv} ${prefix}emojimix (Mix emojis)
-│${setv} ${prefix}hack (Fake hack)
-│${setv} ${prefix}nulis (Write)
-│${setv} ${prefix}readmore (Read more)
-│${setv} ${prefix}qc (Quote chat bubble)
-│${setv} ${prefix}translate (Translate)
-│${setv} ${prefix}wasted (Wasted effect)
-│${setv} ${prefix}triggered (Triggered effect)
-│${setv} ${prefix}shorturl (Shorten URL)
-│${setv} ${prefix}gitclone (Clone GitHub repo)
-│${setv} ${prefix}fat (Voice effects)
-│${setv} ${prefix}fast (Voice effects)
-│${setv} ${prefix}bass (Voice effects)
-│${setv} ${prefix}slow (Voice effects)
-│${setv} ${prefix}tupai (Voice effects)
-│${setv} ${prefix}deep (Voice effects)
-│${setv} ${prefix}robot (Voice effects)
-│${setv} ${prefix}blown (Voice effects)
-│${setv} ${prefix}reverse (Voice effects)
-│${setv} ${prefix}smooth (Voice effects)
-│${setv} ${prefix}earrape (Voice effects)
-│${setv} ${prefix}nightcore (Voice effects)
-│${setv} ${prefix}getexif (Sticker metadata)
-╰─┬────❍
-╭─┴❍「 *🤖 ARTIFICIAL INTELLIGENCE* 」❍
-│${setv} ${prefix}ai (Ask AI)
-│${setv} ${prefix}gemini (Gemini AI)
-│${setv} ${prefix}txt2img (Text to image)
-╰─┬────❍
-╭─┴❍「 *✨ ANIME* 」❍
-│${setv} ${prefix}waifu (Anime image)
-│${setv} ${prefix}neko (Neko image)
-╰─┬────❍
-╭─┴❍「 *🎮 GAMES* 」❍
-│${setv} ${prefix}tictactoe (Tic Tac Toe)
-│${setv} ${prefix}akinator (Akinator)
-│${setv} ${prefix}suit (Rock paper scissors)
-│${setv} ${prefix}slot (Slot machine)
-│${setv} ${prefix}math (Math quiz)
-│${setv} ${prefix}begal (Rob)
-│${setv} ${prefix}ulartangga (Snake ladder)
-│${setv} ${prefix}blackjack (Blackjack)
-│${setv} ${prefix}catur (Chess)
-│${setv} ${prefix}casino (Casino)
-│${setv} ${prefix}samgong (Card game)
-│${setv} ${prefix}rampok (Steal)
-│${setv} ${prefix}tekateki (Riddle)
-│${setv} ${prefix}tebaklirik (Lyric guess)
-│${setv} ${prefix}tebakkata (Word guess)
-│${setv} ${prefix}tebakbom (Bomb game)
-│${setv} ${prefix}susunkata (Word arrangement)
-│${setv} ${prefix}colorblind (Color test)
-│${setv} ${prefix}tebakkimia (Chemistry guess)
-│${setv} ${prefix}caklontong (Fun riddle)
-│${setv} ${prefix}tebakangka (Number guess)
-│${setv} ${prefix}tebaknegara (Country guess)
-│${setv} ${prefix}tebakgambar (Image guess)
-│${setv} ${prefix}tebakbendera (Flag guess)
-╰─┬────❍
-╭─┴❍「 *😂 ENTERTAINMENT* 」❍
-│${setv} ${prefix}coba (Try)
-│${setv} ${prefix}dadu (Dice)
-│${setv} ${prefix}bisakah (Question)
-│${setv} ${prefix}apakah (Question)
-│${setv} ${prefix}kapan (Question)
-│${setv} ${prefix}siapa (Question)
-│${setv} ${prefix}kerangajaib (Magic shell)
-│${setv} ${prefix}cekmati (Death age joke)
-│${setv} ${prefix}ceksifat (Personality check)
-│${setv} ${prefix}cekkhodam (Spiritual check)
-│${setv} ${prefix}rate (Rate)
-│${setv} ${prefix}jodohku (Soulmate)
-│${setv} ${prefix}jadian (Relationship)
-│${setv} ${prefix}fitnah (Fake message)
-│${setv} ${prefix}halah (Letter change)
-│${setv} ${prefix}hilih (Letter change)
-│${setv} ${prefix}huluh (Letter change)
-│${setv} ${prefix}heleh (Letter change)
-│${setv} ${prefix}holoh (Letter change)
-╰─┬────❍
-╭─┴❍「 *🎲 RANDOM* 」❍
-│${setv} ${prefix}coffe (Coffee image)
-╰─┬────❍
-╭─┴❍「 *🔎 INFORMATION* 」❍
-│${setv} ${prefix}wastalk (WhatsApp info)
-│${setv} ${prefix}githubstalk (GitHub info)
-╰─┬────❍
-╭─┴❍「 *👑 OWNER COMMANDS* 」❍
-│${setv} ${prefix}bot [set] (Bot settings)
-│${setv} ${prefix}setbio (Set bio)
-│${setv} ${prefix}setppbot (Set bot icon)
-│${setv} ${prefix}join (Join group)
-│${setv} ${prefix}leave (Leave group)
-│${setv} ${prefix}block (Block user)
-│${setv} ${prefix}listblock (Block list)
-│${setv} ${prefix}openblock (Unblock)
-│${setv} ${prefix}listpc (Private chat list)
-│${setv} ${prefix}listgc (Group list)
-│${setv} ${prefix}ban (Ban user)
-│${setv} ${prefix}unban (Unban user)
-│${setv} ${prefix}mute (Mute group)
-│${setv} ${prefix}unmute (Unmute group)
-│${setv} ${prefix}creategc (Create group)
-│${setv} ${prefix}clearchat (Clear chat)
-│${setv} ${prefix}addprem (Add premium)
-│${setv} ${prefix}delprem (Remove premium)
-│${setv} ${prefix}listprem (Premium list)
-│${setv} ${prefix}addlimit (Add limit)
-│${setv} ${prefix}adduang (Add money)
-│${setv} ${prefix}setbotauthor (Set bot author)
-│${setv} ${prefix}setbotname (Set bot name)
-│${setv} ${prefix}setbotpackname (Set pack name)
-│${setv} ${prefix}setapikey (Set API key)
-│${setv} ${prefix}addowner (Add owner)
-│${setv} ${prefix}delowner (Remove owner)
-│${setv} ${prefix}getmsgstore (Get message store)
-│${setv} ${prefix}bot --settings (Bot settings)
-│${setv} ${prefix}bot settings (Bot settings)
-│${setv} ${prefix}bot antidelete on/off (Anti delete)
-│${setv} ${prefix}bot autostatus on/off (Auto status)
-│${setv} ${prefix}getsession (Get session)
-│${setv} ${prefix}delsession (Delete session)
-│${setv} ${prefix}delsampah (Delete garbage)
-│${setv} ${prefix}upsw (Upload status)
-│${setv} ${prefix}backup (Backup)
-│${setv} ${prefix}aion (Enable private AI)
-│${setv} ${prefix}aioff (Disable private AI)
-│${setv} $ (Execute code)
-│${setv} > (Execute code)
-│${setv} < (Execute code)
-╰──────❍`
-                await m.reply({
-                    document: fake.docs,
-                    fileName: greeting,
-                    mimetype: pickRandom(fake.listfakedocs),
-                    fileLength: '100000000000000',
-                    pageCount: '999',
-                    caption: menunya,
-                    contextInfo: {
-                        mentionedJid: [m.sender, '0@s.whatsapp.net', ownerNumber[0] + '@s.whatsapp.net'],
-                        forwardingScore: 10,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: my.ch,
-                            serverMessageId: null,
-                            newsletterName: '🦊 MAUREONIX'
-                        },
-                        externalAdReply: {
-                            title: author,
-                            body: packname,
-                            showAdAttribution: false,
-                            thumbnailUrl: profile,
-                            mediaType: 1,
-                            previewType: 0,
-                            renderLargerThumbnail: true,
-                            mediaUrl: my.gh,
-                            sourceUrl: my.gh,
-                        }
-                    }
-                })
-            }
-            break
-            case 'botmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*🤖 BOT Commands*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'alive — Bot alive check', id: prefix + 'alive' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'bot — Bot status', id: prefix + 'bot' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ping — Response time', id: prefix + 'ping' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'speed — Speed test', id: prefix + 'speed' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'runtime — Uptime', id: prefix + 'runtime' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'info — Bot info', id: prefix + 'info' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'owner — Owner info', id: prefix + 'owner' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'github — Source code', id: prefix + 'github' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'groupinfo — Group info', id: prefix + 'groupinfo' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'staff — Admins list', id: prefix + 'staff' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'vv — View once reveal', id: prefix + 'vv' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'jid — JID info', id: prefix + 'jid' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'block — Number block', id: prefix + 'block' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'allblock — All chats block', id: prefix + 'allblock' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'listblock — Block list', id: prefix + 'listblock' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'allunblock — All unblock', id: prefix + 'allunblock' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'unblock — Unblock number', id: prefix + 'unblock' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'joke — Random joke', id: prefix + 'joke' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'quote — Quote', id: prefix + 'quote' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'fact — Fun fact', id: prefix + 'fact' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'groupmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*👥 GROUP Commands*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'tagall — Tag everyone', id: prefix + 'tagall' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'hidetag — Hidden tag', id: prefix + 'hidetag' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'totag — Forward + tag', id: prefix + 'totag' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'add — Member add', id: prefix + 'add' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'kick — Member kick', id: prefix + 'kick' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'promote — Admin promote', id: prefix + 'promote' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'demote — Admin demote', id: prefix + 'demote' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'warn — Warn member', id: prefix + 'warn' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'setname — Group name', id: prefix + 'setname' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'setdesc — Group desc', id: prefix + 'setdesc' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'linkgrup — Group link', id: prefix + 'linkgrup' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'revoke — New link', id: prefix + 'revoke' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'welcome — Welcome on/off', id: prefix + 'welcome' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'goodbye — Goodbye on/off', id: prefix + 'goodbye' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'setwelcome — Custom welcome', id: prefix + 'setwelcome' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'setleave — Custom goodbye', id: prefix + 'setleave' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'privacy — Privacy Manager', id: prefix + 'privacy' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'searchmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*🔍 SEARCH Commands*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ytsearch — YouTube search', id: prefix + 'ytsearch' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'google — Google search', id: prefix + 'google' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'define — Dictionary', id: prefix + 'define' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'weather — Weather info', id: prefix + 'weather' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'news — Latest news', id: prefix + 'news' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'lyrics — Song lyrics', id: prefix + 'lyrics' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'fact — Fun fact', id: prefix + 'fact' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'cinfo — Country info', id: prefix + 'cinfo' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'downloadmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*⬇️ DOWNLOAD Commands*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'song — YouTube audio', id: prefix + 'song' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'mp3 — MP3 download', id: prefix + 'mp3' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'play — Play music', id: prefix + 'play' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ytmp3 — YT to MP3', id: prefix + 'ytmp3' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'video — YouTube video', id: prefix + 'video' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'mp4 — MP4 download', id: prefix + 'mp4' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ytmp4 — YT to MP4', id: prefix + 'ytmp4' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'quotesmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*😂 FUN & QUOTES*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'joke — Random joke', id: prefix + 'joke' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'quote — Quote', id: prefix + 'quote' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'fact — Fun fact', id: prefix + 'fact' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '8ball — Magic 8ball', id: prefix + '8ball' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'compliment — Compliment', id: prefix + 'compliment' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'insult — Insult', id: prefix + 'insult' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ship — Ship meter', id: prefix + 'ship' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'hack — Fake hack', id: prefix + 'hack' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'flirt — Flirt line', id: prefix + 'flirt' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'shayari — Shayari', id: prefix + 'shayari' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'wasted — Wasted effect', id: prefix + 'wasted' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'jail — Jail effect', id: prefix + 'jail' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'triggered — Triggered effect', id: prefix + 'triggered' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'simp — Simp meter', id: prefix + 'simp' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'character — Character analysis', id: prefix + 'character' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'aimenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*🤖 AI Commands*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'gpt — GPT AI chat', id: prefix + 'gpt' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'gemini — Gemini AI', id: prefix + 'gemini' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'llama3 — Llama3 AI', id: prefix + 'llama3' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ai — AI assistant', id: prefix + 'ai' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'chatai — Chat AI', id: prefix + 'chatai' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'imagine — AI image gen', id: prefix + 'imagine' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'flux — Flux image', id: prefix + 'flux' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'sora — Sora image', id: prefix + 'sora' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'stickersmenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*🎨 STICKER & IMAGE*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'sticker — Make sticker', id: prefix + 'sticker' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 's — Quick sticker', id: prefix + 's' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'simage — Sticker to image', id: prefix + 'simage' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'attp — Animated text sticker', id: prefix + 'attp' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'removebg — Remove background', id: prefix + 'removebg' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'blur — Blur image', id: prefix + 'blur' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'ss — Screenshot URL', id: prefix + 'ss' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'tts — Text to speech', id: prefix + 'tts' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'trt — Translate', id: prefix + 'trt' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
-            case 'gamemenu': {
-                await nimesha.sendListMsg(m.chat, {
-                    text: `*🎮 GAMES*\n━━━━━━━━━━━━━━━━━━━━━━\n_Tap a command to run it 👇_`,
-                    footer: '🦊 MAUREONIX | By Infinite Vybeflix',
-                    buttons: [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'tictactoe — Tic Tac Toe', id: prefix + 'tictactoe' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'suit — Rock Paper Scissors', id: prefix + 'suit' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'akinator — Akinator', id: prefix + 'akinator' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'slot — Slot machine', id: prefix + 'slot' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'math — Math quiz', id: prefix + 'math' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'blackjack — Blackjack', id: prefix + 'blackjack' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'chess — Chess', id: prefix + 'chess' }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔙 Back to Menu', id: prefix + 'menu' }) }
-                    ],
-                    mentions: [m.sender],
-                }, { quoted: m })
-            }
-            break
+                await sendAutoDelete(nimesha, m.chat, `🔐 *Privacy Updated!*\n────────────────────\n${resultMsg}`, botFooter, { quoted:m });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
 
-            default:
-            if (budy.startsWith('>')) {
-                if (!isCreator) return
-                try {
-                    let evaled = await eval(budy.slice(2))
-                    if (typeof evaled !== 'string') evaled = require('util').inspect(evaled)
-                    await m.reply(evaled)
-                } catch (err) {
-                    await m.reply(String(err))
+        // ════════════════════════════════════════════════════════════════════
+        // BOT MODE SYSTEM (NEW)
+        // ════════════════════════════════════════════════════════════════════
+        case 'mode': {
+            if (!isCreator) return m.reply(mess.owner);
+            const newMode = (args[0]||'').toLowerCase();
+            if (!['public','private','restricted'].includes(newMode)) {
+                return m.reply(`⚙️ *BOT MODE*\n────────────────────\nCurrent: *${global.botMode||'public'}*\n\n🌐 *public* — Everyone can use bot\n🔒 *private* — Owner + allowed users only\n⛔ *restricted* — Only allowed groups\n\nUsage: ${prefix}mode public / private / restricted\n\nManage:\n${prefix}allowuser @tag — add user (private mode)\n${prefix}allowgroup — allow current group (restricted)\n${prefix}restrictgroup — block group (any mode)\n────────────────────\n${botFooter}`);
+            }
+            global.botMode = newMode;
+            if (db.set[botNumber]) db.set[botNumber].botMode = newMode;
+            const desc = newMode==='public' ? '🌐 Everyone can use the bot.' : newMode==='private' ? `🔒 Only owner + allowed users.\nAdd: ${prefix}allowuser @tag` : `⛔ Only in allowed groups.\nAllow: ${prefix}allowgroup`;
+            m.reply(`✅ Bot mode → *${newMode.toUpperCase()}*\n\n${desc}\n${botFooter}`);
+        }
+        break
+
+        case 'restrictgroup': {
+            if (!isCreator) return m.reply(mess.owner);
+            const gid = q || m.chat;
+            if (!global.restrictedGroups) global.restrictedGroups = [];
+            if (!global.restrictedGroups.includes(gid)) { global.restrictedGroups.push(gid); m.reply(`⛔ Group *${gid}* restricted.\n${botFooter}`); }
+            else m.reply('Already restricted.');
+        }
+        break
+
+        case 'unrestrictgroup': {
+            if (!isCreator) return m.reply(mess.owner);
+            const gid = q || m.chat;
+            global.restrictedGroups = (global.restrictedGroups||[]).filter(g=>g!==gid);
+            m.reply(`✅ Group *${gid}* unrestricted.\n${botFooter}`);
+        }
+        break
+
+        case 'allowgroup': {
+            if (!isCreator) return m.reply(mess.owner);
+            const gid = q || m.chat;
+            if (!global.allowedGroups) global.allowedGroups = [];
+            if (!global.allowedGroups.includes(gid)) { global.allowedGroups.push(gid); m.reply(`✅ Group *${gid}* allowed.\n${botFooter}`); }
+            else m.reply('Already allowed.');
+        }
+        break
+
+        case 'allowuser': {
+            if (!isCreator) return m.reply(mess.owner);
+            const target = m.mentionedJid?.[0] || m.quoted?.sender;
+            if (!target) return m.reply(`Tag someone!\nUsage: ${prefix}allowuser @user`);
+            if (!global.allowedUsers) global.allowedUsers = [];
+            if (!global.allowedUsers.includes(target)) {
+                global.allowedUsers.push(target);
+                await nimesha.sendMessage(m.chat, { text:`✅ @${target.split('@')[0]} added to allowed users.`, mentions:[target] }, { quoted:m });
+            } else m.reply('Already allowed.');
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // UPDATE (NEW)
+        // ════════════════════════════════════════════════════════════════════
+        case 'update': {
+            if (!isCreator) return m.reply(mess.owner);
+            const um = await nimesha.sendMessage(m.chat, { text:`🔄 *Checking for updates...*\n⏳ Connecting to GitHub...\n${botFooter}` }, { quoted:m });
+            try {
+                const r = await axios.get(`https://api.github.com/repos/${global.GITHUB_REPO||'luckyfelistine-bot/maureonix'}/releases/latest`, { headers:{'User-Agent':'MAUREONIX-Bot'}, timeout:10000 });
+                const latest  = r.data?.tag_name || 'unknown';
+                const current = global.BOT_VERSION || '3.0.0';
+                const isNew   = latest !== current && latest !== 'unknown';
+                await nimesha.sendMessage(m.chat, {
+                    text: `🔄 *Update Check*\n────────────────────\n📦 Current: *v${current}*\n🌐 Latest: *${latest}*\n${isNew ? `\n✨ *New version available!*\n📝 ${(r.data?.body||'').substring(0,200)}\n🔗 ${r.data?.html_url||''}\n\nRun: \`git pull && npm install\`` : '\n✅ Already up to date!'}\n────────────────────\n${botFooter}`,
+                    edit: um.key
+                });
+            } catch(e) { await nimesha.sendMessage(m.chat, { text:`❌ Update check failed: ${e.message}\n${botFooter}`, edit:um.key }); }
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // ADMIN / GROUP PROTECTION TOGGLES
+        // ════════════════════════════════════════════════════════════════════
+        case 'antilink': case 'antispam': case 'antidelete': case 'antibadword':
+        case 'anticall': case 'antiviewonce': case 'nsfw': {
+            await adminProt.handleToggle(nimesha, m, db, command);
+        }
+        break
+
+        case 'automod': {
+            await adminProt.handleToggle(nimesha, m, db, 'automod');
+        }
+        break
+
+        case 'lock': {
+            if (!m.isGroup) return m.reply(mess.group);
+            if (!m.isAdmin) return m.reply(mess.admin);
+            if (!m.isBotAdmin) return m.reply(mess.botAdmin);
+            const val = args[0]?.toLowerCase();
+            if (val==='on') { db.groups[m.chat].lock=true; await nimesha.groupSettingUpdate(m.chat,'announcement'); m.reply('🔒 *Group LOCKED!* Only admins can send messages.'); }
+            else if (val==='off') { db.groups[m.chat].lock=false; await nimesha.groupSettingUpdate(m.chat,'not_announcement'); m.reply('🔓 *Group UNLOCKED!*'); }
+            else m.reply(`🔒 Group is *${db.groups[m.chat].lock?'LOCKED 🔒':'UNLOCKED 🔓'}*\nUsage: ${prefix}lock on/off`);
+        }
+        break
+
+        case 'unlock': {
+            if (!m.isGroup) return m.reply(mess.group);
+            if (!m.isAdmin) return m.reply(mess.admin);
+            if (!m.isBotAdmin) return m.reply(mess.botAdmin);
+            await nimesha.groupSettingUpdate(m.chat,'not_announcement');
+            db.groups[m.chat].lock=false; m.reply('🔓 *Group UNLOCKED!*');
+        }
+        break
+
+        case 'votekick': { await adminProt.handleVoteKick(nimesha, m, db, prefix); } break
+        case 'poll':     { await adminProt.handlePoll(nimesha, m, db, prefix);     } break
+        case 'pair':     { await adminProt.handlePair(nimesha, m, db, prefix);     } break
+
+        case 'ban': case 'banned': { await adminProt.handleBan(nimesha, m, db, true);  } break
+        case 'unban': case 'unbanned': { await adminProt.handleBan(nimesha, m, db, false); } break
+
+        case 'protections': case 'groupstatus': {
+            if (!m.isGroup) return m.reply(mess.group);
+            await nimesha.sendMessage(m.chat, { text:adminProt.getProtectionStatus(db.groups[m.chat]) }, { quoted:m });
+        }
+        break
+
+        case 'adminonly': {
+            if (!isCreator) return m.reply(mess.owner);
+            const val = args[0]?.toLowerCase();
+            if (val==='on')  { db.set[botNumber].adminonly=true;  m.reply('🔒 *Admin-only ENABLED* — only owner can use commands.'); }
+            else if (val==='off') { db.set[botNumber].adminonly=false; m.reply('🔓 *Admin-only DISABLED* — everyone can use commands.'); }
+            else m.reply(`Admin-only: ${db.set[botNumber]?.adminonly?'ON 🔒':'OFF 🔓'}\nUsage: ${prefix}adminonly on/off`);
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // GROUP MANAGEMENT
+        // ════════════════════════════════════════════════════════════════════
+        case 'welcome': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted:m });
+            const sub = args[0]?.toLowerCase();
+            if (!sub||(sub!=='on'&&sub!=='off')) return await sendAutoDelete(nimesha, m.chat, `📌 *Welcome*\n✅ Enable: ${prefix}welcome on\n❌ Disable: ${prefix}welcome off\n✏️ Custom: ${prefix}setwelcome [text]\n\nCurrent: ${db.groups?.[m.chat]?.welcome?'🟢 ON':'🔴 OFF'}\n────────────────────\n${botFooter}`, '', { quoted:m });
+            if (!global.db.groups) global.db.groups={};
+            if (!global.db.groups[m.chat]) global.db.groups[m.chat]={};
+            global.db.groups[m.chat].welcome = sub==='on';
+            await sendAutoDelete(nimesha, m.chat, `👋 *Welcome Message*\n────────────────────\n${sub==='on'?'✅ Enabled!':'❌ Disabled.'}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'setwelcome': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted:m });
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter welcome text!\nExample: ${prefix}setwelcome Welcome @!`, botFooter, { quoted:m });
+            if (!global.db.groups) global.db.groups={};
+            if (!global.db.groups[m.chat]) global.db.groups[m.chat]={};
+            if (!global.db.groups[m.chat].text) global.db.groups[m.chat].text={};
+            global.db.groups[m.chat].text.setwelcome = q;
+            await sendAutoDelete(nimesha, m.chat, `✅ *Custom welcome saved!*\n────────────────────\n📝 Preview:\n${q.replace('@','@'+(m.sender.split('@')[0]))}\n────────────────────\n_( @ ) = new member tag_`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'goodbye': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted:m });
+            const sub = args[0]?.toLowerCase();
+            if (!sub||(sub!=='on'&&sub!=='off')) return await sendAutoDelete(nimesha, m.chat, `📌 *Goodbye*\n✅ Enable: ${prefix}goodbye on\n❌ Disable: ${prefix}goodbye off\n\nCurrent: ${db.groups?.[m.chat]?.leave?'🟢 ON':'🔴 OFF'}\n────────────────────\n${botFooter}`, '', { quoted:m });
+            if (!global.db.groups) global.db.groups={};
+            if (!global.db.groups[m.chat]) global.db.groups[m.chat]={};
+            global.db.groups[m.chat].leave = sub==='on';
+            await sendAutoDelete(nimesha, m.chat, `👋 *Goodbye Message*\n────────────────────\n${sub==='on'?'✅ Enabled!':'❌ Disabled.'}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'setleave': {
+            if (!m.isGroup) return await sendAutoDelete(nimesha, m.chat, `❌ Group command only!`, botFooter, { quoted:m });
+            if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted:m });
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter leave text!\nExample: ${prefix}setleave Goodbye @`, botFooter, { quoted:m });
+            if (!global.db.groups) global.db.groups={};
+            if (!global.db.groups[m.chat]) global.db.groups[m.chat]={};
+            if (!global.db.groups[m.chat].text) global.db.groups[m.chat].text={};
+            global.db.groups[m.chat].text.setleave = q;
+            await sendAutoDelete(nimesha, m.chat, `✅ *Custom leave message saved!*\n────────────────────\n📝 Preview:\n${q.replace('@','@'+(m.sender.split('@')[0]))}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // RAWG GAMES
+        // ════════════════════════════════════════════════════════════════════
+        case 'gamelist':   await gameLib.gameList(nimesha, m, prefix); break
+        case 'topgames':   await gameLib.topGames(nimesha, m, prefix); break
+        case 'searchgame': await gameLib.searchGame(nimesha, m, prefix); break
+        case 'randomgame': await gameLib.randomGame(nimesha, m, prefix); break
+        case 'genre':      await gameLib.gamesByGenre(nimesha, m, prefix); break
+
+        case 'blackjack': case 'bj': { await gameLib.blackjack(nimesha, m, prefix, db); } break
+        case 'math': case 'mathquiz': { await gameLib.mathQuiz(nimesha, m, db); } break
+
+        // ════════════════════════════════════════════════════════════════════
+        // MOVIES & TV
+        // ════════════════════════════════════════════════════════════════════
+        case 'movie': {
+            if (!text) return m.reply(`🎬 Usage: ${prefix}movie <title>\nExample: ${prefix}movie Inception`);
+            try {
+                const film = await movies.getMovie(text);
+                const trailer = await movies.getTrailer(film.title, film.year);
+                if (trailer) film.trailerUrl = trailer;
+                let reply = movies.formatMovie(film);
+                if (film.poster) {
+                    const pb = await axios.get(film.poster, { responseType:'arraybuffer' }).then(r=>Buffer.from(r.data)).catch(()=>null);
+                    if (pb) { await nimesha.sendMessage(m.chat, { image:pb, caption:reply }, { quoted:m }); break; }
                 }
-            }
-            if (budy.startsWith('<')) {
-                if (!isCreator) return
-                try {
-                    let evaled = await eval(`(async () => { ${budy.slice(2)} })()`)
-                    if (typeof evaled !== 'string') evaled = require('util').inspect(evaled)
-                    await m.reply(evaled)
-                } catch (err) {
-                    await m.reply(String(err))
+                await m.reply(reply);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'tv': case 'series': {
+            if (!text) return m.reply(`📺 Usage: ${prefix}tv <series name>\nExample: ${prefix}tv Breaking Bad\nWith season: ${prefix}tv Breaking Bad s2`);
+            const parts = text.split(' ');
+            let season = null, titleParts = [];
+            for (const p of parts) { if (/^s\d+$/i.test(p)) season=parseInt(p.slice(1)); else titleParts.push(p); }
+            try {
+                const series = await movies.getTVSeries(titleParts.join(' '), season);
+                let reply = movies.formatTVSeries(series);
+                if (series.poster) { const pb = await axios.get(series.poster, { responseType:'arraybuffer' }).then(r=>Buffer.from(r.data)).catch(()=>null); if(pb){ await nimesha.sendMessage(m.chat, { image:pb, caption:reply }, { quoted:m }); break; } }
+                await m.reply(reply);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'topmovies': {
+            const page = parseInt(args[0])||1;
+            const list = await movies.topRatedMovies(page).catch(e=>{ m.reply(`❌ ${e.message}`); return null; });
+            if (list) await m.reply(movies.formatMovieList(list, '🏆 TOP RATED MOVIES'));
+        }
+        break
+
+        case 'upcoming': {
+            const page = parseInt(args[0])||1;
+            const list = await movies.upcomingMovies(page).catch(e=>{ m.reply(`❌ ${e.message}`); return null; });
+            if (list) await m.reply(movies.formatMovieList(list, '📅 UPCOMING MOVIES'));
+        }
+        break
+
+        case 'nowplaying': {
+            const page = parseInt(args[0])||1;
+            const list = await movies.nowPlaying(page).catch(e=>{ m.reply(`❌ ${e.message}`); return null; });
+            if (list) await m.reply(movies.formatMovieList(list, '🎬 NOW PLAYING'));
+        }
+        break
+
+        case 'trailer': {
+            if (!text) return m.reply(`🎥 Usage: ${prefix}trailer <movie title>`);
+            const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+            const title2    = text.replace(/\b(19|20)\d{2}\b/,'').trim();
+            const year2     = yearMatch ? yearMatch[0] : null;
+            const trailerUrl = await movies.getTrailer(title2, year2);
+            if (trailerUrl) await m.reply(`🎥 *Watch Trailer: ${title2}*\n${trailerUrl}`);
+            else await m.reply(`❌ No trailer found for "${text}"`);
+        }
+        break
+
+        case 'celebrity': {
+            if (!text) return m.reply(`⭐ Usage: ${prefix}celebrity <name>\nExample: ${prefix}celebrity Leonardo DiCaprio`);
+            try {
+                const celeb = await movies.getCelebrity(text);
+                let reply = `⭐ *${celeb.name}*\n📅 Born: ${celeb.birthday||'N/A'}\n📍 Birthplace: ${celeb.place||'N/A'}\n⭐ Popularity: ${celeb.popularity?.toFixed(1)}\n🎭 Known for: ${celeb.knownFor.join(', ')}\n📝 Bio: ${celeb.bio}`;
+                if (celeb.photo) { const pb = await axios.get(celeb.photo, { responseType:'arraybuffer' }).then(r=>Buffer.from(r.data)).catch(()=>null); if(pb){ await nimesha.sendMessage(m.chat, { image:pb, caption:reply }, { quoted:m }); break; } }
+                await m.reply(reply);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'moviequote': {
+            const qte = await movies.randomQuote();
+            await m.reply(`💬 *Movie Quote*\n────────────────────\n${qte}\n────────────────────\n${botFooter}`);
+        }
+        break
+
+        case 'imagemenu': case 'imenu': {
+            try {
+                const { generateMenuImage } = require('./lib/menuimage');
+                const menuImg = await generateMenuImage({ prefix, botName:set?.botname||'🦊 MAUREONIX', ownerName:global.author||'Infinite Vybeflix', memberName:m.pushName||'User', totalCmds:150, time:jam, date:tanggal });
+                await nimesha.sendMessage(m.chat, { image:menuImg, caption:`*${set?.botname||'🦊 MAUREONIX'}* Menu\n👑 _By ${global.author||'Infinite Vybeflix'}_`, mentions:[m.sender] }, { quoted:m });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, '❌ Failed to generate menu image: '+e.message, botFooter, { quoted:m }); }
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // DOWNLOADS
+        // ════════════════════════════════════════════════════════════════════
+        case 'apk': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter app name!\nExample: ${prefix}apk WhatsApp`, botFooter, { quoted:m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text:`🔍 *Searching for APK...*\n📱 *App:* ${q}\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const apkInfo = await tryFetch([
+                async () => { const r = await axios.get(`https://api.paxsenix.biz.id/dl/apkpure?q=${encodeURIComponent(q)}`, { timeout:20000 }); return r.data?.title ? { title:r.data.title, url:r.data.url, size:r.data.size, version:r.data.version } : null; },
+                async () => { return { title:q, url:`https://apkpure.com/search?q=${encodeURIComponent(q)}`, size:'N/A', version:'Latest' }; }
+            ]);
+            if (apkInfo) await nimesha.sendMessage(m.chat, { text:`📱 *APK Found!*\n────────────────────\n📦 *App:* ${apkInfo.title||q}\n📌 *Version:* ${apkInfo.version||'Latest'}\n💾 *Size:* ${apkInfo.size||'N/A'}\n🔗 *Download:* ${apkInfo.url||'N/A'}\n────────────────────\n${botFooter}`, edit:waitMsg.key });
+            else await nimesha.sendMessage(m.chat, { text:`❌ APK not found\n🔗 Try: https://apkpure.com/search?q=${encodeURIComponent(q)}\n${botFooter}`, edit:waitMsg.key });
+        }
+        break
+
+        case 'mp3': case 'song': case 'play': case 'ytmp3': {
+            const input = q;
+            if (!input) return await nimesha.sendListMsg(m.chat, { text:`⚠️ Enter a song name or URL!\nExamples:\n${prefix}${command} Shape of You\n${prefix}${command} https://youtu.be/...\n────────────────────\n${botFooter}`, footer:`© 🦊 MAUREONIX`, buttons:[{name:'quick_reply',buttonParamsJson:JSON.stringify({display_text:'📋 Menu',id:`${prefix}menu`})}] }, { quoted:m });
+            try {
+                const searchMsg = await nimesha.sendMessage(m.chat, { text:`🔍 *Searching...*\n────────────────────\n🎵 *Request:* ${input}\n⏳ Searching YouTube...\n────────────────────\n${botFooter}` }, { quoted:m });
+                const searchKey = searchMsg?.key || null;
+                let displayTitle = input, videoUrl = input;
+                if (!input.match(/https?:\/\//)) {
+                    try { const res = await yts(input); const v=res?.videos?.[0]||res?.all?.[0]; if(v){ const _v=v.videoId||v.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1]; if(_v){ videoUrl=`https://www.youtube.com/watch?v=${_v}`; displayTitle=v.title||input; } } } catch {}
                 }
+                const songButtons = [
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'1️⃣ Audio (🎵 mp3)', id:'1' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'2️⃣ Voice note (🎤)', id:'2' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'3️⃣ Document (📄)', id:'3' }) },
+                ];
+                const btnMsg = await nimesha.sendListMsg(m.chat, { text:`🎯 *Found!*\n────────────────────\n🎵 *Song:* ${displayTitle}\n🔗 ${videoUrl}\n────────────────────\n🎶 *Choose format:*\n────────────────────\n${botFooter}`, footer:`© 🦊 MAUREONIX | Choose format`, mentions:[m.sender], buttons:songButtons }, { quoted:m });
+                const btnKey = btnMsg?.key || null;
+                pendingDownload.set(m.sender, { type:'song', input, url:videoUrl, displayTitle, statusKey:searchKey, buttonKey:btnKey });
+                setTimeout(async () => { if(pendingDownload.has(m.sender)&&pendingDownload.get(m.sender).buttonKey===btnKey){ pendingDownload.delete(m.sender); try{if(btnKey)await nimesha.sendMessage(m.chat,{delete:btnKey});}catch{} try{if(searchKey)await nimesha.sendMessage(m.chat,{delete:searchKey});}catch{} } }, AUTO_DELETE_SECS*1000);
+            } catch(err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *Error:* ${err.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'video': case 'mp4': case 'ytmp4': case 'ytvideo': {
+            const input = q;
+            if (!input) return await nimesha.sendListMsg(m.chat, { text:`⚠️ Enter a video name or URL!\nExamples:\n${prefix}${command} Avengers\n────────────────────\n${botFooter}`, footer:`© 🦊 MAUREONIX`, buttons:[{name:'quick_reply',buttonParamsJson:JSON.stringify({display_text:'📋 Menu',id:`${prefix}menu`})}] }, { quoted:m });
+            try {
+                let videoUrl = input, displayTitle = input;
+                const vidSearchMsg = await nimesha.sendMessage(m.chat, { text:`🔍 *Searching...*\n────────────────────\n🎬 *Request:* ${input}\n⏳ Searching YouTube...\n────────────────────\n${botFooter}` }, { quoted:m });
+                const vidSearchKey = vidSearchMsg?.key || null;
+                if (!input.match(/https?:\/\//)) {
+                    const searchRes = await yts(input);
+                    const video = searchRes?.videos?.[0]||searchRes?.all?.[0];
+                    if (!video) { try{await nimesha.sendMessage(m.chat,{text:`❌ *No results found!*\n────────────────────\n🎬 ${input}\n────────────────────\n${botFooter}`,edit:vidSearchKey});}catch{} return; }
+                    const _v = video.videoId||video.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1];
+                    if (_v) videoUrl=`https://www.youtube.com/watch?v=${_v}`;
+                    displayTitle = video.title||input;
+                }
+                const videoButtons = [
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'1️⃣ 144p (Video)', id:'1' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'2️⃣ 360p (Video)', id:'2' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'3️⃣ 720p (Video)', id:'3' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'4️⃣ 144p (📄 Document)', id:'4' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'5️⃣ 360p (📄 Document)', id:'5' }) },
+                    { name:'quick_reply', buttonParamsJson: JSON.stringify({ display_text:'6️⃣ 720p (📄 Document)', id:'6' }) },
+                ];
+                const vidBtnMsg = await nimesha.sendListMsg(m.chat, { text:`🎯 *Found!*\n────────────────────\n🎬 *Video:* ${displayTitle}\n🔗 ${videoUrl}\n────────────────────\n📺 *Choose quality:*\n────────────────────\n${botFooter}`, footer:`© 🦊 MAUREONIX | Choose quality`, mentions:[m.sender], buttons:videoButtons }, { quoted:m });
+                const vidBtnKey = vidBtnMsg?.key || null;
+                pendingDownload.set(m.sender, { type:'video', input, url:videoUrl, displayTitle, statusKey:vidSearchKey, buttonKey:vidBtnKey });
+                setTimeout(async () => { if(pendingDownload.has(m.sender)&&pendingDownload.get(m.sender).buttonKey===vidBtnKey){ pendingDownload.delete(m.sender); try{if(vidBtnKey)await nimesha.sendMessage(m.chat,{delete:vidBtnKey});}catch{} try{if(vidSearchKey)await nimesha.sendMessage(m.chat,{delete:vidSearchKey});}catch{} } }, AUTO_DELETE_SECS*1000);
+            } catch(err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *Error:* ${err.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // PENDING DOWNLOAD HANDLER (1-6 button response)
+        // ════════════════════════════════════════════════════════════════════
+        case '1': case '2': case '3': case '4': case '5': case '6': {
+            if (!pendingDownload.has(m.sender)) break;
+            const choice  = command;
+            const pending = pendingDownload.get(m.sender);
+            pendingDownload.delete(m.sender);
+
+            if (pending.type === 'song') {
+                const fmtNames = { '1':'Audio 🎵', '2':'Voice note 🎤', '3':'Document 📄' };
+                const statusKey = pending.statusKey, buttonKey = pending.buttonKey;
+                if (buttonKey) { try{await nimesha.sendMessage(m.chat,{delete:buttonKey});}catch{} }
+                await nimesha.sendMessage(m.chat, { text:`⬇️ *Downloading...*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${fmtNames[choice]}\n⏳ Connecting to YouTube...\n────────────────────\n${botFooter}`, edit:statusKey });
+                try {
+                    let dlResult = pending.url?.match(/https?:\/\//) ? await musicDownloader.downloadByUrl(pending.url) : await musicDownloader.searchAndDownload(pending.input);
+                    if (!dlResult?.success) { await editAutoDelete(nimesha, m.chat, `❌ *Download failed!*\n────────────────────\n🎵 ${pending.displayTitle}\n⚠️ ${dlResult?.error||'Error'}\n────────────────────`, botFooter, statusKey); return; }
+                    await nimesha.sendMessage(m.chat, { text:`📤 *Uploading...*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n⏳ Sending...\n────────────────────\n${botFooter}`, edit:statusKey });
+                    const audioBuffer = fs.readFileSync(dlResult.filePath);
+                    const mediaCaption = `🎵 *${pending.displayTitle}*\n────────────────────\n${botFooter}`;
+                    if (choice==='1') await nimesha.sendMessage(m.chat, { audio:audioBuffer, mimetype:'audio/mpeg', ptt:false, fileName:`${pending.displayTitle.substring(0,40)}.mp3`, contextInfo:{ externalAdReply:{ title:pending.displayTitle, body:'🎵 🦊 MAUREONIX', renderLargerThumbnail:false } } }, { quoted:m });
+                    else if (choice==='2') await nimesha.sendMessage(m.chat, { audio:audioBuffer, mimetype:'audio/ogg; codecs=opus', ptt:true }, { quoted:m });
+                    else if (choice==='3') await nimesha.sendMessage(m.chat, { document:audioBuffer, mimetype:'audio/mpeg', fileName:`${pending.displayTitle.substring(0,40)}.mp3`, caption:mediaCaption }, { quoted:m });
+                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${fmtNames[choice]}\n────────────────────`, botFooter, statusKey);
+                    try{fs.unlinkSync(dlResult.filePath);}catch{}
+                } catch(err) { await editAutoDelete(nimesha, m.chat, `❌ *Error!*\n────────────────────\n⚠️ ${err.message.substring(0,150)}\n────────────────────`, botFooter, statusKey); }
             }
-            if (budy.startsWith('$')) {
-                if (!isCreator) return
-                if (!text) return
-                exec(budy.slice(2), (err, stdout) => {
-                    if (err) return m.reply(`${err}`)
-                    if (stdout) return m.reply(stdout)
-                })
-            }
-            if ((!isCmd || isCreator) && budy.toLowerCase() != undefined) {
-                if (m.chat.endsWith('broadcast')) return
-                if (!(budy.toLowerCase() in db.database)) return
-                await nimesha.relayMessage(m.chat, db.database[budy.toLowerCase()], {})
+
+            if (pending.type === 'video') {
+                const qualityMap = { '1':'144', '2':'360', '3':'720', '4':'144', '5':'360', '6':'720' };
+                const isDoc = ['4','5','6'].includes(choice);
+                const quality = qualityMap[choice];
+                const statusKey = pending.statusKey, buttonKey = pending.buttonKey;
+                if (buttonKey) { try{await nimesha.sendMessage(m.chat,{delete:buttonKey});}catch{} }
+                await nimesha.sendMessage(m.chat, { text:`⬇️ *Downloading video...*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc?' (Document)':''}\n⏳ Fetching...\n────────────────────\n${botFooter}`, edit:statusKey });
+                try {
+                    const outputPath = path.join(TEMP_MEDIA_DIR, `video_${Date.now()}.mp4`);
+                    const qFilter = quality==='144' ? 'bestvideo[height<=144][ext=mp4]+bestaudio[ext=m4a]/worst[ext=mp4]/worst' : quality==='360' ? 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]' : 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]';
+                    await new Promise((res, rej) => { exec(`yt-dlp -f "${qFilter}" --merge-output-format mp4 --no-playlist --no-warnings -o "${outputPath}" "${pending.url}"`, { timeout:120000 }, (err,stdout,stderr)=>{ if(err) return rej(new Error(stderr?.split('\n').filter(l=>l.includes('ERROR')).join(' ')||err.message)); res(); }); });
+                    const fileStat = fs.statSync(outputPath);
+                    const fileSizeMB = fileStat.size/(1024*1024);
+                    if (fileSizeMB > 150) { try{fs.unlinkSync(outputPath);}catch{} await editAutoDelete(nimesha, m.chat, `❌ *File too large!*\n────────────────────\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB (Limit: 150MB)\n💡 Try 144p or 360p\n────────────────────`, botFooter, statusKey); return; }
+                    await nimesha.sendMessage(m.chat, { text:`📤 *Uploading...*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc?' (Document)':''}\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n⏳ Sending...\n────────────────────\n${botFooter}`, edit:statusKey });
+                    const videoBuffer = fs.readFileSync(outputPath);
+                    try{fs.unlinkSync(outputPath);}catch{}
+                    const vidCaption = `🎬 *${pending.displayTitle}*\n📺 *Quality:* ${quality}p\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n────────────────────\n${botFooter}`;
+                    if (isDoc) await nimesha.sendMessage(m.chat, { document:videoBuffer, mimetype:'video/mp4', fileName:`${pending.displayTitle.substring(0,40)}.mp4`, caption:vidCaption+(isDoc?' (Document)':'') }, { quoted:m });
+                    else        await nimesha.sendMessage(m.chat, { video:videoBuffer, caption:vidCaption }, { quoted:m });
+                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc?' (Document)':''}\n────────────────────`, botFooter, statusKey);
+                } catch(err) {
+                    const friendlyErr = err.message.includes('ffmpeg')?'ffmpeg not installed':err.message.includes('yt-dlp')?'yt-dlp not installed/outdated':err.message.includes('unavailable')||err.message.includes('private')?'Video is private or unavailable':err.message.substring(0,150);
+                    await editAutoDelete(nimesha, m.chat, `❌ *Video error!*\n────────────────────\n⚠️ ${friendlyErr}\n────────────────────`, botFooter, statusKey);
+                }
             }
         }
-    } catch (e) {
-        console.log(e);
-        if (e?.message?.includes('No sessions')) return;
-        const errorKey = e?.code || e?.name || e?.message?.slice(0, 100) || 'unknown_error';
-        const now = Date.now();
-        if (!errorCache[errorKey]) errorCache[errorKey] = [];
-        errorCache[errorKey] = errorCache[errorKey].filter(ts => now - ts < 600000);
-        if (errorCache[errorKey].length >= 3) return;
-        errorCache[errorKey].push(now);
-        m.reply('Error: ' + (e?.name || e?.code || e?.output?.statusCode || e?.status || 'Unknown') + '\nError log sent to owner.\n\n')
-        return nimesha.sendFromOwner(ownerNumber, `Hello, an error occurred, please fix it.\n\nVersion : *${require('./package.json').version}*\n\n*Log error:*\n\n` + util.format(e), m, { contextInfo: { isForwarded: true }})
-    }
-}
+        break
 
-let file = require.resolve(__filename)
+        // ════════════════════════════════════════════════════════════════════
+        // SEARCH / TOOLS
+        // ════════════════════════════════════════════════════════════════════
+        case 'joke': {
+            const jokeMsg = await nimesha.sendMessage(m.chat, { text:`😂 *Getting a joke...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const joke = await tryFetch([
+                async () => { const r = await axios.get('https://v2.jokeapi.dev/joke/Any?type=twopart&blacklistFlags=nsfw,racist,sexist', {timeout:8000}); return r.data?.setup ? `😂 *${r.data.setup}*\n\n${r.data.delivery}` : null; },
+                async () => { const r = await axios.get('https://official-joke-api.appspot.com/jokes/random', {timeout:8000}); return r.data?.setup ? `😂 *${r.data.setup}*\n\n${r.data.punchline}` : null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: joke ? `${joke}\n────────────────────\n${botFooter}` : `❌ Could not get a joke\n${botFooter}`, edit:jokeMsg.key });
+        }
+        break
+
+        case 'quote': {
+            const quoteMsg = await nimesha.sendMessage(m.chat, { text:`💬 *Getting a quote...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const quote = await tryFetch([
+                async () => { const r = await axios.get('https://api.quotable.io/random', {timeout:8000}); return r.data?.content ? `💬 *"${r.data.content}"*\n\n— _${r.data.author}_` : null; },
+                async () => { const r = await axios.get('https://zenquotes.io/api/random', {timeout:8000}); return r.data?.[0]?.q ? `💬 *"${r.data[0].q}"*\n\n— _${r.data[0].a}_` : null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: quote ? `${quote}\n────────────────────\n${botFooter}` : `❌ Could not get a quote\n${botFooter}`, edit:quoteMsg.key });
+        }
+        break
+
+        case 'fact': {
+            const factMsg = await nimesha.sendMessage(m.chat, { text:`💡 *Getting a fact...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const fact = await tryFetch([
+                async () => { const r = await axios.get('https://uselessfacts.jsph.pl/random.json?language=en', {timeout:8000}); return r.data?.text||null; },
+                async () => { const r = await axios.get('https://catfact.ninja/fact', {timeout:8000}); return r.data?.fact||null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: fact ? `💡 *Interesting Fact!*\n────────────────────\n${fact}\n────────────────────\n${botFooter}` : `❌ Could not get a fact\n${botFooter}`, edit:factMsg.key });
+        }
+        break
+
+        case 'define': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a word!\nExample: ${prefix}define hello`, botFooter, { quoted:m });
+            const defineMsg = await nimesha.sendMessage(m.chat, { text:`📖 *Looking up "${q}"...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const def = await tryFetch([
+                async () => { const r = await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(q)}`, {timeout:8000}); const d=r.data?.[0]; return d ? `📖 *${d.word}*\n\n*Meaning:* ${d.meanings?.[0]?.definitions?.[0]?.definition}\n*Example:* ${d.meanings?.[0]?.definitions?.[0]?.example||'N/A'}\n*Part of speech:* ${d.meanings?.[0]?.partOfSpeech||'N/A'}` : null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: def ? `${def}\n────────────────────\n${botFooter}` : `❌ "${q}" not found\n${botFooter}`, edit:defineMsg.key });
+        }
+        break
+
+        case 'weather': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a city name!\nExample: ${prefix}weather Colombo`, botFooter, { quoted:m });
+            const weatherMsg = await nimesha.sendMessage(m.chat, { text:`🌤️ *Getting weather...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const weather = await tryFetch([
+                async () => { const r = await axios.get(`https://wttr.in/${encodeURIComponent(q)}?format=j1`, {timeout:10000}); const d=r.data?.current_condition?.[0]; if(!d) return null; return `🌤️ *Weather: ${q}*\n────────────────────\n🌡️ *Temp:* ${d.temp_C}°C (${d.temp_F}°F)\n💧 *Humidity:* ${d.humidity}%\n🌬️ *Wind:* ${d.windspeedKmph} km/h\n☁️ *Condition:* ${d.weatherDesc?.[0]?.value}\n👁️ *Visibility:* ${d.visibility} km`; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: weather ? `${weather}\n────────────────────\n${botFooter}` : `❌ City "${q}" not found\n${botFooter}`, edit:weatherMsg.key });
+        }
+        break
+
+        case 'news': {
+            const newsMsg = await nimesha.sendMessage(m.chat, { text:`📰 *Getting news...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const news = await tryFetch([
+                async () => { const r = await axios.get('https://newsapi.org/v2/top-headlines?country=us&apiKey=demo&pageSize=5', {timeout:10000}); return r.data?.articles?.slice(0,5).map((a,i)=>`${i+1}. *${a.title}*\n   ${a.source?.name||''}`).join('\n\n')||null; },
+                async () => { const r = await axios.get('https://api.currentsapi.services/v1/latest-news?apiKey=demo&language=en&page_size=5', {timeout:10000}); return r.data?.news?.slice(0,5).map((a,i)=>`${i+1}. *${a.title}*`).join('\n\n')||null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: news ? `📰 *Latest News*\n────────────────────\n${news}\n────────────────────\n${botFooter}` : `❌ Could not get news\n${botFooter}`, edit:newsMsg.key });
+        }
+        break
+
+        case 'lyrics': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a song name!\nExample: ${prefix}lyrics Shape of You`, botFooter, { quoted:m });
+            const lyricsMsg = await nimesha.sendMessage(m.chat, { text:`🎵 *Getting lyrics...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const lyrics = await tryFetch([
+                async () => { const r = await axios.get(`https://some-random-api.com/lyrics?title=${encodeURIComponent(q)}`, {timeout:10000}); return r.data?.lyrics ? `🎵 *${r.data.title}* — ${r.data.author}\n────────────────────\n${r.data.lyrics.substring(0,2000)}` : null; },
+                async () => { const search = await axios.get(`https://api.lyrics.ovh/suggest/${encodeURIComponent(q)}`, {timeout:8000}); const song=search.data?.data?.[0]; if(!song) return null; const lyr=await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(song.artist.name)}/${encodeURIComponent(song.title)}`, {timeout:10000}); return lyr.data?.lyrics ? `🎵 *${song.title}* — ${song.artist.name}\n────────────────────\n${lyr.data.lyrics.substring(0,2000)}` : null; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: lyrics ? `${lyrics}\n────────────────────\n${botFooter}` : `❌ Lyrics for "${q}" not found\n${botFooter}`, edit:lyricsMsg.key });
+        }
+        break
+
+        case '8ball': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Ask a question!\nExample: ${prefix}8ball Will I win?`, botFooter, { quoted:m });
+            const eightMsg = await nimesha.sendMessage(m.chat, { text:`🎱 *Magic 8-Ball...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const answers = ['✅ Yes', '❌ No', '🤔 Maybe', '💯 Definitely!', '🙅 No way', '⭐ Signs point to yes', '🔮 Ask again later', '🌟 Without a doubt', '😐 Cannot predict now', '🎯 Outlook good'];
+            const answer = answers[Math.floor(Math.random() * answers.length)];
+            await editAutoDelete(nimesha, m.chat, `🎱 *Magic 8-Ball*\n────────────────────\n❓ *Question:* ${q}\n\n🔮 *Answer:* ${answer}\n────────────────────`, botFooter, eightMsg.key);
+        }
+        break
+
+        case 'tts': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text!\nExample: ${prefix}tts hello world`, botFooter, { quoted:m });
+            const lang = args[args.length-1]?.length===2 ? args.pop() : 'en';
+            const ttsText = args.join(' ');
+            try {
+                const audioBuffer = await ttsGenerate(ttsText, lang);
+                if (audioBuffer) await nimesha.sendMessage(m.chat, { audio:audioBuffer, mimetype:'audio/mpeg', ptt:true }, { quoted:m });
+                else await sendAutoDelete(nimesha, m.chat, `❌ TTS generation failed`, botFooter, { quoted:m });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ TTS error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'trt': case 'translate': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text and language!\nExample: ${prefix}trt Hello en\nExample: ${prefix}trt Ayubowan si`, botFooter, { quoted:m });
+            const trtMsg = await nimesha.sendMessage(m.chat, { text:`🌐 *Translating...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const parts2 = [...args];
+            const toLang = parts2[parts2.length-1]?.length<=5 ? parts2.pop() : 'en';
+            const toTranslate = parts2.join(' ');
+            const translated = await translateText(toTranslate, toLang);
+            await nimesha.sendMessage(m.chat, { text: translated ? `🌐 *Translation*\n────────────────────\n📝 *Original:* ${toTranslate}\n🔤 *Translated (${toLang}):* ${translated}\n────────────────────\n${botFooter}` : `❌ Translation failed\n${botFooter}`, edit:trtMsg.key });
+        }
+        break
+
+        case 'ss': case 'screenshot': {
+            if (!q||!q.match(/https?:\/\//)) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a URL!\nExample: ${prefix}ss https://google.com`, botFooter, { quoted:m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text:`📸 *Taking screenshot...*\n🔗 ${q}\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const imgBuffer = await takeScreenshot(q);
+            if (imgBuffer) { await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`📸 *Screenshot*\n🔗 ${q}\n────────────────────\n${botFooter}` }, { quoted:m }); await editAutoDelete(nimesha, m.chat, `✅ *Screenshot successful!*\n🔗 ${q}`, botFooter, waitMsg.key); }
+            else await nimesha.sendMessage(m.chat, { text:`❌ Could not take screenshot\n${botFooter}`, edit:waitMsg.key });
+        }
+        break
+
+        case 'cinfo': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a country name!\nExample: ${prefix}cinfo Sri Lanka`, botFooter, { quoted:m });
+            const cinfoMsg = await nimesha.sendMessage(m.chat, { text:`🌍 *Getting country info...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const info = await tryFetch([
+                async () => { const r = await axios.get(`https://restcountries.com/v3.1/name/${encodeURIComponent(q)}?fullText=false`, {timeout:10000}); const c=r.data?.[0]; if(!c) return null; return `🌍 *Country Info: ${c.name?.common}*\n────────────────────\n🏳️ *Official:* ${c.name?.official}\n🗺️ *Capital:* ${c.capital?.[0]||'N/A'}\n🌏 *Region:* ${c.region} - ${c.subregion}\n👥 *Population:* ${c.population?.toLocaleString()}\n💱 *Currency:* ${Object.values(c.currencies||{})[0]?.name||'N/A'}\n🗣️ *Languages:* ${Object.values(c.languages||{}).join(', ')}\n📞 *Calling Code:* +${c.idd?.root?.replace('+','')}${c.idd?.suffixes?.[0]||''}\n🚗 *Driving Side:* ${c.car?.side||'N/A'}\n🏖️ *Area:* ${c.area?.toLocaleString()} km²`; }
+            ]);
+            await nimesha.sendMessage(m.chat, { text: info ? `${info}\n────────────────────\n${botFooter}` : `❌ Country "${q}" not found\n${botFooter}`, edit:cinfoMsg.key });
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // AI
+        // ════════════════════════════════════════════════════════════════════
+        case 'gpt': case 'gemini': case 'llama3': case 'ai': case 'chatai': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Ask a question!\nExample: ${prefix}${command} What is love?`, botFooter, { quoted:m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text:`🤖 *AI thinking...*\n────────────────────\n❓ *Question:* ${q}\n⏳ Please wait...\n────────────────────\n${botFooter}` }, { quoted:m });
+            const answer = await aiQuery(q, command);
+            await nimesha.sendMessage(m.chat, { text: answer ? `🤖 *AI Answer (${command.toUpperCase()})*\n────────────────────\n❓ *Q:* ${q}\n\n💡 *A:* ${answer}\n────────────────────\n${botFooter}` : `❌ Could not get AI response\n${botFooter}`, edit:waitMsg.key });
+        }
+        break
+
+        case 'imagine': case 'flux': case 'sora': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a prompt!\nExample: ${prefix}${command} a beautiful sunset`, botFooter, { quoted:m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text:`🎨 *AI Image generating...*\n────────────────────\n✨ *Prompt:* ${q}\n⏳ Please wait...\n────────────────────\n${botFooter}` }, { quoted:m });
+            const imgBuffer = await tryFetch([
+                async () => { const r = await axios.get(`https://api.paxsenix.biz.id/ai/flux?prompt=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:30000}); return Buffer.from(r.data); },
+                async () => { const r = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(q)}?width=1024&height=1024&nologo=true`, {responseType:'arraybuffer',timeout:30000}); return Buffer.from(r.data); },
+                async () => { const r = await axios.get(`https://nexra.aryahcr.cc/api/image/completeai?prompt=${encodeURIComponent(q)}&model=flux`, {responseType:'arraybuffer',timeout:30000}); return Buffer.from(r.data); }
+            ]);
+            if (imgBuffer) { await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`🎨 *AI Generated Image*\n✨ *Prompt:* ${q}\n🤖 *Model:* ${command}\n────────────────────\n${botFooter}` }, { quoted:m }); await editAutoDelete(nimesha, m.chat, `✅ *AI Image generated!*\n✨ *Prompt:* ${q}`, botFooter, waitMsg.key); }
+            else await nimesha.sendMessage(m.chat, { text:`❌ Could not generate image\n${botFooter}`, edit:waitMsg.key });
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // STICKER & IMAGE
+        // ════════════════════════════════════════════════════════════════════
+        case 'sticker': case 'stickerpack': case 's': {
+            const quotedS = m.quoted, msgS = m.message;
+            let mediaBuffer = null, mimeType = 'image/jpeg';
+            try {
+                if (quotedS?.message?.imageMessage||quotedS?.message?.videoMessage||quotedS?.message?.stickerMessage) { mediaBuffer=await nimesha.downloadMediaMessage(quotedS); mimeType=quotedS.message?.imageMessage?'image/jpeg':quotedS.message?.videoMessage?'video/mp4':'image/webp'; }
+                else if (msgS?.imageMessage||msgS?.videoMessage) { mediaBuffer=await nimesha.downloadMediaMessage(m); mimeType=msgS?.imageMessage?'image/jpeg':'video/mp4'; }
+                if (!mediaBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to an image/video!`, botFooter, { quoted:m });
+                const packName = args[0] || '🦊 MAUREONIX';
+                const stickerBuffer = await makeSticker(mediaBuffer, mimeType, packName, 'Infinite Vybeflix');
+                await nimesha.sendMessage(m.chat, { sticker:stickerBuffer }, { quoted:m });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Sticker error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'simage': case 'toimg': {
+            const quotedI = m.quoted;
+            if (!quotedI?.message?.stickerMessage) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to a sticker!`, botFooter, { quoted:m });
+            try { const buffer = await nimesha.downloadMediaMessage(quotedI); await nimesha.sendMessage(m.chat, { image:buffer, caption:`🖼️ *Sticker → Image*\n${botFooter}` }, { quoted:m }); }
+            catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'removebg': case 'rmbg': {
+            const quotedR = m.quoted, msgR = m.message;
+            let imageBuffer = null;
+            try {
+                if (quotedR?.message?.imageMessage) imageBuffer = await nimesha.downloadMediaMessage(quotedR);
+                else if (msgR?.imageMessage) imageBuffer = await nimesha.downloadMediaMessage(m);
+                if (!imageBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to an image!`, botFooter, { quoted:m });
+                const waitMsg = await nimesha.sendMessage(m.chat, { text:`🔧 *Removing background...*\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+                const result = await removeBackground(imageBuffer);
+                if (result) { await nimesha.sendMessage(m.chat, { image:result, caption:`✅ *Background Removed!*\n${botFooter}` }, { quoted:m }); await editAutoDelete(nimesha, m.chat, `✅ *Background removed!*`, botFooter, waitMsg.key); }
+                else await nimesha.sendMessage(m.chat, { text:`❌ Could not remove background\n${botFooter}`, edit:waitMsg.key });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'blur': {
+            const quotedB = m.quoted, msgB = m.message;
+            let imageBuffer = null;
+            try {
+                if (quotedB?.message?.imageMessage) imageBuffer = await nimesha.downloadMediaMessage(quotedB);
+                else if (msgB?.imageMessage) imageBuffer = await nimesha.downloadMediaMessage(m);
+                if (!imageBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to an image!`, botFooter, { quoted:m });
+                const sharp = require('sharp');
+                const blurred = await sharp(imageBuffer).blur(15).toBuffer();
+                await nimesha.sendMessage(m.chat, { image:blurred, caption:`🫧 *Blurred Image*\n${botFooter}` }, { quoted:m });
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Blur error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'attp': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text!\nExample: ${prefix}attp Hello`, botFooter, { quoted:m });
+            const atttpWaitMsg = await nimesha.sendMessage(m.chat, { text:`🎨 *Generating ATTP sticker...*\n📝 *Text:* ${q}\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            try {
+                const webpBuffer = await new Promise((resolve, reject) => {
+                    const fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+                    const escTxt   = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/:/g,'\\:').replace(/,/g,'\\,').replace(/\[/g,'\\[').replace(/\]/g,'\\]').replace(/%/g,'\\%');
+                    const safeText = escTxt(q);
+                    const tmpOut   = path.join(os.tmpdir(), `attp_${Date.now()}.webp`);
+                    const cycle=0.3, dur=1.8;
+                    const base      = `fontfile='${fontPath}':text='${safeText}':borderw=3:bordercolor=black@0.8:fontsize=72:x=(w-text_w)/2:y=(h-text_h)/2`;
+                    const drawRed   = `drawtext=${base}:fontcolor=#FF4444:enable='lt(mod(t\\,${cycle})\\,0.1)'`;
+                    const drawBlue  = `drawtext=${base}:fontcolor=#4488FF:enable='between(mod(t\\,${cycle})\\,0.1\\,0.2)'`;
+                    const drawGreen = `drawtext=${base}:fontcolor=#44FF88:enable='gte(mod(t\\,${cycle})\\,0.2)'`;
+                    const ffArgs = ['-y','-f','lavfi','-i',`color=c=black:s=512x512:d=${dur}:r=15`,'-vf',`${drawRed},${drawBlue},${drawGreen},scale=512:512`,'-vcodec','libwebp','-lossless','0','-compression_level','4','-quality','70','-loop','0','-preset','default','-an','-vsync','0','-t',String(dur),tmpOut];
+                    const ff = spawn('ffmpeg', ffArgs);
+                    const errors = [];
+                    ff.stderr.on('data', e=>errors.push(e));
+                    ff.on('error', reject);
+                    ff.on('close', code => { if(code===0&&fs.existsSync(tmpOut)){const buf=fs.readFileSync(tmpOut);try{fs.unlinkSync(tmpOut);}catch{}resolve(buf);}else{try{fs.unlinkSync(tmpOut);}catch{}reject(new Error(Buffer.concat(errors).toString().slice(-300)));} });
+                });
+                await nimesha.sendMessage(m.chat, { sticker:webpBuffer }, { quoted:m });
+                await editAutoDelete(nimesha, m.chat, `✅ *ATTP sticker created!*\n🎨 *Text:* ${q}`, botFooter, atttpWaitMsg.key);
+            } catch(ffErr) {
+                const imgBuffer = await tryFetch([
+                    async () => { const r = await axios.get(`https://api.paxsenix.biz.id/sticker/attp?text=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:15000}); return Buffer.from(r.data); },
+                    async () => { const r = await axios.get(`https://api.lolhuman.xyz/api/attp?apikey=demo&text=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:15000}); return Buffer.from(r.data); }
+                ]);
+                if (imgBuffer) { await nimesha.sendMessage(m.chat, { sticker:imgBuffer }, { quoted:m }); await editAutoDelete(nimesha, m.chat, `✅ *ATTP sticker created!*\n🎨 *Text:* ${q}`, botFooter, atttpWaitMsg.key); }
+                else await editAutoDelete(nimesha, m.chat, `❌ Could not generate ATTP sticker`, botFooter, atttpWaitMsg.key);
+            }
+        }
+        break
+
+        case 'metallic': case 'ice': case 'snow': case 'impressive': case 'matrix': case 'light': case 'neon': case 'devil': case 'purple': case 'thunder': case 'leaves': case '1917': case 'arena': case 'hacker': case 'sand': case 'blackpink': case 'glitch': case 'fire': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text!\nExample: ${prefix}${command} Hello`, botFooter, { quoted:m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text:`🎨 *Generating text art...*\n✨ *Style:* ${command}\n📝 *Text:* ${q}\n⏳ Please wait...\n${botFooter}` }, { quoted:m });
+            const imgBuffer = await tryFetch([
+                async () => { const r = await axios.get(`https://api.paxsenix.biz.id/text-effect/${command}?text=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:20000}); return Buffer.from(r.data); },
+                async () => { const r = await axios.get(`https://api.lolhuman.xyz/api/teks/${command}?apikey=demo&text=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:20000}); return Buffer.from(r.data); },
+                async () => { const r = await axios.get(`https://nekobot.xyz/api/text?type=${command}&text=${encodeURIComponent(q)}`, {responseType:'arraybuffer',timeout:20000}); return Buffer.from(r.data); }
+            ]);
+            if (imgBuffer) { await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`🎨 *${command.toUpperCase()} Text Art*\n📝 *Text:* ${q}\n────────────────────\n${botFooter}` }, { quoted:m }); await editAutoDelete(nimesha, m.chat, `✅ *Text art generated!*\n✨ *Style:* ${command}`, botFooter, waitMsg.key); }
+            else await nimesha.sendMessage(m.chat, { text:`❌ Could not generate text art\n${botFooter}`, edit:waitMsg.key });
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // FUN COMMANDS
+        // ════════════════════════════════════════════════════════════════════
+        case 'compliment': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const compliments = ['You are amazing! 🌟','You make the world a better place! 🌍','You are so talented! 🎉','Your smile lights up the room! 😊','You are absolutely wonderful! ✨','You are one of a kind! 🦋','You are inspiring! 💫'];
+            await nimesha.sendMessage(m.chat, { text:`💖 *Compliment*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n💌 ${pickRandom(compliments)}\n────────────────────\n${botFooter}`, mentions:[mentioned] }, { quoted:m });
+        }
+        break
+
+        case 'insult': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const insult = await tryFetch([ async () => { const r = await axios.get('https://evilinsult.com/generate_insult.php?lang=en&type=json', {timeout:8000}); return r.data?.insult||null; } ]) || 'You have the personality of a wet sock! 🧦';
+            await nimesha.sendMessage(m.chat, { text:`😂 *Insult*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n😈 ${insult}\n────────────────────\n${botFooter}`, mentions:[mentioned] }, { quoted:m });
+        }
+        break
+
+        case 'flirt': {
+            const flirts = ['Are you a magician? Every time I look at you, everyone else disappears ✨','Do you have a map? I keep getting lost in your eyes 👀','Are you a parking ticket? You have "fine" written all over you 😍','Is your name Google? You have everything I\'ve been searching for 🔍'];
+            await sendAutoDelete(nimesha, m.chat, `💕 *Flirt Line*\n────────────────────\n${pickRandom(flirts)}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'hack': {
+            const target = m.mentionedJid?.[0] ? `@${m.mentionedJid[0].split('@')[0]}` : (q||'Target');
+            const stages = [
+                `💻 *HACKING INITIATED...*\n────────────────────\n🎯 Target: ${target}\n⚡ [░▒▒▒▒▒▒▒▒▒] 10% — Connecting...`,
+                `💻 *HACKING IN PROGRESS...*\n────────────────────\n🎯 Target: ${target}\n⚡ [████▒▒▒▒▒▒] 40% — Bypassing firewall...`,
+                `💻 *HACKING IN PROGRESS...*\n────────────────────\n🎯 Target: ${target}\n⚡ [███████▒▒▒] 70% — Extracting data...`,
+                `✅ *HACK COMPLETE!*\n────────────────────\n🎯 Target: ${target}\n⚡ [██████████] 100%\n📠 Password: 1234567890\n📧 Email: hacked@fake.com\n💰 Balance: $999,999\n────────────────────\n${botFooter}`
+            ];
+            let hackMsg = await nimesha.sendMessage(m.chat, { text:stages[0] });
+            for (let i = 1; i < stages.length; i++) { await new Promise(r=>setTimeout(r,2000)); await nimesha.sendMessage(m.chat, { text:stages[i], edit:hackMsg.key }); }
+        }
+        break
+
+        case 'wasted': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            try { const pp=await nimesha.profilePictureUrl(mentioned,'image').catch(()=>null); if(pp){const imgBuffer=await getMiscImage('wasted',{imageUrl:pp});if(imgBuffer)return await nimesha.sendMessage(m.chat,{image:imgBuffer,caption:`💀 *WASTED*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});} await nimesha.sendMessage(m.chat,{text:`💀 *WASTED*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m}); }
+            catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'ship': {
+            const user1 = m.mentionedJid?.[0]||m.sender, user2 = m.mentionedJid?.[1]||m.sender;
+            const shipPercent = Math.floor(Math.random()*101);
+            const hearts = '❤️'.repeat(Math.floor(shipPercent/20))+'🤍'.repeat(5-Math.floor(shipPercent/20));
+            await nimesha.sendMessage(m.chat, { text:`💕 *Ship Meter*\n────────────────────\n👤 @${user1.split('@')[0]}\n💖 + 💖\n👤 @${user2.split('@')[0]}\n\n${hearts}\n💯 *Match:* ${shipPercent}%\n${shipPercent>70?'🔥 Perfect Match!':shipPercent>40?'💛 Good Match!':'💔 Maybe next time...'}\n────────────────────\n${botFooter}`, mentions:[user1,user2] }, { quoted:m });
+        }
+        break
+
+        case 'simp': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const simpLevel = Math.floor(Math.random()*101);
+            await nimesha.sendMessage(m.chat, { text:`😍 *Simp Meter*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n💘 Simp Level: ${simpLevel}%\n${simpLevel>80?'🚨 Ultra Simp!':simpLevel>50?'😅 Major Simp!':'😌 Normal person'}\n────────────────────\n${botFooter}`, mentions:[mentioned] }, { quoted:m });
+        }
+        break
+
+        case 'character': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const traits = ['Smart 🧠','Funny 😂','Kind ❤️','Creative 🎨','Brave 💪','Loyal 🤝','Mysterious 🔮','Energetic ⚡'];
+            const selected = traits.sort(()=>0.5-Math.random()).slice(0,3);
+            await nimesha.sendMessage(m.chat, { text:`🎭 *Character Analysis*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n✨ *Personality Traits:*\n${selected.map(t=>`• ${t}`).join('\n')}\n────────────────────\n${botFooter}`, mentions:[mentioned] }, { quoted:m });
+        }
+        break
+
+        case 'shayari': {
+            const shayaris = ['Love is not about how many days, months, or years you have been together.\nIt is about how much you truly love each other every single day. 🌹',
+        'Life is a journey, not a destination.\nEnjoy the ride, learn from the bumps, and cherish the beautiful views. 💕',
+        'Let love be the reason you smile, not the reason you cry.\nLet it be your strength, not your weakness. 💫'];
+            await sendAutoDelete(nimesha, m.chat, `🌹 *Shayari*\n────────────────────\n${pickRandom(shayaris)}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'goodnight': {
+            const gns = ['🌙 Good night! Sweet dreams! 💭','⭐ Sleep well! The stars watch over you! ✨','🌜 May your dreams be magical tonight! ✨','🌅 Rest well, tomorrow is a new day! 🌞'];
+            await sendAutoDelete(nimesha, m.chat, `🌙 *Good Night!*\n────────────────────\n${pickRandom(gns)}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'roseday': {
+            await sendAutoDelete(nimesha, m.chat, `🌹 *Happy Rose Day!*\n────────────────────\n🌹🌹🌹🌹🌹\n\nRoses are red,\nViolets are blue,\nThis bot is amazing,\nAnd so are you! 💕\n\n🌹🌹🌹🌹🌹\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'stupid': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const stupidMsg2 = args.slice(1).join(' ') || 'You did something very stupid! 🦧';
+            await nimesha.sendMessage(m.chat, { text:`🦧 *Stupid Alert!*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n😤 ${stupidMsg2}\n────────────────────\n${botFooter}`, mentions:[mentioned] }, { quoted:m });
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // ANIME GIFS
+        // ════════════════════════════════════════════════════════════════════
+        case 'neko': case 'waifu': case 'nom': case 'poke': case 'cry': case 'kiss': case 'pat': case 'hug': case 'wink': case 'facepalm': case 'loli': case 'punch': case 'slap': case 'dance': case 'happy': case 'blush': {
+            const gifUrl = await getAnimeGif(command);
+            if (gifUrl) {
+                const r = await axios.get(gifUrl, {responseType:'arraybuffer',timeout:15000}).catch(()=>null);
+                if (r) { const isGif=gifUrl.endsWith('.gif')||r.headers['content-type']?.includes('gif'); await nimesha.sendMessage(m.chat, { [isGif?'video':'image']:Buffer.from(r.data), gifPlayback:isGif, caption:`*${command.toUpperCase()}*\n${botFooter}` }, { quoted:m }); }
+                else await sendAutoDelete(nimesha, m.chat, `*${command.toUpperCase()}*\n🔗 ${gifUrl}`, botFooter, { quoted:m });
+            } else await sendAutoDelete(nimesha, m.chat, `❌ Could not get ${command} GIF`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'oogway': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a quote!\nExample: ${prefix}oogway Yesterday is history`, botFooter, { quoted:m });
+            const imgBuffer = await getMiscImage('oogway', { text:q });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`🐢 *Oogway says:*\n"${q}"\n────────────────────\n${botFooter}` }, { quoted:m });
+            else await sendAutoDelete(nimesha, m.chat, `🐢 *Oogway says:*\n"${q}"\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'tweet': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter tweet text!\nExample: ${prefix}tweet Hello World!`, botFooter, { quoted:m });
+            const username = m.pushName||'User';
+            const imgBuffer = await getMiscImage('tweet', { text:q, username });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`🐦 *Tweet*\n@${username}: ${q}\n────────────────────\n${botFooter}` }, { quoted:m });
+            else await sendAutoDelete(nimesha, m.chat, `🐦 *@${username}:* ${q}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'ytcomment': {
+            if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter comment text!\nExample: ${prefix}ytcomment This video is amazing!`, botFooter, { quoted:m });
+            const username = m.pushName||'User';
+            const imgBuffer = await getMiscImage('ytcomment', { text:q, username });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`💬 *YouTube Comment*\n${username}: ${q}\n────────────────────\n${botFooter}` }, { quoted:m });
+            else await sendAutoDelete(nimesha, m.chat, `💬 *YouTube Comment*\n👤 ${username}: ${q}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'jail': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            try { const pp=await nimesha.profilePictureUrl(mentioned,'image').catch(()=>null); if(pp){const imgBuffer=await getMiscImage('jail',{imageUrl:pp});if(imgBuffer)return await nimesha.sendMessage(m.chat,{image:imgBuffer,caption:`🚔 *JAILED!*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});} await nimesha.sendMessage(m.chat,{text:`🚔 *@${mentioned.split('@')[0]} is now in JAIL!*\n${botFooter}`,mentions:[mentioned]},{quoted:m}); }
+            catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'triggered': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            try { const pp=await nimesha.profilePictureUrl(mentioned,'image').catch(()=>null); if(pp){const imgBuffer=await getMiscImage('triggered',{imageUrl:pp});if(imgBuffer)return await nimesha.sendMessage(m.chat,{video:imgBuffer,gifPlayback:true,caption:`😤 *TRIGGERED!*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});} await nimesha.sendMessage(m.chat,{text:`😤 *@${mentioned.split('@')[0]} is TRIGGERED!*\n${botFooter}`,mentions:[mentioned]},{quoted:m}); }
+            catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'namecard': {
+            const name = m.pushName||q||'User';
+            const imgBuffer = await getMiscImage('namecard', { name, subtitle:`WhatsApp: ${m.sender.split('@')[0]}` });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image:imgBuffer, caption:`🪪 *Name Card*\n👤 ${name}\n────────────────────\n${botFooter}` }, { quoted:m });
+            else await sendAutoDelete(nimesha, m.chat, `🪪 *Name Card*\n👤 *Name:* ${name}\n📱 *Number:* +${m.sender.split('@')[0]}\n────────────────────`, botFooter, { quoted:m });
+        }
+        break
+
+        case 'heart': case 'circle': case 'lgbt': case 'horny': case 'lolice': case 'gay': case 'glass': case 'passed': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const emojiMap = { heart:'❤️', circle:'⭕', lgbt:'🏳️‍🌈', horny:'😏', lolice:'👮', gay:'🌈', glass:'👓', passed:'✅' };
+            try {
+                const pp = await nimesha.profilePictureUrl(mentioned,'image').catch(()=>null);
+                if (pp) { const imgBuffer=await tryFetch([async()=>{const r=await axios.get(`https://some-random-api.com/canvas/overlay/${command}?avatar=${pp}`,{responseType:'arraybuffer',timeout:15000});return Buffer.from(r.data);},async()=>{const r=await axios.get(`https://api.paxsenix.biz.id/overlay/${command}?image=${pp}`,{responseType:'arraybuffer',timeout:15000});return Buffer.from(r.data);}]); if(imgBuffer)return await nimesha.sendMessage(m.chat,{image:imgBuffer,caption:`${emojiMap[command]} *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m}); }
+                await nimesha.sendMessage(m.chat,{text:`${emojiMap[command]} *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});
+            } catch(e) { await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}`, botFooter, { quoted:m }); }
+        }
+        break
+
+        case 'its-so-stupid': case 'comrade': {
+            const mentioned = m.mentionedJid?.[0]||m.sender;
+            const imgBuffer = await tryFetch([ async()=>{const r=await axios.get(`https://api.paxsenix.biz.id/meme/${command}?image=${await nimesha.profilePictureUrl(mentioned,'image').catch(()=>'')}`,{responseType:'arraybuffer',timeout:15000});return Buffer.from(r.data);} ]);
+            if (imgBuffer) await nimesha.sendMessage(m.chat,{image:imgBuffer,caption:`😂 *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});
+            else await nimesha.sendMessage(m.chat,{text:`😂 *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}\n${botFooter}`,mentions:[mentioned]},{quoted:m});
+        }
+        break
+
+        // ════════════════════════════════════════════════════════════════════
+        // DEFAULT — eval, exec, database relay
+        // ════════════════════════════════════════════════════════════════════
+        default:
+        if (budy.startsWith('>')) {
+            if (!isCreator) return;
+            try { let evaled=await eval(budy.slice(2)); if(typeof evaled!=='string') evaled=require('util').inspect(evaled); await m.reply(evaled); }
+            catch(err) { await m.reply(String(err)); }
+        }
+        if (budy.startsWith('<')) {
+            if (!isCreator) return;
+            try { let evaled=await eval(`(async()=>{ ${budy.slice(2)} })()`); if(typeof evaled!=='string') evaled=require('util').inspect(evaled); await m.reply(evaled); }
+            catch(err) { await m.reply(String(err)); }
+        }
+        if (budy.startsWith('$')) {
+            if (!isCreator) return;
+            if (!text) return;
+            exec(budy.slice(2), (err,stdout)=>{ if(err) return m.reply(`${err}`); if(stdout) return m.reply(stdout); });
+        }
+        if ((!isCmd||isCreator) && budy.toLowerCase()!=undefined) {
+            if (m.chat.endsWith('broadcast')) return;
+            if (!(budy.toLowerCase() in db.database)) return;
+            await nimesha.relayMessage(m.chat, db.database[budy.toLowerCase()], {});
+        }
+
+        } // ← end of switch
+
+        // ── Post-switch: store quoted for anti-delete ────────────────────────
+        if (m.message && m.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+            try { await storeMessage(m); } catch {}
+        }
+
+        // ── Temp cleanup (10% chance) ────────────────────────────────────────
+        if (Math.random() < 0.1) musicDownloader.cleanTemp();
+
+        // ── Auto Recording ───────────────────────────────────────────────────
+        if (set.autorecording && m.chat && !m.fromMe && m.isChats) {
+            try {
+                const userText = m.body||m.text||'';
+                await nimesha.presenceSubscribe(m.chat);
+                await nimesha.sendPresenceUpdate('available', m.chat);
+                await new Promise(r=>setTimeout(r,500));
+                await nimesha.sendPresenceUpdate('recording', m.chat);
+                const recDelay = Math.max(3000, Math.min(8000, userText.length*150));
+                await new Promise(r=>setTimeout(r,recDelay));
+                await nimesha.sendPresenceUpdate('paused', m.chat);
+            } catch(e) { console.log('AutoRecording error:', e.message); }
+        }
+
+    } catch(e) {
+        console.error('Main error:', e);
+    } // ← end of main try
+}; // ← end of module.exports
+
+// ════════════════════════════════════════════════════════════════════════════
+// FILE WATCHER — hot reload
+// ════════════════════════════════════════════════════════════════════════════
+let file = require.resolve(__filename);
 fs.watchFile(file, () => {
-    fs.unwatchFile(file)
-    console.log(chalk.redBright(`Update ${__filename}`))
-    delete require.cache[file]
-    require(file)
-
+    fs.unwatchFile(file);
+    console.log(chalk.redBright(`Update ${__filename}`));
+    delete require.cache[file];
+    require(file);
 });

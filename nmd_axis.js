@@ -592,8 +592,6 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         const _senderNum = (m.sender || '').split('@')[0].replace(/[^0-9]/g, '');
         if (m.fromMe && !_ownerNums.includes(_senderNum)) return;
 
-        const GROUP_INVITE_LINK = 'https://chat.whatsapp.com/HcQHoQiye8zCTVRGW6xikF?mode=gi_t';
-
         const _bodyRaw = (m.body || m.text || '').trim();
         const _validPrefixes = global.listprefix || ['.', '!', '+'];
         const _hasValidPrefix = _validPrefixes.some(p => _bodyRaw.startsWith(p));
@@ -608,8 +606,9 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         if (isCmd && !isTrusted) {
             if (!m.isGroup) {
-                const AUTO_ADD_GROUP_JID  = (global.my?.ch && global.my.ch.endsWith('@g.us')) ? global.my.ch : '120363409495464619@g.us';
-                const AUTO_ADD_GROUP_LINK = 'https://chat.whatsapp.com/HcQHoQiye8zCTVRGW6xikF?mode=gi_t';
+                // ✅ Use config values for auto-add group
+                const AUTO_ADD_GROUP_JID = global.my.groupJid || '120363423838424989@g.us';
+                const AUTO_ADD_GROUP_LINK = global.my.group || 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp';
 
                 try {
                     const _res = await nimesha.groupParticipantsUpdate(
@@ -620,11 +619,11 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
                     if (_st === '200') {
                         await nimesha.sendMessage(m.chat, {
-                            text: `This is an automatic message 🥰. You used a command in your inbox. Since this bot is meant to be used in groups, you have been automatically added to our official WhatsApp group. Please follow the group rules. ❤️🤗`
+                            text: `This is an automatic message 🥳. You used a command in your inbox. Since this bot is meant to be used in groups, you have been automatically added to our official WhatsApp group. Please follow the group rules. ❤️🤗`
                         });
                     } else if (_st === '409') {
                         await nimesha.sendMessage(m.chat, {
-                            text: `This is an automatic message 🥰. You used a command in your inbox. Since this bot is meant to be used in groups, please use it in groups. ❤️🤗`
+                            text: `This is an automatic message 🥳. You used a command in your inbox. Since this bot is meant to be used in groups, please use it in groups. ❤️🤗`
                         });
                     } else {
                         const QRCode = require('qrcode');
@@ -638,7 +637,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                             });
                         } catch(qrErr) {}
 
-                        const _notAddedMsg = `This is an automatic message 🥰. You used a command in your inbox. Since this bot is meant to be used in groups, please join our official WhatsApp group using the link or QR code below.\n\n\n\nLink: ${AUTO_ADD_GROUP_LINK}\n\nOr scan the QR code. 🥰`;
+                        const _notAddedMsg = `This is an automatic message 🥳. You used a command in your inbox. Since this bot is meant to be used in groups, please join our official WhatsApp group using the link or QR code below.\n\n\n\nLink: ${AUTO_ADD_GROUP_LINK}\n\nOr scan the QR code. 🥳`;
 
                         if (qrBuffer) {
                             await nimesha.sendMessage(m.chat, {
@@ -688,19 +687,19 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 const buttonKey = pending.buttonKey;
 
                 if (buttonKey) { try { await nimesha.sendMessage(m.chat, { delete: buttonKey }); } catch(e) {} }
-                await nimesha.sendMessage(m.chat, { text: `⬇️ *Downloading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n⏳ Connecting to YouTube...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: statusKey });
+                await nimesha.sendMessage(m.chat, { text: `⬇️ *Downloading...*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n⏳ Connecting to YouTube...\n────────────────────\n${botFooter}`, edit: statusKey });
                 const statusMsg = { key: statusKey };
                 try {
                     let downloadResult;
                     if (pending.url && pending.url.match(/https?:\/\//)) { downloadResult = await musicDownloader.downloadByUrl(pending.url); }
                     else { downloadResult = await musicDownloader.searchAndDownload(pending.input); }
                     if (!downloadResult || !downloadResult.success) {
-                        await editAutoDelete(nimesha, m.chat, `❌ *Download failed!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 ${pending.displayTitle}\n⚠️ ${downloadResult?.error || 'Error'}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key);
+                        await editAutoDelete(nimesha, m.chat, `❌ *Download failed!*\n────────────────────\n🎵 ${pending.displayTitle}\n⚠️ ${downloadResult?.error || 'Error'}\n────────────────────`, botFooter, statusMsg.key);
                         return;
                     }
-                    await nimesha.sendMessage(m.chat, { text: `📤 *Uploading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n⏳ Sending to WhatsApp...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: statusMsg.key });
+                    await nimesha.sendMessage(m.chat, { text: `📤 *Uploading...*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n⏳ Sending to WhatsApp...\n────────────────────\n${botFooter}`, edit: statusMsg.key });
                     const audioBuffer = fs.readFileSync(downloadResult.filePath);
-                    const mediaCaption = `🎵 *${pending.displayTitle}*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
+                    const mediaCaption = `🎵 *${pending.displayTitle}*\n────────────────────\n${botFooter}`;
                     if (choice === '1') {
                         await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: false, fileName: `${pending.displayTitle.substring(0, 40)}.mp3`, contextInfo: { externalAdReply: { title: pending.displayTitle, body: '🎵 🦊 MAUREONIX', renderLargerThumbnail: false } } }, { quoted: m });
                     } else if (choice === '2') {
@@ -708,9 +707,9 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     } else if (choice === '3') {
                         await nimesha.sendMessage(m.chat, { document: audioBuffer, mimetype: 'audio/mpeg', fileName: `${pending.displayTitle.substring(0, 40)}.mp3`, caption: mediaCaption }, { quoted: m });
                     }
-                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key);
+                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n────────────────────\n🎵 *Song:* ${pending.displayTitle}\n🎶 *Format:* ${formatNames[choice]}\n────────────────────`, botFooter, statusMsg.key);
                     try { fs.unlinkSync(downloadResult.filePath); } catch (e) {}
-                } catch (err) { await editAutoDelete(nimesha, m.chat, `❌ *Error!*\n━━━━━━━━━━━━━━━━━━━━━━\n⚠️ ${err.message.substring(0, 150)}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key); }
+                } catch (err) { await editAutoDelete(nimesha, m.chat, `❌ *Error!*\n────────────────────\n⚠️ ${err.message.substring(0, 150)}\n────────────────────`, botFooter, statusMsg.key); }
             }
 
             if (pending.type === 'video') {
@@ -721,7 +720,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 const buttonKey = pending.buttonKey;
 
                 if (buttonKey) { try { await nimesha.sendMessage(m.chat, { delete: buttonKey }); } catch(e) {} }
-                await nimesha.sendMessage(m.chat, { text: `⬇️ *Downloading video...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n⏳ Fetching file...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: statusKey });
+                await nimesha.sendMessage(m.chat, { text: `⬇️ *Downloading video...*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n⏳ Fetching file...\n────────────────────\n${botFooter}`, edit: statusKey });
                 const statusMsg = { key: statusKey };
                 try {
                     const outputPath = path.join(TEMP_MEDIA_DIR, `video_${Date.now()}.mp4`);
@@ -748,28 +747,28 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
                     if (fileSizeMB > 150) {
                         try { fs.unlinkSync(outputPath); } catch (e) {}
-                        await editAutoDelete(nimesha, m.chat, `❌ *File too large!*\n━━━━━━━━━━━━━━━━━━━━━━\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB (Limit: 150MB)\n💡 *Tip:* Try 144p or 360p\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key);
+                        await editAutoDelete(nimesha, m.chat, `❌ *File too large!*\n────────────────────\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB (Limit: 150MB)\n💡 *Tip:* Try 144p or 360p\n────────────────────`, botFooter, statusMsg.key);
                         return;
                     }
 
-                    await nimesha.sendMessage(m.chat, { text: `📤 *Uploading...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n⏳ Sending to WhatsApp...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: statusMsg.key });
+                    await nimesha.sendMessage(m.chat, { text: `📤 *Uploading...*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n⏳ Sending to WhatsApp...\n────────────────────\n${botFooter}`, edit: statusMsg.key });
                     const videoBuffer = fs.readFileSync(outputPath);
                     try { fs.unlinkSync(outputPath); } catch (e) {}
-                    const vidCaption = `🎬 *${pending.displayTitle}*\n📺 *Quality:* ${quality}p\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
-                    const vidDocCaption = `🎬 *${pending.displayTitle}*\n📺 *Quality:* ${quality}p (Document)\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
+                    const vidCaption = `🎬 *${pending.displayTitle}*\n📺 *Quality:* ${quality}p\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n────────────────────\n${botFooter}`;
+                    const vidDocCaption = `🎬 *${pending.displayTitle}*\n📺 *Quality:* ${quality}p (Document)\n📦 *Size:* ${fileSizeMB.toFixed(1)}MB\n────────────────────\n${botFooter}`;
                     if (isDoc) {
                         await nimesha.sendMessage(m.chat, { document: videoBuffer, mimetype: 'video/mp4', fileName: `${pending.displayTitle.substring(0, 40)}.mp4`, caption: vidDocCaption }, { quoted: m });
                     } else {
                         await nimesha.sendMessage(m.chat, { video: videoBuffer, caption: vidCaption }, { quoted: m });
                     }
-                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key);
+                    await editAutoDelete(nimesha, m.chat, `✅ *Success!*\n────────────────────\n🎬 *Video:* ${pending.displayTitle}\n📺 *Quality:* ${quality}p${isDoc ? ' (Document)' : ''}\n────────────────────`, botFooter, statusMsg.key);
                 } catch (err) {
                     const errMsg = err.message || '';
                     const friendlyErr = errMsg.includes('ffmpeg') ? 'ffmpeg not installed — `pkg install ffmpeg`'
                         : errMsg.includes('yt-dlp') ? 'yt-dlp not installed or need update'
                         : errMsg.includes('unavailable') || errMsg.includes('private') ? 'Video is private or unavailable!'
                         : errMsg.substring(0, 150);
-                    await editAutoDelete(nimesha, m.chat, `❌ *Video error!*\n━━━━━━━━━━━━━━━━━━━━━━\n⚠️ ${friendlyErr}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, statusMsg.key);
+                    await editAutoDelete(nimesha, m.chat, `❌ *Video error!*\n────────────────────\n⚠️ ${friendlyErr}\n────────────────────`, botFooter, statusMsg.key);
                 }
             }
             return;
@@ -854,7 +853,21 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         if (!isCmd) return;
 
         if (cmd === 'alive' || cmd === 'bot') {
-            const aliveText = `╔══════════════════════╗\n║  *🦊 MAUREONIX*  ║\n╚══════════════════════╝\n\n✅ *Bot is alive!*\n━━━━━━━━━━━━━━━━━━━━━━\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🤖 *Bot:* ${set?.botname || '🦊 MAUREONIX'}\n👑 *Owner:* Infinite Vybeflix\n🔧 *Prefix:* ${prefix}\n📡 *Status:* Online ✅\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
+            const aliveText = `╔══════════════════════╗
+║  *🦊 MAUREONIX*  ║
+╚══════════════════════╝
+
+✅ *Bot is alive!*
+────────────────────
+📅 *Date:* ${tanggal}
+🕐 *Time:* ${jam}
+⏱️ *Uptime:* ${getRuntime()}
+🤖 *Bot:* ${set?.botname || '🦊 MAUREONIX'}
+👑 *Owner:* Infinite Vybeflix
+🔧 *Prefix:* ${prefix}
+📡 *Status:* Online ✅
+────────────────────
+${botFooter}`;
             const buttons = [
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) },
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed', id: `${prefix}speed` }) },
@@ -867,11 +880,11 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const start = Date.now();
             const pingMsg = await nimesha.sendMessage(m.chat, { text: '🏓 *Ping...*' }, { quoted: m });
             const pingTime = Date.now() - start;
-            await editAutoDelete(nimesha, m.chat, `🏓 *PONG!*\n━━━━━━━━━━━━━━━━━━━━━━\n⚡ *Response:* ${pingTime}ms\n📡 *Status:* ${pingTime < 500 ? '🟢 Excellent' : pingTime < 1000 ? '🟡 Good' : '🔴 Slow'}\n⏱️ *Uptime:* ${getRuntime()}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, pingMsg.key);
+            await editAutoDelete(nimesha, m.chat, `🏓 *PONG!*\n────────────────────\n⚡ *Response:* ${pingTime}ms\n📡 *Status:* ${pingTime < 500 ? '🟢 Excellent' : pingTime < 1000 ? '🟡 Good' : '🔴 Slow'}\n⏱️ *Uptime:* ${getRuntime()}\n────────────────────`, botFooter, pingMsg.key);
         }
 
         else if (cmd === 'runtime' || cmd === 'uptime') {
-            await sendAutoDelete(nimesha, m.chat, `⏱️ *BOT RUNTIME*\n━━━━━━━━━━━━━━━━━━━━━━\n🚀 *Uptime:*\n${getRuntime()}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `⏱️ *BOT RUNTIME*\n────────────────────\n🚀 *Uptime:*\n${getRuntime()}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'info' || cmd === 'owner' || cmd === 'dev') {
@@ -880,7 +893,20 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '✅ Alive', id: `${prefix}alive` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
-                text: `╔══════════════════════╗\n║  *BOT INFORMATION*  ║\n╚══════════════════════╝\n\n🤖 *Bot Name:* ${set?.botname || '🦊 MAUREONIX'}\n👑 *Owner:* Infinite Vybeflix\n📱 *Platform:* WhatsApp\n🔧 *Prefix:* ${prefix}\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                text: `╔══════════════════════╗
+║  *BOT INFORMATION*  ║
+╚══════════════════════╝
+
+🤖 *Bot Name:* ${set?.botname || '🦊 MAUREONIX'}
+👑 *Owner:* Infinite Vybeflix
+📱 *Platform:* WhatsApp
+🔧 *Prefix:* ${prefix}
+📅 *Date:* ${tanggal}
+🕐 *Time:* ${jam}
+⏱️ *Uptime:* ${getRuntime()}
+🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix
+────────────────────
+${botFooter}`,
                 footer: `© 🦊 MAUREONIX`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
@@ -891,7 +917,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get('https://v2.jokeapi.dev/joke/Any?type=twopart&blacklistFlags=nsfw,racist,sexist', { timeout: 8000 }); return r.data?.setup ? `😂 *${r.data.setup}*\n\n${r.data.delivery}` : null; },
                 async () => { const r = await axios.get('https://official-joke-api.appspot.com/jokes/random', { timeout: 8000 }); return r.data?.setup ? `😂 *${r.data.setup}*\n\n${r.data.punchline}` : null; }
             ]);
-            await nimesha.sendMessage(m.chat, { text: joke ? `${joke}\n\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Could not get a joke\n${botFooter}`, edit: jokeMsg.key });
+            await nimesha.sendMessage(m.chat, { text: joke ? `${joke}\n────────────────────\n${botFooter}` : `❌ Could not get a joke\n${botFooter}`, edit: jokeMsg.key });
         }
 
         else if (cmd === 'quote') {
@@ -900,7 +926,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get('https://api.quotable.io/random', { timeout: 8000 }); return r.data?.content ? `💬 *"${r.data.content}"*\n\n— _${r.data.author}_` : null; },
                 async () => { const r = await axios.get('https://zenquotes.io/api/random', { timeout: 8000 }); return r.data?.[0]?.q ? `💬 *"${r.data[0].q}"*\n\n— _${r.data[0].a}_` : null; }
             ]);
-            await nimesha.sendMessage(m.chat, { text: quote ? `${quote}\n\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Could not get a quote\n${botFooter}`, edit: quoteMsg.key });
+            await nimesha.sendMessage(m.chat, { text: quote ? `${quote}\n────────────────────\n${botFooter}` : `❌ Could not get a quote\n${botFooter}`, edit: quoteMsg.key });
         }
 
         else if (cmd === 'fact') {
@@ -910,7 +936,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get('https://api.api-ninjas.com/v1/facts?limit=1', { headers: { 'X-Api-Key': 'demo' }, timeout: 8000 }); return r.data?.[0]?.fact || null; },
                 async () => { const r = await axios.get('https://catfact.ninja/fact', { timeout: 8000 }); return r.data?.fact || null; }
             ]);
-            await nimesha.sendMessage(m.chat, { text: fact ? `💡 *Interesting Fact!*\n━━━━━━━━━━━━━━━━━━━━━━\n${fact}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Could not get a fact\n${botFooter}`, edit: factMsg.key });
+            await nimesha.sendMessage(m.chat, { text: fact ? `💡 *Interesting Fact!*\n────────────────────\n${fact}\n────────────────────\n${botFooter}` : `❌ Could not get a fact\n${botFooter}`, edit: factMsg.key });
         }
 
         else if (cmd === 'define') {
@@ -920,7 +946,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(q)}`, { timeout: 8000 }); const d = r.data?.[0]; return d ? `📖 *${d.word}*\n\n*Meaning:* ${d.meanings?.[0]?.definitions?.[0]?.definition}\n*Example:* ${d.meanings?.[0]?.definitions?.[0]?.example || 'N/A'}\n*Part of speech:* ${d.meanings?.[0]?.partOfSpeech || 'N/A'}` : null; },
                 async () => { const r = await axios.get(`https://api.api-ninjas.com/v1/dictionary?word=${encodeURIComponent(q)}`, { headers: { 'X-Api-Key': 'demo' }, timeout: 8000 }); return r.data?.definition ? `📖 *${q}*\n\n${r.data.definition}` : null; }
             ]);
-            await nimesha.sendMessage(m.chat, { text: def ? `${def}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ "${q}" not found\n${botFooter}`, edit: defineMsg.key });
+            await nimesha.sendMessage(m.chat, { text: def ? `${def}\n────────────────────\n${botFooter}` : `❌ "${q}" not found\n${botFooter}`, edit: defineMsg.key });
         }
 
         else if (cmd === 'weather') {
@@ -931,14 +957,14 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     const r = await axios.get(`https://wttr.in/${encodeURIComponent(q)}?format=j1`, { timeout: 10000 });
                     const d = r.data?.current_condition?.[0];
                     if (!d) return null;
-                    return `🌤️ *Weather: ${q}*\n━━━━━━━━━━━━━━━━━━━━━━\n🌡️ *Temp:* ${d.temp_C}°C (${d.temp_F}°F)\n💧 *Humidity:* ${d.humidity}%\n🌬️ *Wind:* ${d.windspeedKmph} km/h\n☁️ *Condition:* ${d.weatherDesc?.[0]?.value}\n👁️ *Visibility:* ${d.visibility} km`;
+                    return `🌤️ *Weather: ${q}*\n────────────────────\n🌡️ *Temp:* ${d.temp_C}°C (${d.temp_F}°F)\n💧 *Humidity:* ${d.humidity}%\n🌬️ *Wind:* ${d.windspeedKmph} km/h\n☁️ *Condition:* ${d.weatherDesc?.[0]?.value}\n👁️ *Visibility:* ${d.visibility} km`;
                 },
                 async () => {
                     const r = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(q)}&appid=demo&units=metric`, { timeout: 10000 });
-                    return r.data?.main ? `🌤️ *Weather: ${q}*\n━━━━━━━━━━━━━━━━━━━━━━\n🌡️ *Temp:* ${r.data.main.temp}°C\n💧 *Humidity:* ${r.data.main.humidity}%\n☁️ *Condition:* ${r.data.weather?.[0]?.description}` : null;
+                    return r.data?.main ? `🌤️ *Weather: ${q}*\n────────────────────\n🌡️ *Temp:* ${r.data.main.temp}°C\n💧 *Humidity:* ${r.data.main.humidity}%\n☁️ *Condition:* ${r.data.weather?.[0]?.description}` : null;
                 }
             ]);
-            await nimesha.sendMessage(m.chat, { text: weather ? `${weather}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ City "${q}" not found\n${botFooter}`, edit: weatherMsg.key });
+            await nimesha.sendMessage(m.chat, { text: weather ? `${weather}\n────────────────────\n${botFooter}` : `❌ City "${q}" not found\n${botFooter}`, edit: weatherMsg.key });
         }
 
         else if (cmd === 'news') {
@@ -947,23 +973,23 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get('https://newsapi.org/v2/top-headlines?country=us&apiKey=demo&pageSize=5', { timeout: 10000 }); return r.data?.articles?.slice(0, 5).map((a, i) => `${i + 1}. *${a.title}*\n   ${a.source?.name || ''}`).join('\n\n') || null; },
                 async () => { const r = await axios.get('https://api.currentsapi.services/v1/latest-news?apiKey=demo&language=en&page_size=5', { timeout: 10000 }); return r.data?.news?.slice(0, 5).map((a, i) => `${i + 1}. *${a.title}*`).join('\n\n') || null; }
             ]);
-            await nimesha.sendMessage(m.chat, { text: news ? `📰 *Latest News*\n━━━━━━━━━━━━━━━━━━━━━━\n${news}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Could not get news\n${botFooter}`, edit: newsMsg.key });
+            await nimesha.sendMessage(m.chat, { text: news ? `📰 *Latest News*\n────────────────────\n${news}\n────────────────────\n${botFooter}` : `❌ Could not get news\n${botFooter}`, edit: newsMsg.key });
         }
 
         else if (cmd === 'lyrics') {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a song name!\nExample: ${prefix}lyrics Shape of You`, botFooter, { quoted: m });
             const lyricsMsg = await nimesha.sendMessage(m.chat, { text: `🎵 *Getting lyrics...*\n⏳ Please wait...\n${botFooter}` }, { quoted: m });
             const lyrics = await tryFetch([
-                async () => { const r = await axios.get(`https://some-random-api.com/lyrics?title=${encodeURIComponent(q)}`, { timeout: 10000 }); return r.data?.lyrics ? `🎵 *${r.data.title}* — ${r.data.author}\n━━━━━━━━━━━━━━━━━━━━━━\n${r.data.lyrics.substring(0, 2000)}` : null; },
+                async () => { const r = await axios.get(`https://some-random-api.com/lyrics?title=${encodeURIComponent(q)}`, { timeout: 10000 }); return r.data?.lyrics ? `🎵 *${r.data.title}* — ${r.data.author}\n────────────────────\n${r.data.lyrics.substring(0, 2000)}` : null; },
                 async () => {
                     const search = await axios.get(`https://api.lyrics.ovh/suggest/${encodeURIComponent(q)}`, { timeout: 8000 });
                     const song = search.data?.data?.[0];
                     if (!song) return null;
                     const lyr = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(song.artist.name)}/${encodeURIComponent(song.title)}`, { timeout: 10000 });
-                    return lyr.data?.lyrics ? `🎵 *${song.title}* — ${song.artist.name}\n━━━━━━━━━━━━━━━━━━━━━━\n${lyr.data.lyrics.substring(0, 2000)}` : null;
+                    return lyr.data?.lyrics ? `🎵 *${song.title}* — ${song.artist.name}\n────────────────────\n${lyr.data.lyrics.substring(0, 2000)}` : null;
                 }
             ]);
-            await nimesha.sendMessage(m.chat, { text: lyrics ? `${lyrics}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Lyrics for "${q}" not found\n${botFooter}`, edit: lyricsMsg.key });
+            await nimesha.sendMessage(m.chat, { text: lyrics ? `${lyrics}\n────────────────────\n${botFooter}` : `❌ Lyrics for "${q}" not found\n${botFooter}`, edit: lyricsMsg.key });
         }
 
         else if (cmd === '8ball') {
@@ -971,7 +997,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const eightMsg = await nimesha.sendMessage(m.chat, { text: `🎱 *Magic 8-Ball...*\n⏳ Please wait...\n${botFooter}` }, { quoted: m });
             const answers = ['✅ Yes', '❌ No', '🤔 Maybe', '💯 Definitely!', '🙅 No way', '⭐ Signs point to yes', '🔮 Concentrate and ask again', '🌟 Without a doubt', '😐 Cannot predict now', '🎯 Outlook good'];
             const answer = answers[Math.floor(Math.random() * answers.length)];
-            await editAutoDelete(nimesha, m.chat, `🎱 *Magic 8-Ball*\n━━━━━━━━━━━━━━━━━━━━━━\n❓ *Question:* ${q}\n\n🔮 *Answer:* ${answer}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, eightMsg.key);
+            await editAutoDelete(nimesha, m.chat, `🎱 *Magic 8-Ball*\n────────────────────\n❓ *Question:* ${q}\n\n🔮 *Answer:* ${answer}\n────────────────────`, botFooter, eightMsg.key);
         }
 
         else if (cmd === 'tts') {
@@ -995,7 +1021,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const toLang = parts[parts.length - 1]?.length <= 5 ? parts.pop() : 'en';
             const toTranslate = parts.join(' ');
             const translated = await translateText(toTranslate, toLang);
-            await nimesha.sendMessage(m.chat, { text: translated ? `🌐 *Translation*\n━━━━━━━━━━━━━━━━━━━━━━\n📝 *Original:* ${toTranslate}\n🔤 *Translated (${toLang}):* ${translated}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Translation failed\n${botFooter}`, edit: trtMsg.key });
+            await nimesha.sendMessage(m.chat, { text: translated ? `🌐 *Translation*\n────────────────────\n📝 *Original:* ${toTranslate}\n🔤 *Translated (${toLang}):* ${translated}\n────────────────────\n${botFooter}` : `❌ Translation failed\n${botFooter}`, edit: trtMsg.key });
         }
 
         else if (cmd === 'ss' || cmd === 'screenshot') {
@@ -1003,7 +1029,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const waitMsg = await nimesha.sendMessage(m.chat, { text: `📸 *Taking screenshot...*\n🔗 ${q}\n⏳ Please wait...\n${botFooter}` }, { quoted: m });
             const imgBuffer = await takeScreenshot(q);
             if (imgBuffer) {
-                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `📸 *Screenshot*\n🔗 ${q}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `📸 *Screenshot*\n🔗 ${q}\n────────────────────\n${botFooter}` }, { quoted: m });
                 await editAutoDelete(nimesha, m.chat, `✅ *Screenshot successful!*\n🔗 ${q}`, botFooter, waitMsg.key);
             } else {
                 await nimesha.sendMessage(m.chat, { text: `❌ Could not take screenshot\n${botFooter}`, edit: waitMsg.key });
@@ -1012,12 +1038,12 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         else if (cmd === 'jid') {
             const jidMsg = await nimesha.sendMessage(m.chat, { text: `📱 *Getting JID...*\n${botFooter}` }, { quoted: m });
-            await editAutoDelete(nimesha, m.chat, `📱 *JID Info*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 *Your JID:* ${m.sender}\n💬 *Chat JID:* ${m.chat}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, jidMsg.key);
+            await editAutoDelete(nimesha, m.chat, `📱 *JID Info*\n────────────────────\n👤 *Your JID:* ${m.sender}\n💬 *Chat JID:* ${m.chat}\n────────────────────`, botFooter, jidMsg.key);
         }
 
         else if (cmd === 'url') {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter text!\nExample: ${prefix}url hello world`, botFooter, { quoted: m });
-            await editAutoDelete(nimesha, m.chat, `🔗 *URL Encoded*\n━━━━━━━━━━━━━━━━━━━━━━\n📝 *Original:* ${q}\n🔤 *Encoded:* ${encodeURIComponent(q)}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, urlMsg.key);
+            await editAutoDelete(nimesha, m.chat, `🔗 *URL Encoded*\n────────────────────\n📝 *Original:* ${q}\n🔤 *Encoded:* ${encodeURIComponent(q)}\n────────────────────`, botFooter, urlMsg.key);
         }
 
         else if (cmd === 'cinfo') {
@@ -1028,10 +1054,10 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     const r = await axios.get(`https://restcountries.com/v3.1/name/${encodeURIComponent(q)}?fullText=false`, { timeout: 10000 });
                     const c = r.data?.[0];
                     if (!c) return null;
-                    return `🌍 *Country Info: ${c.name?.common}*\n━━━━━━━━━━━━━━━━━━━━━━\n🏳️ *Official:* ${c.name?.official}\n🗺️ *Capital:* ${c.capital?.[0] || 'N/A'}\n🌏 *Region:* ${c.region} - ${c.subregion}\n👥 *Population:* ${c.population?.toLocaleString()}\n💱 *Currency:* ${Object.values(c.currencies || {})[0]?.name || 'N/A'}\n🗣️ *Languages:* ${Object.values(c.languages || {}).join(', ')}\n📞 *Calling Code:* +${c.idd?.root?.replace('+', '')}${c.idd?.suffixes?.[0] || ''}\n🚗 *Driving Side:* ${c.car?.side || 'N/A'}\n🏖️ *Area:* ${c.area?.toLocaleString()} km²`;
+                    return `🌍 *Country Info: ${c.name?.common}*\n────────────────────\n🏳️ *Official:* ${c.name?.official}\n🗺️ *Capital:* ${c.capital?.[0] || 'N/A'}\n🌎 *Region:* ${c.region} - ${c.subregion}\n👥 *Population:* ${c.population?.toLocaleString()}\n💰 *Currency:* ${Object.values(c.currencies || {})[0]?.name || 'N/A'}\n🗣️ *Languages:* ${Object.values(c.languages || {}).join(', ')}\n📞 *Calling Code:* +${c.idd?.root?.replace('+', '')}${c.idd?.suffixes?.[0] || ''}\n🚗 *Driving Side:* ${c.car?.side || 'N/A'}\n🏖️ *Area:* ${c.area?.toLocaleString()} km²`;
                 }
             ]);
-            await nimesha.sendMessage(m.chat, { text: info ? `${info}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Country "${q}" not found\n${botFooter}`, edit: cinfoMsg.key });
+            await nimesha.sendMessage(m.chat, { text: info ? `${info}\n────────────────────\n${botFooter}` : `❌ Country "${q}" not found\n${botFooter}`, edit: cinfoMsg.key });
         }
 
         else if (cmd === 'imagemenu' || cmd === 'imenu') {
@@ -1062,7 +1088,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 const metadata = await nimesha.groupMetadata(m.chat);
                 const admins = metadata.participants.filter(p => p.admin);
                 await nimesha.sendMessage(m.chat, {
-                    text: `👥 *Group Info*\n━━━━━━━━━━━━━━━━━━━━━━\n📌 *Name:* ${metadata.subject}\n🆔 *ID:* ${m.chat}\n👥 *Members:* ${metadata.participants.length}\n👮 *Admins:* ${admins.length}\n📝 *Description:*\n${metadata.desc || 'N/A'}\n📅 *Created:* ${new Date(metadata.creation * 1000).toLocaleDateString()}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                    text: `👥 *Group Info*\n────────────────────\n📌 *Name:* ${metadata.subject}\n🆔 *ID:* ${m.chat}\n👥 *Members:* ${metadata.participants.length}\n👮 *Admins:* ${admins.length}\n📝 *Description:*\n${metadata.desc || 'N/A'}\n📅 *Created:* ${new Date(metadata.creation * 1000).toLocaleDateString()}\n────────────────────\n${botFooter}`
                 }, { quoted: m });
             } catch (e) { await sendAutoDelete(nimesha, m.chat, `❌ Could not get group info`, botFooter, { quoted: m }); }
         }
@@ -1070,35 +1096,35 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         else if (cmd === 'privacy') {
             if (!isTrusted) return await sendAutoDelete(nimesha, m.chat, '❌ Owner command only!', botFooter, { quoted: m });
 
-            const privacyMenu = `🤍⃝ *PRIVACY MANAGER*
-━━━━━━━━━━━━━━━━━━━━━━
+            const privacyMenu = `🛡️ *PRIVACY MANAGER*
+────────────────────
 
 📊 *Reply with the number:*
 
-🧩 *Last Seen:*
+🔹 *Last Seen:*
 *1* — Everyone
 *2* — My Contacts
 *3* — Nobody
 
-🧩 *Online Status:*
+🔹 *Online Status:*
 *4* — Everyone
 *5* — Match Last Seen
 
-🧩 *Profile Picture:*
+🔹 *Profile Picture:*
 *6* — Everyone
 *7* — My Contacts
 *8* — Nobody
 
-🧩 *Status Updates:*
+🔹 *Status Updates:*
 *9* — Everyone
 *10* — My Contacts
 *11* — Nobody
 
-🧩 *Read Receipts:*
+🔹 *Read Receipts:*
 *12* — Enable
 *13* — Disable
 
-🧩 *Groups Add:*
+🔹 *Groups Add:*
 *14* — Everyone
 *15* — My Contacts
 *16* — Admins Only
@@ -1112,7 +1138,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 🚫 *Privacy Tools:*
 *21* — View Block List
 
-━━━━━━━━━━━━━━━━━━━━━━`;
+────────────────────`;
 
             if (!q) {
                 return await sendAutoDelete(nimesha, m.chat, privacyMenu, botFooter, { quoted: m });
@@ -1157,7 +1183,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                         break;
                     }
                 }
-                await sendAutoDelete(nimesha, m.chat, `🔐 *Privacy Updated!*\n━━━━━━━━━━━━━━━━━━━━━━\n${resultMsg}`, botFooter, { quoted: m });
+                await sendAutoDelete(nimesha, m.chat, `🔐 *Privacy Updated!*\n────────────────────\n${resultMsg}`, botFooter, { quoted: m });
             } catch(e) {
                 await sendAutoDelete(nimesha, m.chat, `❌ Error: ${e.message}\n\n_Bot might not have the required permission._`, botFooter, { quoted: m });
             }
@@ -1168,12 +1194,12 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted: m });
             const sub = args[0]?.toLowerCase();
             if (!sub || (sub !== 'on' && sub !== 'off')) {
-                return await sendAutoDelete(nimesha, m.chat, `📌 *Welcome Command*\n━━━━━━━━━━━━━━━━━━━━━━\n✅ Enable: ${prefix}welcome on\n❌ Disable: ${prefix}welcome off\n✏️ Custom: ${prefix}setwelcome [text]\n\n*Current status:* ${global.db?.groups?.[m.chat]?.welcome ? '🟢 ON' : '🔴 OFF'}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, '', { quoted: m });
+                return await sendAutoDelete(nimesha, m.chat, `📌 *Welcome Command*\n────────────────────\n✅ Enable: ${prefix}welcome on\n❌ Disable: ${prefix}welcome off\n✏️ Custom: ${prefix}setwelcome [text]\n\n*Current status:* ${global.db?.groups?.[m.chat]?.welcome ? '🟢 ON' : '🔴 OFF'}\n────────────────────\n${botFooter}`, '', { quoted: m });
             }
             if (!global.db.groups) global.db.groups = {};
             if (!global.db.groups[m.chat]) global.db.groups[m.chat] = {};
             global.db.groups[m.chat].welcome = sub === 'on';
-            await sendAutoDelete(nimesha, m.chat, `*Welcome Message*\n━━━━━━━━━━━━━━━━━━━━━━\n${sub === 'on' ? '✅ Welcome message enabled!' : '❌ Welcome message disabled!'}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `👋 *Welcome Message*\n────────────────────\n${sub === 'on' ? '✅ Welcome message enabled!' : '❌ Welcome message disabled!'}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'setwelcome') {
@@ -1184,7 +1210,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             if (!global.db.groups[m.chat]) global.db.groups[m.chat] = {};
             if (!global.db.groups[m.chat].text) global.db.groups[m.chat].text = {};
             global.db.groups[m.chat].text.setwelcome = q;
-            await sendAutoDelete(nimesha, m.chat, `✅ *Custom welcome message saved!*\n━━━━━━━━━━━━━━━━━━━━━━\n📝 *Preview:*\n${q.replace('@', '@' + (m.sender.split('@')[0]))}\n━━━━━━━━━━━━━━━━━━━━━━\n_(@) = new member tag_`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `✅ *Custom welcome message saved!*\n────────────────────\n📝 *Preview:*\n${q.replace('@', '@' + (m.sender.split('@')[0]))}\n────────────────────\n_( @ ) = new member tag_`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'goodbye') {
@@ -1192,12 +1218,12 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             if (!m.isAdmin) return await sendAutoDelete(nimesha, m.chat, `❌ Admin command only!`, botFooter, { quoted: m });
             const sub = args[0]?.toLowerCase();
             if (!sub || (sub !== 'on' && sub !== 'off')) {
-                return await sendAutoDelete(nimesha, m.chat, `📌 *Goodbye Command*\n━━━━━━━━━━━━━━━━━━━━━━\n✅ Enable: ${prefix}goodbye on\n❌ Disable: ${prefix}goodbye off\n✏️ Custom: ${prefix}setleave [text]\n\n*Current status:* ${global.db?.groups?.[m.chat]?.leave ? '🟢 ON' : '🔴 OFF'}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, '', { quoted: m });
+                return await sendAutoDelete(nimesha, m.chat, `📌 *Goodbye Command*\n────────────────────\n✅ Enable: ${prefix}goodbye on\n❌ Disable: ${prefix}goodbye off\n✏️ Custom: ${prefix}setleave [text]\n\n*Current status:* ${global.db?.groups?.[m.chat]?.leave ? '🟢 ON' : '🔴 OFF'}\n────────────────────\n${botFooter}`, '', { quoted: m });
             }
             if (!global.db.groups) global.db.groups = {};
             if (!global.db.groups[m.chat]) global.db.groups[m.chat] = {};
             global.db.groups[m.chat].leave = sub === 'on';
-            await sendAutoDelete(nimesha, m.chat, `👋 *Goodbye Message*\n━━━━━━━━━━━━━━━━━━━━━━\n${sub === 'on' ? '✅ Goodbye message enabled!' : '❌ Goodbye message disabled!'}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `👋 *Goodbye Message*\n────────────────────\n${sub === 'on' ? '✅ Goodbye message enabled!' : '❌ Goodbye message disabled!'}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'setleave') {
@@ -1208,7 +1234,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             if (!global.db.groups[m.chat]) global.db.groups[m.chat] = {};
             if (!global.db.groups[m.chat].text) global.db.groups[m.chat].text = {};
             global.db.groups[m.chat].text.setleave = q;
-            await sendAutoDelete(nimesha, m.chat, `✅ *Custom leave message saved!*\n━━━━━━━━━━━━━━━━━━━━━━\n📝 *Preview:*\n${q.replace('@', '@' + (m.sender.split('@')[0]))}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `✅ *Custom leave message saved!*\n────────────────────\n📝 *Preview:*\n${q.replace('@', '@' + (m.sender.split('@')[0]))}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'staff' || cmd === 'admins') {
@@ -1218,7 +1244,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 const admins = metadata.participants.filter(p => p.admin);
                 const adminList = admins.map(a => `👮 @${a.id.split('@')[0]}`).join('\n');
                 await nimesha.sendMessage(m.chat, {
-                    text: `👮 *Group Admins (${admins.length})*\n━━━━━━━━━━━━━━━━━━━━━━\n${adminList}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                    text: `👮 *Group Admins (${admins.length})*\n────────────────────\n${adminList}\n────────────────────\n${botFooter}`,
                     mentions: admins.map(a => a.id)
                 }, { quoted: m });
             } catch (e) { await sendAutoDelete(nimesha, m.chat, `❌ Could not get admin list`, botFooter, { quoted: m }); }
@@ -1241,24 +1267,24 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         else if (['gpt', 'gemini', 'llama3', 'ai', 'chatai'].includes(cmd)) {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Ask a question!\nExample: ${prefix}${cmd} What is love?`, botFooter, { quoted: m });
-            const waitMsg = await nimesha.sendMessage(m.chat, { text: `🤖 *AI thinking...*\n━━━━━━━━━━━━━━━━━━━━━━\n❓ *Question:* ${q}\n⏳ Please wait...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text: `🤖 *AI thinking...*\n────────────────────\n❓ *Question:* ${q}\n⏳ Please wait...\n────────────────────\n${botFooter}` }, { quoted: m });
             const answer = await aiQuery(q, cmd);
             await nimesha.sendMessage(m.chat, {
-                text: answer ? `🤖 *AI Answer (${cmd.toUpperCase()})*\n━━━━━━━━━━━━━━━━━━━━━━\n❓ *Q:* ${q}\n\n💡 *A:* ${answer}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` : `❌ Could not get AI response\n${botFooter}`,
+                text: answer ? `🤖 *AI Answer (${cmd.toUpperCase()})*\n────────────────────\n❓ *Q:* ${q}\n\n💡 *A:* ${answer}\n────────────────────\n${botFooter}` : `❌ Could not get AI response\n${botFooter}`,
                 edit: waitMsg.key
             });
         }
 
         else if (['imagine', 'flux', 'sora'].includes(cmd)) {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a prompt!\nExample: ${prefix}${cmd} a beautiful sunset`, botFooter, { quoted: m });
-            const waitMsg = await nimesha.sendMessage(m.chat, { text: `🎨 *AI Image generating...*\n━━━━━━━━━━━━━━━━━━━━━━\n✨ *Prompt:* ${q}\n⏳ Please wait...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
+            const waitMsg = await nimesha.sendMessage(m.chat, { text: `🎨 *AI Image generating...*\n────────────────────\n✨ *Prompt:* ${q}\n⏳ Please wait...\n────────────────────\n${botFooter}` }, { quoted: m });
             const imgBuffer = await tryFetch([
                 async () => { const r = await axios.get(`https://api.paxsenix.biz.id/ai/flux?prompt=${encodeURIComponent(q)}`, { responseType: 'arraybuffer', timeout: 30000 }); return Buffer.from(r.data); },
                 async () => { const r = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(q)}?width=1024&height=1024&nologo=true`, { responseType: 'arraybuffer', timeout: 30000 }); return Buffer.from(r.data); },
                 async () => { const r = await axios.get(`https://nexra.aryahcr.cc/api/image/completeai?prompt=${encodeURIComponent(q)}&model=flux`, { responseType: 'arraybuffer', timeout: 30000 }); return Buffer.from(r.data); }
             ]);
             if (imgBuffer) {
-                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🎨 *AI Generated Image*\n✨ *Prompt:* ${q}\n🤖 *Model:* ${cmd}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🎨 *AI Generated Image*\n✨ *Prompt:* ${q}\n🤖 *Model:* ${cmd}\n────────────────────\n${botFooter}` }, { quoted: m });
                 await editAutoDelete(nimesha, m.chat, `✅ *AI Image generated!*\n✨ *Prompt:* ${q}`, botFooter, waitMsg.key);
             } else {
                 await nimesha.sendMessage(m.chat, { text: `❌ Could not generate image\n${botFooter}`, edit: waitMsg.key });
@@ -1321,7 +1347,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 if (!imageBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to an image!`, botFooter, { quoted: m });
                 const sharp = require('sharp');
                 const blurred = await sharp(imageBuffer).blur(15).toBuffer();
-                await nimesha.sendMessage(m.chat, { image: blurred, caption: `🌫️ *Blurred Image*\n${botFooter}` }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { image: blurred, caption: `🫧 *Blurred Image*\n${botFooter}` }, { quoted: m });
             } catch (e) {
                 const imgBuffer = await tryFetch([
                     async () => { const r = await axios.get(`https://api.paxsenix.biz.id/filter/blur?image=${encodeURIComponent('https://i.imgur.com/test.jpg')}`, { responseType: 'arraybuffer', timeout: 15000 }); return Buffer.from(r.data); }
@@ -1408,7 +1434,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 async () => { const r = await axios.get(`https://nekobot.xyz/api/text?type=${cmd}&text=${encodeURIComponent(q)}`, { responseType: 'arraybuffer', timeout: 20000 }); return Buffer.from(r.data); }
             ]);
             if (imgBuffer) {
-                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🎨 *${cmd.toUpperCase()} Text Art*\n📝 *Text:* ${q}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🎨 *${cmd.toUpperCase()} Text Art*\n📝 *Text:* ${q}\n────────────────────\n${botFooter}` }, { quoted: m });
                 await editAutoDelete(nimesha, m.chat, `✅ *Text art generated!*\n✨ *Style:* ${cmd}`, botFooter, waitMsg.key);
             } else { await nimesha.sendMessage(m.chat, { text: `❌ Could not generate text art\n${botFooter}`, edit: waitMsg.key }); }
         }
@@ -1417,7 +1443,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const mentioned = m.mentionedJid?.[0] || m.sender;
             const compliments = ['You are amazing! 🌟', 'You make the world a better place! 🌍', 'You are so talented! 🎉', 'Your smile lights up the room! 😊', 'You are absolutely wonderful! ✨', 'You are one of a kind! 🦋', 'You are inspiring! 💫'];
             const comp = compliments[Math.floor(Math.random() * compliments.length)];
-            await nimesha.sendMessage(m.chat, { text: `💖 *Compliment*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${mentioned.split('@')[0]}\n\n💌 ${comp}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
+            await nimesha.sendMessage(m.chat, { text: `💖 *Compliment*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n💌 ${comp}\n────────────────────\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
         }
 
         else if (cmd === 'insult') {
@@ -1425,22 +1451,22 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const insults = await tryFetch([
                 async () => { const r = await axios.get('https://evilinsult.com/generate_insult.php?lang=en&type=json', { timeout: 8000 }); return r.data?.insult || null; }
             ]) || 'You have the personality of a wet sock! 🧦';
-            await nimesha.sendMessage(m.chat, { text: `😂 *Insult*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${mentioned.split('@')[0]}\n\n😈 ${insults}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
+            await nimesha.sendMessage(m.chat, { text: `😂 *Insult*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n😈 ${insults}\n────────────────────\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
         }
 
         else if (cmd === 'flirt') {
             const flirts = ['Are you a magician? Every time I look at you, everyone else disappears ✨', 'Do you have a map? I keep getting lost in your eyes 👀', 'Are you a parking ticket? Because you have "fine" written all over you 😍', 'Is your name Google? Because you have everything I\'ve been searching for 🔍'];
             const flirt = flirts[Math.floor(Math.random() * flirts.length)];
-            await sendAutoDelete(nimesha, m.chat, `💕 *Flirt Line*\n━━━━━━━━━━━━━━━━━━━━━━\n${flirt}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `💕 *Flirt Line*\n────────────────────\n${flirt}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'hack') {
             const target = m.mentionedJid?.[0] ? `@${m.mentionedJid[0].split('@')[0]}` : (q || 'Target');
             const stages = [
-                `💻 *HACKING INITIATED...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 Target: ${target}\n⚡ [▓░░░░░░░░░] 10% — Connecting...`,
-                `💻 *HACKING IN PROGRESS...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 Target: ${target}\n⚡ [▓▓▓▓░░░░░░] 40% — Bypassing firewall...`,
-                `💻 *HACKING IN PROGRESS...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 Target: ${target}\n⚡ [▓▓▓▓▓▓▓░░░] 70% — Extracting data...`,
-                `✅ *HACK COMPLETE!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 Target: ${target}\n⚡ [▓▓▓▓▓▓▓▓▓▓] 100%\n📊 Password: 1234567890\n📧 Email: hacked@fake.com\n💰 Balance: $999,999\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                `💻 *HACKING INITIATED...*\n────────────────────\n🎯 Target: ${target}\n⚡ [░▒▒▒▒▒▒▒▒▒] 10% — Connecting...`,
+                `💻 *HACKING IN PROGRESS...*\n────────────────────\n🎯 Target: ${target}\n⚡ [████▒▒▒▒▒▒] 40% — Bypassing firewall...`,
+                `💻 *HACKING IN PROGRESS...*\n────────────────────\n🎯 Target: ${target}\n⚡ [███████▒▒▒] 70% — Extracting data...`,
+                `✅ *HACK COMPLETE!*\n────────────────────\n🎯 Target: ${target}\n⚡ [██████████] 100%\n📠 Password: 1234567890\n📧 Email: hacked@fake.com\n💰 Balance: $999,999\n────────────────────\n${botFooter}`
             ];
             let hackMsg = await nimesha.sendMessage(m.chat, { text: stages[0] });
             for (let i = 1; i < stages.length; i++) {
@@ -1467,7 +1493,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const shipPercent = Math.floor(Math.random() * 101);
             const hearts = '❤️'.repeat(Math.floor(shipPercent / 20)) + '🤍'.repeat(5 - Math.floor(shipPercent / 20));
             await nimesha.sendMessage(m.chat, {
-                text: `💕 *Ship Meter*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${user1.split('@')[0]}\n💖 + 💖\n👤 @${user2.split('@')[0]}\n\n${hearts}\n💯 *Match:* ${shipPercent}%\n${shipPercent > 70 ? '🔥 Perfect Match!' : shipPercent > 40 ? '💛 Good Match!' : '💔 Maybe next time...'}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                text: `💕 *Ship Meter*\n────────────────────\n👤 @${user1.split('@')[0]}\n💖 + 💖\n👤 @${user2.split('@')[0]}\n\n${hearts}\n💯 *Match:* ${shipPercent}%\n${shipPercent > 70 ? '🔥 Perfect Match!' : shipPercent > 40 ? '💛 Good Match!' : '💔 Maybe next time...'}\n────────────────────\n${botFooter}`,
                 mentions: [user1, user2]
             }, { quoted: m });
         }
@@ -1475,14 +1501,14 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         else if (cmd === 'simp') {
             const mentioned = m.mentionedJid?.[0] || m.sender;
             const simpLevel = Math.floor(Math.random() * 101);
-            await nimesha.sendMessage(m.chat, { text: `😍 *Simp Meter*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${mentioned.split('@')[0]}\n\n💘 Simp Level: ${simpLevel}%\n${simpLevel > 80 ? '🚨 Ultra Simp!' : simpLevel > 50 ? '😅 Major Simp!' : '😌 Normal person'}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
+            await nimesha.sendMessage(m.chat, { text: `😍 *Simp Meter*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n💘 Simp Level: ${simpLevel}%\n${simpLevel > 80 ? '🚨 Ultra Simp!' : simpLevel > 50 ? '😅 Major Simp!' : '😌 Normal person'}\n────────────────────\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
         }
 
         else if (cmd === 'character') {
             const mentioned = m.mentionedJid?.[0] || m.sender;
             const traits = ['Smart 🧠', 'Funny 😂', 'Kind ❤️', 'Creative 🎨', 'Brave 💪', 'Loyal 🤝', 'Mysterious 🔮', 'Energetic ⚡'];
             const selected = traits.sort(() => 0.5 - Math.random()).slice(0, 3);
-            await nimesha.sendMessage(m.chat, { text: `🎭 *Character Analysis*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${mentioned.split('@')[0]}\n\n✨ *Personality Traits:*\n${selected.map(t => `• ${t}`).join('\n')}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
+            await nimesha.sendMessage(m.chat, { text: `🎭 *Character Analysis*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n✨ *Personality Traits:*\n${selected.map(t => `• ${t}`).join('\n')}\n────────────────────\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
         }
 
         else if (cmd === 'shayari') {
@@ -1492,22 +1518,22 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 'Pyar ko pyar hi rehne do,\nKoi naam na do,\nJo rishta dil se bana hai,\nUse alfazon ki zaroorat kya. 💕'
             ];
             const shayari = shayaris[Math.floor(Math.random() * shayaris.length)];
-            await sendAutoDelete(nimesha, m.chat, `🌹 *Shayari*\n━━━━━━━━━━━━━━━━━━━━━━\n${shayari}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `🌹 *Shayari*\n────────────────────\n${shayari}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'goodnight') {
-            const gns = ['🌙 Good night! Sweet dreams! 💭', '🌛 Sleep well! The stars will watch over you! ⭐', '🌜 May your dreams be magical tonight! ✨', '🌚 Rest well, tomorrow is a new day! 🌅'];
-            await sendAutoDelete(nimesha, m.chat, `🌙 *Good Night!*\n━━━━━━━━━━━━━━━━━━━━━━\n${gns[Math.floor(Math.random() * gns.length)]}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            const gns = ['🌙 Good night! Sweet dreams! 💭', '⭐ Sleep well! The stars will watch over you! ✨', '🌜 May your dreams be magical tonight! ✨', '🌅 Rest well, tomorrow is a new day! 🌞'];
+            await sendAutoDelete(nimesha, m.chat, `🌙 *Good Night!*\n────────────────────\n${gns[Math.floor(Math.random() * gns.length)]}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'roseday') {
-            await sendAutoDelete(nimesha, m.chat, `🌹 *Happy Rose Day!*\n━━━━━━━━━━━━━━━━━━━━━━\n🌹🌹🌹🌹🌹\n\nRoses are red,\nViolets are blue,\nThis bot is amazing,\nAnd so are you! 💕\n\n🌹🌹🌹🌹🌹\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `🌹 *Happy Rose Day!*\n────────────────────\n🌹🌹🌹🌹🌹\n\nRoses are red,\nViolets are blue,\nThis bot is amazing,\nAnd so are you! 💕\n\n🌹🌹🌹🌹🌹\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'stupid') {
             const mentioned = m.mentionedJid?.[0] || m.sender;
-            const stupidMsg = args.slice(1).join(' ') || 'You did something very stupid! 🤦';
-            await nimesha.sendMessage(m.chat, { text: `🤦 *Stupid Alert!*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 @${mentioned.split('@')[0]}\n\n😤 ${stupidMsg}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
+            const stupidMsg = args.slice(1).join(' ') || 'You did something very stupid! 🦧';
+            await nimesha.sendMessage(m.chat, { text: `🦧 *Stupid Alert!*\n────────────────────\n👤 @${mentioned.split('@')[0]}\n\n😤 ${stupidMsg}\n────────────────────\n${botFooter}`, mentions: [mentioned] }, { quoted: m });
         }
 
         else if (['neko', 'waifu', 'nom', 'poke', 'cry', 'kiss', 'pat', 'hug', 'wink', 'facepalm', 'loli', 'punch', 'slap', 'dance', 'happy', 'blush'].includes(cmd)) {
@@ -1524,24 +1550,24 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         else if (cmd === 'oogway') {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter a quote!\nExample: ${prefix}oogway Yesterday is history`, botFooter, { quoted: m });
             const imgBuffer = await getMiscImage('oogway', { text: q });
-            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🐢 *Oogway says:*\n"${q}"\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
-            else await sendAutoDelete(nimesha, m.chat, `🐢 *Oogway says:*\n"${q}"\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🐢 *Oogway says:*\n"${q}"\n────────────────────\n${botFooter}` }, { quoted: m });
+            else await sendAutoDelete(nimesha, m.chat, `🐢 *Oogway says:*\n"${q}"\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'tweet') {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter tweet text!\nExample: ${prefix}tweet Hello World!`, botFooter, { quoted: m });
             const username = m.pushName || 'User';
             const imgBuffer = await getMiscImage('tweet', { text: q, username });
-            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🐦 *Tweet*\n@${username}: ${q}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
-            else await sendAutoDelete(nimesha, m.chat, `🐦 *@${username}:* ${q}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🐦 *Tweet*\n@${username}: ${q}\n────────────────────\n${botFooter}` }, { quoted: m });
+            else await sendAutoDelete(nimesha, m.chat, `🐦 *@${username}:* ${q}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'ytcomment') {
             if (!q) return await sendAutoDelete(nimesha, m.chat, `⚠️ Enter comment text!\nExample: ${prefix}ytcomment This video is amazing!`, botFooter, { quoted: m });
             const username = m.pushName || 'User';
             const imgBuffer = await getMiscImage('ytcomment', { text: q, username });
-            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `💬 *YouTube Comment*\n${username}: ${q}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
-            else await sendAutoDelete(nimesha, m.chat, `💬 *YouTube Comment*\n👤 ${username}: ${q}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `💬 *YouTube Comment*\n${username}: ${q}\n────────────────────\n${botFooter}` }, { quoted: m });
+            else await sendAutoDelete(nimesha, m.chat, `💬 *YouTube Comment*\n👤 ${username}: ${q}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (cmd === 'jail') {
@@ -1571,8 +1597,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         else if (cmd === 'namecard') {
             const name = m.pushName || q || 'User';
             const imgBuffer = await getMiscImage('namecard', { name, subtitle: `WhatsApp: ${m.sender.split('@')[0]}` });
-            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🪪 *Name Card*\n👤 ${name}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}` }, { quoted: m });
-            else await sendAutoDelete(nimesha, m.chat, `🪪 *Name Card*\n👤 *Name:* ${name}\n📱 *Number:* +${m.sender.split('@')[0]}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            if (imgBuffer) await nimesha.sendMessage(m.chat, { image: imgBuffer, caption: `🪪 *Name Card*\n👤 ${name}\n────────────────────\n${botFooter}` }, { quoted: m });
+            else await sendAutoDelete(nimesha, m.chat, `🪪 *Name Card*\n👤 *Name:* ${name}\n📱 *Number:* +${m.sender.split('@')[0]}\n────────────────────`, botFooter, { quoted: m });
         }
 
         else if (['heart', 'circle', 'lgbt', 'horny', 'lolice', 'gay', 'glass', 'passed'].includes(cmd)) {
@@ -1614,7 +1640,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 }
             ]);
             if (apkInfo) {
-                await nimesha.sendMessage(m.chat, { text: `📱 *APK Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n📦 *App:* ${apkInfo.title || q}\n📌 *Version:* ${apkInfo.version || 'Latest'}\n💾 *Size:* ${apkInfo.size || 'N/A'}\n🔗 *Download:* ${apkInfo.url || 'N/A'}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: waitMsg.key });
+                await nimesha.sendMessage(m.chat, { text: `📱 *APK Found!*\n────────────────────\n📦 *App:* ${apkInfo.title || q}\n📌 *Version:* ${apkInfo.version || 'Latest'}\n💾 *Size:* ${apkInfo.size || 'N/A'}\n🔗 *Download:* ${apkInfo.url || 'N/A'}\n────────────────────\n${botFooter}`, edit: waitMsg.key });
             } else { await nimesha.sendMessage(m.chat, { text: `❌ "${q}" APK not found\n🔗 Try: https://apkpure.com/search?q=${encodeURIComponent(q)}\n${botFooter}`, edit: waitMsg.key }); }
         }
 
@@ -1622,11 +1648,11 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const input = q;
             if (!input) {
                 const buttons = [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }];
-                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Enter a song name or URL!\n*Examples:*\n${prefix}${cmd} Shape of You\n${prefix}${cmd} https://youtu.be/...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© 🦊 MAUREONIX`, buttons }, { quoted: m });
+                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Enter a song name or URL!\n*Examples:*\n${prefix}${cmd} Shape of You\n${prefix}${cmd} https://youtu.be/...\n────────────────────\n${botFooter}`, footer: `© 🦊 MAUREONIX`, buttons }, { quoted: m });
             }
             try {
                 const searchMsg = await nimesha.sendMessage(m.chat, {
-                    text: `🔍 *Searching...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Request:* ${input}\n⏳ Searching YouTube...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                    text: `🔍 *Searching...*\n────────────────────\n🎵 *Request:* ${input}\n⏳ Searching YouTube...\n────────────────────\n${botFooter}`
                 }, { quoted: m });
                 const searchKey = searchMsg?.key || null;
 
@@ -1650,7 +1676,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '3️⃣ Document (📄)', id: '3' }) }
                 ];
                 const btnMsg = await nimesha.sendListMsg(m.chat, {
-                    text: `🎯 *Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n🎶 *Choose download format:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                    text: `🎯 *Found!*\n────────────────────\n🎵 *Song:* ${displayTitle}\n🔗 ${videoUrl}\n────────────────────\n🎶 *Choose download format:*\n────────────────────\n${botFooter}`,
                     footer: `© 🦊 MAUREONIX | Choose format`,
                     mentions: [m.sender],
                     buttons: songButtons
@@ -1673,14 +1699,14 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const input = q;
             if (!input) {
                 const buttons = [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }];
-                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Enter a video name or URL!\n*Examples:*\n${prefix}${cmd} Avengers\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© 🦊 MAUREONIX`, buttons }, { quoted: m });
+                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Enter a video name or URL!\n*Examples:*\n${prefix}${cmd} Avengers\n────────────────────\n${botFooter}`, footer: `© 🦊 MAUREONIX`, buttons }, { quoted: m });
             }
             try {
                 let videoUrl = input;
                 let displayTitle = input;
 
                 const vidSearchMsg = await nimesha.sendMessage(m.chat, {
-                    text: `🔍 *Searching...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Request:* ${input}\n⏳ Searching YouTube...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                    text: `🔍 *Searching...*\n────────────────────\n🎬 *Request:* ${input}\n⏳ Searching YouTube...\n────────────────────\n${botFooter}`
                 }, { quoted: m });
                 const vidSearchKey = vidSearchMsg?.key || null;
 
@@ -1689,7 +1715,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     const searchRes = await yts(input);
                     const video = searchRes?.videos?.[0] || searchRes?.all?.[0];
                     if (!video) {
-                        if (vidSearchKey) { try { await nimesha.sendMessage(m.chat, { text: `❌ *No results found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Request:* ${input}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: vidSearchKey }); } catch(e) {} }
+                        if (vidSearchKey) { try { await nimesha.sendMessage(m.chat, { text: `❌ *No results found!*\n────────────────────\n🎬 *Request:* ${input}\n────────────────────\n${botFooter}`, edit: vidSearchKey }); } catch(e) {} }
                         return;
                     }
                     const _vid = video.videoId || video.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1];
@@ -1706,7 +1732,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '6️⃣ 720p (📄 Document)', id: '6' }) }
                 ];
                 const vidBtnMsg = await nimesha.sendListMsg(m.chat, {
-                    text: `🎯 *Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Video:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n📺 *Choose quality:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                    text: `🎯 *Found!*\n────────────────────\n🎬 *Video:* ${displayTitle}\n🔗 ${videoUrl}\n────────────────────\n📺 *Choose quality:*\n────────────────────\n${botFooter}`,
                     footer: `© 🦊 MAUREONIX | Choose quality`,
                     mentions: [m.sender],
                     buttons: videoButtons
@@ -1731,7 +1757,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
-                text: `💻 *GitHub / Source Code*\n━━━━━━━━━━━━━━━━━━━━━━\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n👑 *Owner:* Infinite Vybeflix\n⭐ *Star the repo!*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                text: `💻 *GitHub / Source Code*\n────────────────────\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n👑 *Owner:* Infinite Vybeflix\n⭐ *Star the repo!*\n────────────────────\n${botFooter}`,
                 footer: `© 🦊 MAUREONIX`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
@@ -1743,7 +1769,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed Test', id: `${prefix}speed` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
-                text: `📋 *HELP CENTER*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *MUSIC:* ${prefix}song, ${prefix}mp3, ${prefix}play\n🎬 *VIDEO:* ${prefix}video, ${prefix}mp4, ${prefix}ytmp4\n📱 *APK:* ${prefix}apk [app name]\n🤖 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama3\n🎨 *IMAGE:* ${prefix}imagine, ${prefix}flux, ${prefix}sora\n📸 *STICKER:* ${prefix}sticker, ${prefix}simage, ${prefix}attp\n🌐 *TRANSLATE:* ${prefix}trt [text] [lang]\n🔊 *TTS:* ${prefix}tts [text]\n📸 *SS:* ${prefix}ss [url]\n💡 *FACT:* ${prefix}fact\n😂 *JOKE:* ${prefix}joke\n💬 *QUOTE:* ${prefix}quote\n🎱 *8BALL:* ${prefix}8ball [question]\n🌤️ *WEATHER:* ${prefix}weather [city]\n📰 *NEWS:* ${prefix}news\n🌍 *CINFO:* ${prefix}cinfo [country]\n👥 *GROUP:* ${prefix}groupinfo, ${prefix}staff\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                text: `📋 *HELP CENTER*\n────────────────────\n🎵 *MUSIC:* ${prefix}song, ${prefix}mp3, ${prefix}play\n🎬 *VIDEO:* ${prefix}video, ${prefix}mp4, ${prefix}ytmp4\n📱 *APK:* ${prefix}apk [app name]\n🤖 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama3\n🎨 *IMAGE:* ${prefix}imagine, ${prefix}flux, ${prefix}sora\n📸 *STICKER:* ${prefix}sticker, ${prefix}simage, ${prefix}attp\n🌐 *TRANSLATE:* ${prefix}trt [text] [lang]\n🔊 *TTS:* ${prefix}tts [text]\n📸 *SS:* ${prefix}ss [url]\n💡 *FACT:* ${prefix}fact\n😂 *JOKE:* ${prefix}joke\n💬 *QUOTE:* ${prefix}quote\n🎱 *8BALL:* ${prefix}8ball [question]\n🌤️ *WEATHER:* ${prefix}weather [city]\n📰 *NEWS:* ${prefix}news\n🌍 *CINFO:* ${prefix}cinfo [country]\n👥 *GROUP:* ${prefix}groupinfo, ${prefix}staff\n────────────────────\n${botFooter}`,
                 footer: `© 🦊 MAUREONIX`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
