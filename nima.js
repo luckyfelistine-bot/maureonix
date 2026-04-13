@@ -363,7 +363,11 @@ function checkBotAccess(m, senderNum, ownerNums) {
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ════════════════════════════════════════════════════════════════════════════
-module.exports = nimesha = async (nimesha, m, msg, store) => {
+// Prayer time state (moved outside to persist between calls)
+let intervalSholat = null;
+let waktusholat = {};
+
+module.exports = async (nimesha, m, msg, store) => {
     await LoadDataBase(nimesha, m);
     const botNumber = nimesha.decodeJid(nimesha.user.id);
 
@@ -675,28 +679,30 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
 
         // ── Prayer time reminder ─────────────────────────────────────────────
         const prayerTimes = { Fajr:'04:30', Dhuhr:'12:06', Asr:'15:21', Maghrib:'18:08', Isha:'19:00' };
-        if (!this.intervalSholat) this.intervalSholat = null;
-        if (!this.waktusholat)   this.waktusholat    = {};
-        if (this.intervalSholat) clearInterval(this.intervalSholat);
-        setTimeout(() => {
-            this.intervalSholat = setInterval(async () => {
-                const sekarang = moment.tz('Asia/Colombo');
-                const jamSholat = sekarang.format('HH:mm');
-                const hariIni   = sekarang.format('YYYY-MM-DD');
-                const seconds   = sekarang.format('ss');
-                if (seconds !== '00') return;
-                for (const [sholat, waktu] of Object.entries(prayerTimes)) {
-                    if (jamSholat === waktu && this.waktusholat[sholat] !== hariIni) {
-                        this.waktusholat[sholat] = hariIni;
-                        for (const [idnya, settings] of Object.entries(db.groups)) {
-                            if (settings.waktusholat) {
-                                await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
+        // Note: intervalSholat and waktusholat are now module-level variables
+        
+        if (!intervalSholat) {
+            const time_end = 60000 - (time_now.getSeconds() * 1000 + time_now.getMilliseconds());
+            setTimeout(() => {
+                intervalSholat = setInterval(async () => {
+                    const sekarang = moment.tz('Asia/Colombo');
+                    const jamSholat = sekarang.format('HH:mm');
+                    const hariIni   = sekarang.format('YYYY-MM-DD');
+                    const seconds   = sekarang.format('ss');
+                    if (seconds !== '00') return;
+                    for (const [sholat, waktu] of Object.entries(prayerTimes)) {
+                        if (jamSholat === waktu && waktusholat[sholat] !== hariIni) {
+                            waktusholat[sholat] = hariIni;
+                            for (const [idnya, settings] of Object.entries(db.groups)) {
+                                if (settings.waktusholat) {
+                                    await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
+                                }
                             }
                         }
                     }
-                }
-            }, 60000);
-        }, time_end);
+                }, 60000);
+            }, time_end);
+        }
 
         checkExpired(premium);
         checkExpired(sewa, nimesha);
@@ -2120,6 +2126,11 @@ let file = require.resolve(__filename);
 fs.watchFile(file, () => {
     fs.unwatchFile(file);
     console.log(chalk.redBright(`Update ${__filename}`));
+    // Clear prayer time interval before reload to prevent duplicates
+    if (intervalSholat) {
+        clearInterval(intervalSholat);
+        intervalSholat = null;
+    }
     delete require.cache[file];
     require(file);
 });
