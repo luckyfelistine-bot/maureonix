@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node start.js",
+    "postinstall": "npm rebuild sharp --platform=linux --libc=glibc",
     "dev": "nodemon start.js",
     "debug": "DEBUG=* node start.js"
   },
