@@ -40,7 +40,65 @@ const { toAudio, toPTT, toVideo } = require('./lib/converter');
 const { GroupUpdate, LoadDataBase }  = require('./src/message');
 const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./src/database');
-const { rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer, Blackjack, SnakeLadder } = require('./lib/game');
+// ========== PATCH: SAFE GAME UTILITIES ==========
+// This ensures all game functions exist even if ./lib/game is missing/corrupted.
+const gameModule = (() => {
+    try {
+        return require('./lib/game');
+    } catch (err) {
+        console.warn('⚠️ ./lib/game not found – using fallback stubs');
+        return {};
+    }
+})();
+
+// Safe fallbacks – these prevent crashes and keep the bot running.
+const {
+    rdGame = () => null,
+    iGame = (gameObj, chatId) => {
+        // Fallback: find any key in gameObj that contains chatId
+        if (gameObj && typeof gameObj === 'object') {
+            for (const key in gameObj) {
+                if (key.includes(chatId)) return key;
+            }
+        }
+        return null;
+    },
+    tGame = () => null,
+    gameSlot = () => null,
+    gameCasinoSolo = () => null,
+    gameSamgongSolo = () => null,
+    gameMerampok = () => null,
+    gameBegal = () => null,
+    daily = () => null,
+    buy = () => null,
+    setLimit = () => null,
+    addLimit = () => null,
+    addMoney = () => null,
+    setMoney = () => null,
+    transfer = () => null,
+    Blackjack = () => null,
+    SnakeLadder = () => null,
+} = gameModule;
+
+// Make them globally available (optional, but some parts of nima.js may expect them)
+global.rdGame = rdGame;
+global.iGame = iGame;
+global.tGame = tGame;
+global.gameSlot = gameSlot;
+global.gameCasinoSolo = gameCasinoSolo;
+global.gameSamgongSolo = gameSamgongSolo;
+global.gameMerampok = gameMerampok;
+global.gameBegal = gameBegal;
+global.daily = daily;
+global.buy = buy;
+global.setLimit = setLimit;
+global.addLimit = addLimit;
+global.addMoney = addMoney;
+global.setMoney = setMoney;
+global.transfer = transfer;
+global.Blackjack = Blackjack;
+global.SnakeLadder = SnakeLadder;
+// ========== END PATCH ==========
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, tarBackup } = require('./lib/function');
 
 // ── NEW modules ───────────────────────────────────────────────────────────────
