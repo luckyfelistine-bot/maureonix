@@ -1,5 +1,3 @@
-'use strict';
-
 process.on('uncaughtException',  err => console.error('[uncaughtException]',  err));
 process.on('unhandledRejection', err => console.error('[unhandledRejection]', err));
 
@@ -12,17 +10,6 @@ process.on('unhandledRejection', err => console.error('[unhandledRejection]', er
  */
 
 require('./settings');
-
-// ════════════════════════════════════════════════════════════════════════════
-// GLOBAL INITIALIZATIONS (Safety defaults)
-// ════════════════════════════════════════════════════════════════════════════
-global.botMode = global.botMode || 'public';
-global.restrictedGroups = global.restrictedGroups || [];
-global.allowedGroups = global.allowedGroups || [];
-global.allowedUsers = global.allowedUsers || [];
-global.GITHUB_REPO = global.GITHUB_REPO || 'luckyfelistine-bot/maureonix';
-global.BOT_VERSION = global.BOT_VERSION || '3.0.0';
-
 const fs      = require('fs');
 const os      = require('os');
 const util    = require('util');
@@ -374,11 +361,7 @@ function checkBotAccess(m, senderNum, ownerNums) {
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ════════════════════════════════════════════════════════════════════════════
-// Prayer time state (moved outside to persist between calls)
-let intervalSholat = null;
-let waktusholat = {};
-
-module.exports = async (nimesha, m, msg, store) => {
+module.exports = async function nimesha(nimesha, m, msg, store) {
     await LoadDataBase(nimesha, m);
     const botNumber = nimesha.decodeJid(nimesha.user.id);
 
@@ -455,8 +438,7 @@ module.exports = async (nimesha, m, msg, store) => {
         ) || '';
 
         const budy      = (typeof m.text === 'string' ? m.text : '');
-        const isCreator = m.fromMe || ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
-        const isOwner = isCreator;
+        var isOwner; const isCreator = isOwner = m.fromMe || ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
         const isTrusted = isCreator;
         const prefix    = isCreator
             ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\\%^&.©^]/gi)[0] : listprefix.find(a=>body?.startsWith(a)) || '')
@@ -469,7 +451,7 @@ module.exports = async (nimesha, m, msg, store) => {
         const command = isCreator
             ? body.replace(prefix,'').trim().split(/ +/).shift().toLowerCase()
             : isCmd ? body.replace(prefix,'').trim().split(/ +/).shift().toLowerCase() : '';
-        const text = q = args.join(' ');
+        const text = args.join(' '); var q = text;
         const mime  = (quoted.msg || quoted).mimetype || '';
         const qmsg  = (quoted.msg || quoted);
 
@@ -691,30 +673,28 @@ module.exports = async (nimesha, m, msg, store) => {
 
         // ── Prayer time reminder ─────────────────────────────────────────────
         const prayerTimes = { Fajr:'04:30', Dhuhr:'12:06', Asr:'15:21', Maghrib:'18:08', Isha:'19:00' };
-        // Note: intervalSholat and waktusholat are now module-level variables
-        
-        if (!intervalSholat) {
-            const time_end = 60000 - (time_now.getSeconds() * 1000 + time_now.getMilliseconds());
-            setTimeout(() => {
-                intervalSholat = setInterval(async () => {
-                    const sekarang = moment.tz('Asia/Colombo');
-                    const jamSholat = sekarang.format('HH:mm');
-                    const hariIni   = sekarang.format('YYYY-MM-DD');
-                    const seconds   = sekarang.format('ss');
-                    if (seconds !== '00') return;
-                    for (const [sholat, waktu] of Object.entries(prayerTimes)) {
-                        if (jamSholat === waktu && waktusholat[sholat] !== hariIni) {
-                            waktusholat[sholat] = hariIni;
-                            for (const [idnya, settings] of Object.entries(db.groups)) {
-                                if (settings.waktusholat) {
-                                    await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
-                                }
+        if (!this.intervalSholat) this.intervalSholat = null;
+        if (!this.waktusholat)   this.waktusholat    = {};
+        if (this.intervalSholat) clearInterval(this.intervalSholat);
+        setTimeout(() => {
+            this.intervalSholat = setInterval(async () => {
+                const sekarang = moment.tz('Asia/Colombo');
+                const jamSholat = sekarang.format('HH:mm');
+                const hariIni   = sekarang.format('YYYY-MM-DD');
+                const seconds   = sekarang.format('ss');
+                if (seconds !== '00') return;
+                for (const [sholat, waktu] of Object.entries(prayerTimes)) {
+                    if (jamSholat === waktu && this.waktusholat[sholat] !== hariIni) {
+                        this.waktusholat[sholat] = hariIni;
+                        for (const [idnya, settings] of Object.entries(db.groups)) {
+                            if (settings.waktusholat) {
+                                await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
                             }
                         }
                     }
-                }, 60000);
-            }, time_end);
-        }
+                }
+            }, 60000);
+        }, time_end);
 
         checkExpired(premium);
         checkExpired(sewa, nimesha);
@@ -1250,7 +1230,7 @@ ${botFooter}`;
         // BOT MODE SYSTEM (NEW)
         // ════════════════════════════════════════════════════════════════════
         case 'mode': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const newMode = (args[0]||'').toLowerCase();
             if (!['public','private','restricted'].includes(newMode)) {
                 return m.reply(`⚙️ *BOT MODE*\n────────────────────\nCurrent: *${global.botMode||'public'}*\n\n🌐 *public* — Everyone can use bot\n🔒 *private* — Owner + allowed users only\n⛔ *restricted* — Only allowed groups\n\nUsage: ${prefix}mode public / private / restricted\n\nManage:\n${prefix}allowuser @tag — add user (private mode)\n${prefix}allowgroup — allow current group (restricted)\n${prefix}restrictgroup — block group (any mode)\n────────────────────\n${botFooter}`);
@@ -1263,7 +1243,7 @@ ${botFooter}`;
         break
 
         case 'restrictgroup': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const gid = q || m.chat;
             if (!global.restrictedGroups) global.restrictedGroups = [];
             if (!global.restrictedGroups.includes(gid)) { global.restrictedGroups.push(gid); m.reply(`⛔ Group *${gid}* restricted.\n${botFooter}`); }
@@ -1272,7 +1252,7 @@ ${botFooter}`;
         break
 
         case 'unrestrictgroup': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const gid = q || m.chat;
             global.restrictedGroups = (global.restrictedGroups||[]).filter(g=>g!==gid);
             m.reply(`✅ Group *${gid}* unrestricted.\n${botFooter}`);
@@ -1280,7 +1260,7 @@ ${botFooter}`;
         break
 
         case 'allowgroup': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const gid = q || m.chat;
             if (!global.allowedGroups) global.allowedGroups = [];
             if (!global.allowedGroups.includes(gid)) { global.allowedGroups.push(gid); m.reply(`✅ Group *${gid}* allowed.\n${botFooter}`); }
@@ -1289,7 +1269,7 @@ ${botFooter}`;
         break
 
         case 'allowuser': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const target = m.mentionedJid?.[0] || m.quoted?.sender;
             if (!target) return m.reply(`Tag someone!\nUsage: ${prefix}allowuser @user`);
             if (!global.allowedUsers) global.allowedUsers = [];
@@ -1304,7 +1284,7 @@ ${botFooter}`;
         // UPDATE (NEW)
         // ════════════════════════════════════════════════════════════════════
         case 'update': {
-            if (!isCreator) return m.reply(mess?.owner || '❌ Owner command only!');
+            if (!isCreator) return m.reply(mess.owner);
             const um = await nimesha.sendMessage(m.chat, { text:`🔄 *Checking for updates...*\n⏳ Connecting to GitHub...\n${botFooter}` }, { quoted:m });
             try {
                 const r = await axios.get(`https://api.github.com/repos/${global.GITHUB_REPO||'luckyfelistine-bot/maureonix'}/releases/latest`, { headers:{'User-Agent':'MAUREONIX-Bot'}, timeout:10000 });
@@ -1972,9 +1952,7 @@ ${botFooter}`;
         break
 
         case 'shayari': {
-            const shayaris = ['Love is not about how many days, months, or years you have been together.\nIt is about how much you truly love each other every single day. 🌹',
-        'Life is a journey, not a destination.\nEnjoy the ride, learn from the bumps, and cherish the beautiful views. 💕',
-        'Let love be the reason you smile, not the reason you cry.\nLet it be your strength, not your weakness. 💫'];
+            const shayaris = ['Mohabbat ek dua hai,\nJo dil se nikalti hai,\nYeh sochke dil bhi muskurata hai,\nKi koi doosra bhi khayalon mein aata hai. 🌹','Zindagi ka safar, ajeeb hai yaro,\nKoi samajh na paya, kya hai raaz yaro,\nKoi rota hai tanha, koi hansta hai,\nPar dil ki baat, dil mein hi rehti hai. 💫','Pyar ko pyar hi rehne do,\nKoi naam na do,\nJo rishta dil se bana hai,\nUse alfazon ki zaroorat kya. 💕'];
             await sendAutoDelete(nimesha, m.chat, `🌹 *Shayari*\n────────────────────\n${pickRandom(shayaris)}\n────────────────────`, botFooter, { quoted:m });
         }
         break
@@ -2096,12 +2074,11 @@ ${botFooter}`;
             if (!text) return;
             exec(budy.slice(2), (err,stdout)=>{ if(err) return m.reply(`${err}`); if(stdout) return m.reply(stdout); });
         }
-                if ((!isCmd||isCreator) && budy.toLowerCase()!=undefined) {
+        if ((!isCmd||isCreator) && budy.toLowerCase()!=undefined) {
             if (m.chat.endsWith('broadcast')) return;
             if (!(budy.toLowerCase() in db.database)) return;
             await nimesha.relayMessage(m.chat, db.database[budy.toLowerCase()], {});
         }
-        break;
 
         } // ← end of switch
 
@@ -2130,7 +2107,7 @@ ${botFooter}`;
     } catch(e) {
         console.error('Main error:', e);
     } // ← end of main try
-}; // ← end of module.exports
+} // ← end of module.exports function
 
 // ════════════════════════════════════════════════════════════════════════════
 // FILE WATCHER — hot reload
@@ -2139,11 +2116,6 @@ let file = require.resolve(__filename);
 fs.watchFile(file, () => {
     fs.unwatchFile(file);
     console.log(chalk.redBright(`Update ${__filename}`));
-    // Clear prayer time interval before reload to prevent duplicates
-    if (intervalSholat) {
-        clearInterval(intervalSholat);
-        intervalSholat = null;
-    }
     delete require.cache[file];
     require(file);
 });
