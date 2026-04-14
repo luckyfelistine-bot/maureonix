@@ -40,65 +40,7 @@ const { toAudio, toPTT, toVideo } = require('./lib/converter');
 const { GroupUpdate, LoadDataBase }  = require('./src/message');
 const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./src/database');
-// ========== PATCH: SAFE GAME UTILITIES ==========
-// This ensures all game functions exist even if ./lib/game is missing/corrupted.
-const gameModule = (() => {
-    try {
-        return require('./lib/game');
-    } catch (err) {
-        console.warn('⚠️ ./lib/game not found – using fallback stubs');
-        return {};
-    }
-})();
-
-// Safe fallbacks – these prevent crashes and keep the bot running.
-const {
-    rdGame = () => null,
-    iGame = (gameObj, chatId) => {
-        // Fallback: find any key in gameObj that contains chatId
-        if (gameObj && typeof gameObj === 'object') {
-            for (const key in gameObj) {
-                if (key.includes(chatId)) return key;
-            }
-        }
-        return null;
-    },
-    tGame = () => null,
-    gameSlot = () => null,
-    gameCasinoSolo = () => null,
-    gameSamgongSolo = () => null,
-    gameMerampok = () => null,
-    gameBegal = () => null,
-    daily = () => null,
-    buy = () => null,
-    setLimit = () => null,
-    addLimit = () => null,
-    addMoney = () => null,
-    setMoney = () => null,
-    transfer = () => null,
-    Blackjack = () => null,
-    SnakeLadder = () => null,
-} = gameModule;
-
-// Make them globally available (optional, but some parts of nima.js may expect them)
-global.rdGame = rdGame;
-global.iGame = iGame;
-global.tGame = tGame;
-global.gameSlot = gameSlot;
-global.gameCasinoSolo = gameCasinoSolo;
-global.gameSamgongSolo = gameSamgongSolo;
-global.gameMerampok = gameMerampok;
-global.gameBegal = gameBegal;
-global.daily = daily;
-global.buy = buy;
-global.setLimit = setLimit;
-global.addLimit = addLimit;
-global.addMoney = addMoney;
-global.setMoney = setMoney;
-global.transfer = transfer;
-global.Blackjack = Blackjack;
-global.SnakeLadder = SnakeLadder;
-// ========== END PATCH ==========
+const { rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer, Blackjack, SnakeLadder } = require('./lib/game');
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, tarBackup } = require('./lib/function');
 
 // ── NEW modules ───────────────────────────────────────────────────────────────
@@ -121,6 +63,12 @@ const cases = global.db && global.db.cases
     ? global.db.cases
     : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js','utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(m => m[1]));
 
+// ── One-time startup flags (prevent cron/timer re-registration on every msg) ─
+let _cronRegistered   = false;
+let _prayerRegistered = false;
+let _prayerInterval   = null;
+let _prayerState      = {};
+
 // ════════════════════════════════════════════════════════════════════════════
 // UTILITY FUNCTIONS
 // ════════════════════════════════════════════════════════════════════════════
@@ -140,39 +88,24 @@ function getRuntime() {
 
 async function sendAutoDelete(sock, chat, text, footer, options = {}) {
     try {
-        const fullText = `${text}\n${_secsToEnglish(AUTO_DELETE_SECS)}\n${footer}`;
-        const sent = await sock.sendMessage(chat, { text: fullText, ...options });
+        // Clean, simple: send once, delete after AUTO_DELETE_SECS. Zero edit spam.
+        const footerStr = footer ? `\n${footer}` : '';
+        const sent = await sock.sendMessage(chat, { text: `${text}${footerStr}`, ...options });
         if (!sent?.key) return sent;
-        let remaining = AUTO_DELETE_SECS;
-        const interval = setInterval(async () => {
-            remaining -= COUNTDOWN_INTERVAL;
-            if (remaining <= 0) {
-                clearInterval(interval);
-                try { await sock.sendMessage(chat, { delete: sent.key }); } catch {}
-                return;
-            }
-            try {
-                await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: sent.key });
-            } catch {}
-        }, COUNTDOWN_INTERVAL * 1000);
-        setTimeout(async () => { clearInterval(interval); try { await sock.sendMessage(chat, { delete: sent.key }); } catch {} }, (AUTO_DELETE_SECS + 10) * 1000);
+        setTimeout(async () => {
+            try { await sock.sendMessage(chat, { delete: sent.key }); } catch {}
+        }, AUTO_DELETE_SECS * 1000);
         return sent;
     } catch(e) { console.log('sendAutoDelete error:', e.message); }
 }
 
 async function editAutoDelete(sock, chat, text, footer, msgKey) {
-    let remaining = AUTO_DELETE_SECS;
-    try { await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: msgKey }); } catch {}
-    const interval = setInterval(async () => {
-        remaining -= COUNTDOWN_INTERVAL;
-        if (remaining <= 0) {
-            clearInterval(interval);
-            try { await sock.sendMessage(chat, { delete: msgKey }); } catch {}
-            return;
-        }
-        try { await sock.sendMessage(chat, { text: `${text}\n${_secsToEnglish(remaining)}\n${footer}`, edit: msgKey }); } catch {}
-    }, COUNTDOWN_INTERVAL * 1000);
-    setTimeout(async () => { clearInterval(interval); try { await sock.sendMessage(chat, { delete: msgKey }); } catch {} }, (AUTO_DELETE_SECS + 10) * 1000);
+    // Update the message once, then delete after AUTO_DELETE_SECS
+    const footerStr = footer ? `\n${footer}` : '';
+    try { await sock.sendMessage(chat, { text: `${text}${footerStr}`, edit: msgKey }); } catch {}
+    setTimeout(async () => {
+        try { await sock.sendMessage(chat, { delete: msgKey }); } catch {}
+    }, AUTO_DELETE_SECS * 1000);
 }
 
 async function tryFetch(methods) {
@@ -551,23 +484,26 @@ module.exports = async function nimesha(nimesha, m, msg, store) {
             message: { contactMessage: { displayName:(m.pushName||author), vcard:`BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName||author},;;;\nFN:${m.pushName||author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`, sendEphemeral:true }}
         };
 
-        // ── Daily limit reset (cron) ─────────────────────────────────────────
-        cron.schedule('00 00 * * *', async () => {
-            cmdDel(db.hit);
-            let user = Object.keys(db.users);
-            for (let jid of user) {
-                const limitUser = db.users[jid].vip ? limit.vip : checkStatus(jid,premium) ? limit.premium : limit.free;
-                if (db.users[jid].limit < limitUser) db.users[jid].limit = limitUser;
-            }
-            if (set?.autobackup) {
-                let datanya = './database/' + tempatDB;
-                if (tempatDB.startsWith('mongodb')) { datanya = './database/backup_database.json'; fs.writeFileSync(datanya, JSON.stringify(global.db,null,2),'utf-8'); }
-                let tglnya = new Date().toISOString().replace(/[:.]/g,'-');
-                for (let o of ownerNumber) {
-                    try { await nimesha.sendMessage(o, { document:fs.readFileSync(datanya), mimetype:'application/json', fileName:tglnya+'_database.json' }); } catch {}
+        // ── Daily limit reset (cron) — registered ONCE only ─────────────────
+        if (!_cronRegistered) {
+            _cronRegistered = true;
+            cron.schedule('00 00 * * *', async () => {
+                cmdDel(db.hit);
+                let users = Object.keys(db.users);
+                for (let jid of users) {
+                    const lim = db.users[jid].vip ? limit.vip : checkStatus(jid,premium) ? limit.premium : limit.free;
+                    if (db.users[jid].limit < lim) db.users[jid].limit = lim;
                 }
-            }
-        }, { scheduled:true, timezone:'Asia/Colombo' });
+                if (set?.autobackup) {
+                    let datanya = './database/' + tempatDB;
+                    if (tempatDB.startsWith('mongodb')) { datanya = './database/backup_database.json'; fs.writeFileSync(datanya, JSON.stringify(global.db,null,2),'utf-8'); }
+                    let tglnya = new Date().toISOString().replace(/[:.]/g,'-');
+                    for (let o of ownerNumber) {
+                        try { await nimesha.sendMessage(o, { document:fs.readFileSync(datanya), mimetype:'application/json', fileName:tglnya+'_database.json' }); } catch {}
+                    }
+                }
+            }, { scheduled:true, timezone:'Asia/Colombo' });
+        }
 
         // ── Auto Bio ─────────────────────────────────────────────────────────
         if (set.autobio) {
@@ -707,14 +643,14 @@ module.exports = async function nimesha(nimesha, m, msg, store) {
         const isButtonClick = ['interactiveResponseMessage','buttonsResponseMessage','listResponseMessage','templateButtonReplyMessage','messageContextInfo'].includes(m.type);
         if (isButtonClick && m.quoted?.key) { try { await nimesha.sendMessage(m.chat, { delete:m.quoted.key }); } catch {} }
 
-        // ── "ok sir" response ────────────────────────────────────────────────
-        const isRealOwner = ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
-        const botNum      = botNumber.split('@')[0].replace(/[^0-9]/g,'');
+        // ── Owner command acknowledgement — react only (no extra reply message) ──
+        const isRealOwner   = ownerNumber.filter(v=>typeof v==='string').map(v=>v.replace(/[^0-9]/g,'')).includes(m.sender.split('@')[0]);
+        const botNum        = botNumber.split('@')[0].replace(/[^0-9]/g,'');
         const ownerNumClean = (ownerNumber[0]||'').replace(/[^0-9]/g,'');
-        const isSelfMode  = botNum === ownerNumClean;
+        const isSelfMode    = botNum === ownerNumClean;
         if (isCmd && isRealOwner && command && prefix && body.startsWith(prefix) && !isSelfMode && !m.isGroup) {
             await m.react('🫡');
-            await m.reply('ok sir');
+            // No extra "ok sir" reply — command response itself is the reply
         }
 
         // ── FileSha256 cmd ───────────────────────────────────────────────────
@@ -729,30 +665,28 @@ module.exports = async function nimesha(nimesha, m, msg, store) {
             m.reply(pickRandom(jwb));
         }
 
-        // ── Prayer time reminder ─────────────────────────────────────────────
-        const prayerTimes = { Fajr:'04:30', Dhuhr:'12:06', Asr:'15:21', Maghrib:'18:08', Isha:'19:00' };
-        if (!this.intervalSholat) this.intervalSholat = null;
-        if (!this.waktusholat)   this.waktusholat    = {};
-        if (this.intervalSholat) clearInterval(this.intervalSholat);
-        setTimeout(() => {
-            this.intervalSholat = setInterval(async () => {
-                const sekarang = moment.tz('Asia/Colombo');
+        // ── Prayer time reminder — registered ONCE only ─────────────────────
+        if (!_prayerRegistered) {
+            _prayerRegistered = true;
+            const prayerTimes = { Fajr:'04:30', Dhuhr:'12:06', Asr:'15:21', Maghrib:'18:08', Isha:'19:00' };
+            if (_prayerInterval) clearInterval(_prayerInterval);
+            _prayerInterval = setInterval(async () => {
+                const sekarang  = moment.tz('Asia/Colombo');
                 const jamSholat = sekarang.format('HH:mm');
                 const hariIni   = sekarang.format('YYYY-MM-DD');
-                const seconds   = sekarang.format('ss');
-                if (seconds !== '00') return;
+                if (sekarang.format('ss') !== '00') return;
                 for (const [sholat, waktu] of Object.entries(prayerTimes)) {
-                    if (jamSholat === waktu && this.waktusholat[sholat] !== hariIni) {
-                        this.waktusholat[sholat] = hariIni;
-                        for (const [idnya, settings] of Object.entries(db.groups)) {
+                    if (jamSholat === waktu && _prayerState[sholat] !== hariIni) {
+                        _prayerState[sholat] = hariIni;
+                        for (const [idnya, settings] of Object.entries(db.groups || {})) {
                             if (settings.waktusholat) {
-                                await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer. 🙂\n\n*${waktu.slice(0,5)}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
+                                await nimesha.sendMessage(idnya, { text:`*${sholat}* prayer time has arrived. Please prepare for prayer.\n\n*${waktu}*\n_For Colombo and surrounding areas._` }).catch(()=>{});
                             }
                         }
                     }
                 }
             }, 60000);
-        }, time_end);
+        }
 
         checkExpired(premium);
         checkExpired(sewa, nimesha);
@@ -1085,21 +1019,31 @@ module.exports = async function nimesha(nimesha, m, msg, store) {
         break
 
         case 'allmenu': {
+            const _amWait = await nimesha.sendMessage(m.chat, { text: `Generating full command map image, please wait...` }, { quoted: m });
             try {
                 const { generateMenuImage } = require('./lib/menuimage');
-                const menuImg = await generateMenuImage({
-                    prefix, botName: set?.botname || '🦊 MAUREONIX',
-                    ownerName: global.author || 'Infinite Vybeflix',
-                    memberName: m.pushName || 'User',
-                    totalCmds: ((fs.readFileSync('./nima.js').toString()).match(/case '/g)||[]).length,
-                    time, date,
+                // Strip emoji before passing — glib XML parser requires ASCII only
+                const _amBot   = (set?.botname || 'MAUREONIX').replace(/[^\x20-\x7E]/g, '').trim() || 'MAUREONIX';
+                const _amOwner = (global.author || 'Infinite Vybeflix').replace(/[^\x20-\x7E]/g, '').trim() || 'Infinite Vybeflix';
+                const _amUser  = (m.pushName || 'User').replace(/[^\x20-\x7E]/g, '').trim() || 'User';
+                const _amTotal = ((fs.readFileSync('./nima.js').toString()).match(/case '/g)||[]).length;
+                const menuImg  = await generateMenuImage({
+                    prefix, botName: _amBot, ownerName: _amOwner,
+                    memberName: _amUser, totalCmds: _amTotal, time, date,
                 });
                 await nimesha.sendMessage(m.chat, {
-                    image: menuImg,
-                    caption: `*${set?.botname||'🦊 MAUREONIX'}* — Full Command Map\n👑 _By ${global.author||'Infinite Vybeflix'}_\n\n⚡ Type ${prefix}menu for interactive navigation`,
+                    image:    menuImg,
+                    caption:  `*${set?.botname||'MAUREONIX'}* — Full Command Map\n👑 _By ${global.author||'Infinite Vybeflix'}_\n\nType ${prefix}menu for interactive navigation`,
                     mentions: [m.sender],
                 }, { quoted: m });
-            } catch(e) { m.reply(`❌ Could not generate image. Try ${prefix}menu instead.`); }
+                await nimesha.sendMessage(m.chat, { delete: _amWait.key }).catch(()=>{});
+            } catch(e) {
+                console.error('[AllMenu] image error:', e.message);
+                await nimesha.sendMessage(m.chat, {
+                    text: `Could not generate image: ${e.message}\nTry ${prefix}menu instead.`,
+                    edit: _amWait.key
+                }).catch(() => m.reply(`Could not generate image. Use ${prefix}menu instead.`));
+            }
         }
         break
 
@@ -1561,7 +1505,7 @@ ${botFooter}`;
         case 'imagemenu': case 'imenu': {
             try {
                 const { generateMenuImage } = require('./lib/menuimage');
-                const menuImg = await generateMenuImage({ prefix, botName:set?.botname||'🦊 MAUREONIX', ownerName:global.author||'Infinite Vybeflix', memberName:m.pushName||'User', totalCmds:150, time:jam, date:tanggal });
+                const menuImg = await generateMenuImage({ prefix, botName:(set?.botname||'MAUREONIX').replace(/[^\x20-\x7E]/g,'').trim()||'MAUREONIX', ownerName:(global.author||'Infinite Vybeflix').replace(/[^\x20-\x7E]/g,'').trim(), memberName:(m.pushName||'User').replace(/[^\x20-\x7E]/g,'').trim()||'User', totalCmds:150, time:jam, date:tanggal });
                 await nimesha.sendMessage(m.chat, { image:menuImg, caption:`*${set?.botname||'🦊 MAUREONIX'}* Menu\n👑 _By ${global.author||'Infinite Vybeflix'}_`, mentions:[m.sender] }, { quoted:m });
             } catch(e) { await sendAutoDelete(nimesha, m.chat, '❌ Failed to generate menu image: '+e.message, botFooter, { quoted:m }); }
         }
