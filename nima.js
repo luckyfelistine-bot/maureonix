@@ -44,7 +44,7 @@ const { rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMer
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, tarBackup } = require('./lib/function');
 
 // ── NEW modules ───────────────────────────────────────────────────────────────
-const { setTemplateMenu, sendCategoryMenu } = require('./lib/template_menu');
+const { setTemplateMenu, sendCategoryMenu, MENU_CATALOGUE } = require('./lib/template_menu');
 const adminProt  = require('./lib/admin_protection');
 const gameLib    = require('./lib/game');
 const movies     = require('./lib/movies');
@@ -1047,17 +1047,17 @@ module.exports = async function nimesha(nimesha, m, msg, store) {
         }
         break
 
-        case 'botmenu':      await sendCategoryMenu(nimesha, m, prefix, 'botmenu',      db); break
-        case 'groupmenu':    await sendCategoryMenu(nimesha, m, prefix, 'groupmenu',    db); break
-        case 'downloadmenu': await sendCategoryMenu(nimesha, m, prefix, 'downloadmenu', db); break
-        case 'aimenu':       await sendCategoryMenu(nimesha, m, prefix, 'aimenu',       db); break
-        case 'stickersmenu': await sendCategoryMenu(nimesha, m, prefix, 'stickersmenu', db); break
-        case 'gamemenu':     await sendCategoryMenu(nimesha, m, prefix, 'gamemenu',     db); break
-        case 'funmenu':      await sendCategoryMenu(nimesha, m, prefix, 'funmenu',      db); break
-        case 'searchmenu':   await sendCategoryMenu(nimesha, m, prefix, 'searchmenu',   db); break
-        case 'ownermenu':    await sendCategoryMenu(nimesha, m, prefix, 'ownermenu',    db); break
-        case 'adminmenu':    await sendCategoryMenu(nimesha, m, prefix, 'adminmenu',    db); break
-        case 'moviesmenu':   await sendCategoryMenu(nimesha, m, prefix, 'moviesmenu',   db); break
+        case 'botmenu':      await sendCategoryMenu(nimesha, m, prefix, 'bot',      db); break
+        case 'groupmenu':    await sendCategoryMenu(nimesha, m, prefix, 'group',    db); break
+        case 'downloadmenu': await sendCategoryMenu(nimesha, m, prefix, 'download', db); break
+        case 'aimenu':       await sendCategoryMenu(nimesha, m, prefix, 'ai',       db); break
+        case 'stickersmenu': await sendCategoryMenu(nimesha, m, prefix, 'sticker',  db); break
+        case 'gamemenu':     await sendCategoryMenu(nimesha, m, prefix, 'games',    db); break
+        case 'funmenu':      await sendCategoryMenu(nimesha, m, prefix, 'fun',      db); break
+        case 'searchmenu':   await sendCategoryMenu(nimesha, m, prefix, 'search',   db); break
+        case 'ownermenu':    await sendCategoryMenu(nimesha, m, prefix, 'owner',    db); break
+        case 'adminmenu':    await sendCategoryMenu(nimesha, m, prefix, 'admin',    db); break
+        case 'moviesmenu':   await sendCategoryMenu(nimesha, m, prefix, 'movies',   db); break
 
         // ════════════════════════════════════════════════════════════════════
         // BOT CORE
