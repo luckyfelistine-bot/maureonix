@@ -1,12 +1,11 @@
 {
-  "name": "maureonix",
+  "name": "Maureonix",
   "version": "2.0.0",
   "description": "Maureonix WhatsApp Bot - Pair Code Deploy (Music Downloader)",
   "main": "start.js",
   "type": "commonjs",
   "scripts": {
-    "start": "pm2-runtime start ecosystem.config.js",
-    "postinstall": "npm rebuild sharp --platform=linux --libc=glibc",
+    "start": "node start.js",
     "dev": "nodemon start.js",
     "debug": "DEBUG=* node start.js"
   },
@@ -31,7 +30,7 @@
     "@hapi/boom": "^10.0.0",
     "aki-api": "npm:@aqul/akinator-api@1.0.1",
     "awesome-phonenumber": "^4.4.0",
-    "axios": "^1.15.0",
+    "axios": "^1.13.6",
     "baileys": "^7.0.0-rc.9",
     "chalk": "^4.1.2",
     "cheerio": "^1.2.0",
@@ -63,7 +62,6 @@
     "performance-now": "^2.1.0",
     "pino": "^10.3.1",
     "play-dl": "^1.9.7",
-    "pm2": "^6.0.14",
     "process": "^0.11.10",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
