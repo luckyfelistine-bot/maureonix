@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'shasi',
+    name: 'maureonix',
     script: 'index.js',
     cwd: '',
     watch: false,

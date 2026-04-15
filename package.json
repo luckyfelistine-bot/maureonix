@@ -5,7 +5,7 @@
   "main": "start.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node start.js",
+    "start": "pm2-runtime start ecosystem.config.js",
     "postinstall": "npm rebuild sharp --platform=linux --libc=glibc",
     "dev": "nodemon start.js",
     "debug": "DEBUG=* node start.js"
@@ -63,6 +63,7 @@
     "performance-now": "^2.1.0",
     "pino": "^10.3.1",
     "play-dl": "^1.9.7",
+    "pm2": "^6.0.14",
     "process": "^0.11.10",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
