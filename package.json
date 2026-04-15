@@ -29,7 +29,6 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
     "@hapi/boom": "^10.0.0",
-    "@whiskeysockets/baileys": "6.7.0",
     "aki-api": "npm:@aqul/akinator-api@1.0.1",
     "awesome-phonenumber": "^4.4.0",
     "axios": "^1.15.0",
@@ -75,11 +74,6 @@
     "yt-search": "^2.13.1",
     "ytdl-core": "^4.11.5",
     "ytsr": "^3.8.4"
-  },
-  "overrides": {
-    "baileys": {
-      "jimp": "^1.6.0"
-    }
   },
   "repository": {
     "type": "git",
