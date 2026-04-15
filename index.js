@@ -1,4 +1,14 @@
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
+console.log(`[index.js] 🟢 Process started — ${new Date().toISOString()} | PID ${process.pid}`);
+console.log('[index.js] 🔧 Running pre-flight dependency checks...');
+
+// Wrap the entire IIFE in a timeout so a hanging pip/apt call can never
+// prevent the bot from starting. 60 seconds is generous for these checks.
+const _preflightTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Pre-flight checks timed out after 60s')), 60000)
+);
+
+Promise.race([
 (async () => {
     const { execSync } = require('child_process');
     const fs = require('fs');
@@ -160,8 +170,12 @@
         }
     })();
 
-})().then(async () => {
+})(), _preflightTimeout
+]).catch(e => {
+    console.warn(`[index.js] ⚠️  Pre-flight warning: ${e.message} — continuing with bot startup.`);
+}).then(async () => {
 // ═══════════════════════════════════════════════════════════
+console.log(`[index.js] ✅ Pre-flight complete — initialising bot — ${new Date().toISOString()}`);
 
 require('./settings');
 require('./protection');
@@ -182,6 +196,25 @@ const WAConnection = makeWASocket;
 
 const { dataBase } = require('./src/database');
 const { app, server, PORT } = require('./src/server');
+
+// ── Start HTTP server immediately so Railway health checks pass ──────────────
+// The bot (WhatsApp connection) initialises asynchronously below; the server
+// must be listening before that work begins so the deployment is not marked
+// as failed due to a missing health-check response.
+if (!server.listening) {
+    server.listen(PORT, () => {
+        console.log(`[index.js] 🌐 HTTP server listening on port ${PORT} — ${new Date().toISOString()}`);
+        console.log('🧬🌐 MAUREONIX 🌐🧬 [BOT] HTTP server is now active!');
+    });
+    server.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+            console.log(`[index.js] ❌ Port ${PORT} already in use — server may already be running.`);
+        } else {
+            console.error('[index.js] Server error:', error);
+        }
+    });
+}
+
 const { assertInstalled, unsafeAgent } = require('./lib/function');
 const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
 
@@ -263,10 +296,7 @@ print('Node.js', process.version);
 print('Baileys', `v${require('./package.json').dependencies.baileys}`);
 print('Date & Time', new Date().toLocaleString('en-US', { timeZone: 'Asia/Colombo', hour12: false }));
 console.log(chalk.green.bold('╚' + ('═'.repeat(30))));
-
-server.listen(PORT, () => {
-    console.log('🧬🌐 MAUREONIX 🌐🧬 [BOT] is now active!');
-});
+console.log(`[index.js] 🤖 Starting WhatsApp bot — ${new Date().toISOString()}`);
 
 // reconnect attempt counter
 let _reconnectCount = 0;
@@ -724,13 +754,8 @@ process.on('SIGTERM', () => cleanup('SIGTERM'))
 process.on('SIGUSR1', () => console.log('SIGUSR1 received — ignored'))
 process.on('SIGUSR2', () => console.log('SIGUSR2 received — ignored'))
 
-server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.log(`❌ Port ${PORT} already in use! Will retry later.`);
-        server.close();
-    } else console.error('Server error:', error);
-});
-
+// Keep the process alive (server + bot event loop already do this,
+// but this acts as a safety net).
 setInterval(() => {}, 1000 * 60 * 10);
 
 }); // End of IIFE

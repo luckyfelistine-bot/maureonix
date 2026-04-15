@@ -1553,42 +1553,83 @@ async function autoInstallDependencies() {
     log.success('✅ Setup verification complete!');
 }
 
-// Main process
-async function start() {
-    try {
-        await autoInstallDependencies();
+// ═══════════════════════════════════════════════════════════
+// 🚀 Main process — bot spawn is never blocked by dependency
+//    installation. autoInstallDependencies() runs with a
+//    90-second timeout; if it exceeds that the bot starts
+//    anyway so the HTTP server comes up immediately.
+// ═══════════════════════════════════════════════════════════
 
-        const osInfo = detectOS();
-        log.header(`🚀 🦊 MAUREONIX starting\n${chalk.yellow(`Platform: ${osInfo.display}`)}`);
+function spawnBot() {
+    const osInfo = detectOS();
+    log.header(`🚀 🦊 MAUREONIX spawning bot\n${chalk.yellow(`Platform: ${osInfo.display}`)}`);
+    log.info(`[start.js] Spawning index.js — ${new Date().toISOString()}`);
 
-        let args = [path.join(__dirname, 'index.js'), ...process.argv.slice(2)];
-        let p = spawn(process.argv[0], args, {
-            stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-        }).on('message', data => {
-            if (data === 'reset') {
-                console.log(chalk.yellow.bold('[BOT] Restarting...'));
-                p.kill();
-                start();
-            } else if (data === 'uptime') {
-                p.send(process.uptime());
-            }
-        }).on('exit', code => {
-            if (code !== 0) {
-                console.error(chalk.red.bold(`[BOT] Process exited with code ${code}. Restarting...`));
-                setTimeout(() => start(), 3000);
-            } else {
-                console.log(chalk.green.bold('[BOT] Process ended — restarting...'));
-                setTimeout(() => start(), 3000);
-            }
-        });
+    let args = [path.join(__dirname, 'index.js'), ...process.argv.slice(2)];
+    let p = spawn(process.argv[0], args, {
+        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+    }).on('message', data => {
+        if (data === 'reset') {
+            console.log(chalk.yellow.bold('[BOT] Restarting...'));
+            p.kill();
+            spawnBot();
+        } else if (data === 'uptime') {
+            p.send(process.uptime());
+        }
+    }).on('exit', code => {
+        if (code !== 0) {
+            console.error(chalk.red.bold(`[BOT] Process exited with code ${code}. Restarting in 3s...`));
+            setTimeout(() => spawnBot(), 3000);
+        } else {
+            console.log(chalk.green.bold('[BOT] Process ended — restarting in 3s...'));
+            setTimeout(() => spawnBot(), 3000);
+        }
+    });
 
-        startAutoGitPull(() => p);
-    } catch (e) {
-        log.error('Startup failed: ' + e.message);
-        console.error(e);
-        log.warn('🔄 Retrying in 10s...');
-        setTimeout(() => start(), 10000);
-    }
+    startAutoGitPull(() => p);
+    return p;
 }
 
-start();
+async function start() {
+    log.info(`[start.js] 🟢 Process started — ${new Date().toISOString()}`);
+    log.info(`[start.js] Node.js ${process.version} | PID ${process.pid}`);
+
+    // Startup watchdog: log a warning if we haven't spawned the bot within 30s
+    const watchdog = setTimeout(() => {
+        log.warn('[start.js] ⏱  Startup is taking longer than 30s — dependency installation still running...');
+        log.warn('[start.js]    The bot will spawn as soon as setup completes (or times out at 90s).');
+    }, 30000);
+
+    try {
+        log.info('[start.js] 🔧 Running dependency setup (90s timeout)...');
+
+        // Race autoInstallDependencies against a 90-second timeout so the bot
+        // always spawns even if a package manager hangs.
+        await Promise.race([
+            autoInstallDependencies(),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Dependency setup timed out after 90s')), 90000)
+            )
+        ]);
+
+        log.success('[start.js] ✅ Dependency setup complete.');
+    } catch (e) {
+        if (e.message.includes('timed out')) {
+            log.warn(`[start.js] ⚠️  ${e.message} — continuing with bot startup anyway.`);
+        } else {
+            log.warn(`[start.js] ⚠️  Dependency setup error: ${e.message} — continuing anyway.`);
+        }
+    } finally {
+        clearTimeout(watchdog);
+    }
+
+    log.info('[start.js] 🚀 Spawning bot process now...');
+    spawnBot();
+}
+
+start().catch(e => {
+    log.error('[start.js] Fatal startup error: ' + e.message);
+    console.error(e);
+    log.warn('[start.js] 🔄 Retrying in 10s...');
+    setTimeout(() => start(), 10000);
+});
