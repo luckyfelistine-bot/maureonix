@@ -542,7 +542,7 @@ const musicDownloader = new MusicDownloader();
 // ════════════════════════════════════════════════
 // Sticker maker helper
 // ════════════════════════════════════════════════
-async function makeSticker(mediaBuffer, mime = 'image/jpeg', pack = '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬', author = 'Nimesha') {
+async function makeSticker(mediaBuffer, mime = 'image/jpeg', pack = 'Maureonix', author = 'Infinite Vybeflix') {
     const { Sticker, StickerTypes } = require('wa-sticker-formatter');
     const sticker = new Sticker(mediaBuffer, {
         pack, author,
@@ -654,7 +654,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         const set = global.db?.set?.[botNumber] || {};
         const botFooter = global.db?.set?.[botNumber]?.botname
             ? `> *${global.db.set[botNumber].botname}* [MINI BOT]✨`
-            : global.mess?.footer || '> *🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬* [MINI BOT]✨ | 👑 _NIMESHA MADHUSHAN_';
+            : global.mess?.footer || '> *Maureonix* [BOT]✨ | 👑 _Infinite Vybeflix_';
         // m.prefix emoji නම් reject කරනවා — valid prefix list ඇතුළෙ ඇතිදැයි check
         const _validPfxList = global.listprefix || ['.', '!', '+'];
         const prefix = (_validPfxList.includes(m.prefix)) ? m.prefix : (_validPfxList[0] || '.');
@@ -815,7 +815,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     const audioBuffer = fs.readFileSync(downloadResult.filePath);
                     const mediaCaption = `🎵 *${pending.displayTitle}*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
                     if (choice === '1') {
-                        await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: false, fileName: `${pending.displayTitle.substring(0, 40)}.mp3`, contextInfo: { externalAdReply: { title: pending.displayTitle, body: '🎵 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬', renderLargerThumbnail: false } } }, { quoted: m });
+                        await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: false, fileName: `${pending.displayTitle.substring(0, 40)}.mp3`, contextInfo: { externalAdReply: { title: pending.displayTitle, body: '🎵 Maureonix', renderLargerThumbnail: false } } }, { quoted: m });
+
                     } else if (choice === '2') {
                         await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m });
                     } else if (choice === '3') {
@@ -910,13 +911,13 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         // .alive / .bot
         if (cmd === 'alive' || cmd === 'bot') {
-            const aliveText = `╔══════════════════════╗\n║  *🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬*  ║\n╚══════════════════════╝\n\n✅ *බොට් ක්‍රියාත්මකයි!*\n━━━━━━━━━━━━━━━━━━━━━━\n📅 *දිනය:* ${tanggal}\n🕐 *වෙලාව:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🤖 *Bot:* ${set?.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬'}\n👑 *Owner:* Nimesha Madhushan\n🔧 *Prefix:* ${prefix}\n📡 *Status:* Online ✅\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
+            const aliveText = `╔══════════════════════╗\n║  *🦊 Maureonix*  ║\n╚══════════════════════╝\n\n✅ *Bot is active!*\n━━━━━━━━━━━━━━━━━━━━━━\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🤖 *Bot:* ${set?.botname || 'Maureonix'}\n👑 *Owner:* Infinite Vybeflix\n🔧 *Prefix:* ${prefix}\n📡 *Status:* Online ✅\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`;
             const buttons = [
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) },
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed', id: `${prefix}speed` }) },
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Runtime', id: `${prefix}runtime` }) }
             ];
-            await nimesha.sendListMsg(m.chat, { text: aliveText, footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, mentions: [m.sender], buttons }, { quoted: m });
+            await nimesha.sendListMsg(m.chat, { text: aliveText, footer: `© Maureonix`, mentions: [m.sender], buttons }, { quoted: m });
         }
 
         // .ping
@@ -929,7 +930,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
         // .runtime / .uptime
         else if (cmd === 'runtime' || cmd === 'uptime') {
-            await sendAutoDelete(nimesha, m.chat, `⏱️ *BOT RUNTIME*\n━━━━━━━━━━━━━━━━━━━━━━\n🚀 *ක්‍රියාත්මක වූ කාලය:*\n${getRuntime()}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
+            await sendAutoDelete(nimesha, m.chat, `⏱️ *BOT RUNTIME*\n━━━━━━━━━━━━━━━━━━━━━━\n🚀 *Running time:*\n${getRuntime()}\n━━━━━━━━━━━━━━━━━━━━━━`, botFooter, { quoted: m });
         }
 
         // .info / .owner / .dev
@@ -939,10 +940,12 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '✅ Alive', id: `${prefix}alive` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
-                text: `╔══════════════════════╗\n║  *BOT INFORMATION*  ║\n╚══════════════════════╝\n\n🤖 *Bot Name:* ${set?.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬'}\n👑 *Owner:* Nimesha Madhushan\n📱 *Platform:* WhatsApp\n🔧 *Prefix:* ${prefix}\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🌐 *GitHub:* https://github.com/nima-axis/nmd-axis\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
-                footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, mentions: [m.sender], buttons
+                text: `╔══════════════════════╗\n║  *BOT INFORMATION*  ║\n╚══════════════════════╝\n\n🤖 *Bot Name:* ${set?.botname || 'Maureonix'}\n👑 *Owner:* Infinite Vybeflix\n📱 *Platform:* WhatsApp\n🔧 *Prefix:* ${prefix}\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n⏱️ *Uptime:* ${getRuntime()}\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                footer: `© Maureonix`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
+
+
 
         // .joke
         else if (cmd === 'joke') {
@@ -1113,8 +1116,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 const { generateMenuImage } = require('./lib/menuimage');
                 const menuImg = await generateMenuImage({
                     prefix,
-                    botName: set?.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬',
-                    ownerName: global.author || 'Nimesha Madhushan',
+                    botName: set?.botname || 'Maureonix',
+                    ownerName: global.author || 'Infinite Vybeflix',
                     memberName: m.pushName || 'User',
                     totalCmds: 150,
                     time: jam,
@@ -1122,13 +1125,14 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 });
                 await nimesha.sendMessage(m.chat, {
                     image: menuImg,
-                    caption: '*' + (set?.botname || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬') + '* Menu\n👑 _By ' + (global.author || 'Nimesha Madhushan') + '_',
+                    caption: '*' + (set?.botname || 'Maureonix') + '* Menu\n👑 _By ' + (global.author || 'Infinite Vybeflix') + '_',
                     mentions: [m.sender],
                 }, { quoted: m });
             } catch(e) {
-                await sendAutoDelete(nimesha, m.chat, '❌ Menu image generate කිරීමට නොහැකිය: ' + e.message, botFooter, { quoted: m });
+                await sendAutoDelete(nimesha, m.chat, '❌ Failed to generate menu image: ' + e.message, botFooter, { quoted: m });
             }
         }
+
 
         // .groupinfo
         else if (cmd === 'groupinfo') {
@@ -1376,12 +1380,13 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     mediaBuffer = await nimesha.downloadMediaMessage(m);
                     mimeType = msg?.imageMessage ? 'image/jpeg' : 'video/mp4';
                 }
-                if (!mediaBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Image/Video reply කරන්න!`, botFooter, { quoted: m });
-                const packName = args[0] || '🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬';
-                const stickerBuffer = await makeSticker(mediaBuffer, mimeType, packName, 'Nimesha');
+                if (!mediaBuffer) return await sendAutoDelete(nimesha, m.chat, `⚠️ Reply to an image/video!`, botFooter, { quoted: m });
+                const packName = args[0] || 'Maureonix';
+                const stickerBuffer = await makeSticker(mediaBuffer, mimeType, packName, 'Infinite Vybeflix');
                 await nimesha.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
             } catch (e) { await sendAutoDelete(nimesha, m.chat, `❌ Sticker error: ${e.message}`, botFooter, { quoted: m }); }
         }
+
 
         // .simage (sticker to image)
         else if (cmd === 'simage' || cmd === 'toimg') {
@@ -1773,12 +1778,11 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
             const input = q;
             if (!input) {
                 const buttons = [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }];
-                return await nimesha.sendListMsg(m.chat, { text: `⚠️ ගීත නාමය ඇතුළත් කරන්න!\n*උදාහරණ:*\n${prefix}${cmd} Shape of You\n${prefix}${cmd} https://youtu.be/...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, buttons }, { quoted: m });
+                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Please enter a song name or URL!\n*Examples:*\n${prefix}${cmd} Shape of You\n${prefix}${cmd} https://youtu.be/...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© Maureonix`, buttons }, { quoted: m });
             }
             try {
-                // 1️⃣ Searching message — වෙනම new message
                 const searchMsg = await nimesha.sendMessage(m.chat, {
-                    text: `🔍 *සොයමින්...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *ඉල්ලුම:* ${input}\n⏳ YouTube හි සොයමින්...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                    text: `🔍 *Searching...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Request:* ${input}\n⏳ Searching on YouTube...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
                 }, { quoted: m });
                 const searchKey = searchMsg?.key || null;
 
@@ -1796,15 +1800,14 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     } catch (e) {}
                 }
 
-                // 2️⃣ Select button message — වෙනම new message
                 const songButtons = [
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '1️⃣ Audio (🎵 mp3)', id: '1' }) },
-                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '2️⃣ හඬ සටහන (🎤 voice note)', id: '2' }) },
-                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '3️⃣ ලිපිගොනු (📄 document)', id: '3' }) }
+                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '2️⃣ Voice note (🎤)', id: '2' }) },
+                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '3️⃣ Document (📄)', id: '3' }) }
                 ];
                 const btnMsg = await nimesha.sendListMsg(m.chat, {
-                    text: `🎯 *හමු වුණා!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *ගීතය:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n🎶 *Download ආකෘතිය තෝරන්න:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
-                    footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬 | ආකෘතිය තෝරන්න`,
+                    text: `🎯 *Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *Song:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n🎶 *Select download format:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                    footer: `© Maureonix | Select format`,
                     mentions: [m.sender],
                     buttons: songButtons
                 }, { quoted: m });
@@ -1812,7 +1815,6 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
                 pendingDownload.set(m.sender, { type: 'song', input, url: videoUrl, displayTitle, statusKey: searchKey, buttonKey: btnKey });
 
-                // 330s තුළ button click නොකළොත් — searching + button messages delete
                 setTimeout(async () => {
                     if (pendingDownload.has(m.sender) && pendingDownload.get(m.sender).buttonKey === btnKey) {
                         pendingDownload.delete(m.sender);
@@ -1820,23 +1822,25 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                         try { if (searchKey) await nimesha.sendMessage(m.chat, { delete: searchKey }); } catch(e) {}
                     }
                 }, AUTO_DELETE_SECS * 1000);
-            } catch (err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *දෝෂයකි:* ${err.message}`, botFooter, { quoted: m }); }
+            } catch (err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *Error:* ${err.message}`, botFooter, { quoted: m }); }
         }
 
+
         // .video / .mp4 / .ytmp4
-        else if (['video', 'mp4', 'ytmp4', 'ytvideo'].includes(cmd)) {
+
+        // .video / .mp4 / .ytmp4
+        else if (['mp4', 'video', 'ytmp4', 'ytvideo'].includes(cmd)) {
             const input = q;
             if (!input) {
                 const buttons = [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }];
-                return await nimesha.sendListMsg(m.chat, { text: `⚠️ වීඩියෝ නාමය ඇතුළත් කරන්න!\n*උදාහරණ:*\n${prefix}${cmd} Avengers\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, buttons }, { quoted: m });
+                return await nimesha.sendListMsg(m.chat, { text: `⚠️ Please enter a video name or URL!\n*Examples:*\n${prefix}${cmd} Avengers\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, footer: `© Maureonix`, buttons }, { quoted: m });
             }
             try {
                 let videoUrl = input;
                 let displayTitle = input;
 
-                // 1️⃣ Searching message — වෙනම new message
                 const vidSearchMsg = await nimesha.sendMessage(m.chat, {
-                    text: `🔍 *සොයමින්...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *ඉල්ලුම:* ${input}\n⏳ YouTube හි සොයමින්...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
+                    text: `🔍 *Searching...*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Request:* ${input}\n⏳ Searching on YouTube...\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`
                 }, { quoted: m });
                 const vidSearchKey = vidSearchMsg?.key || null;
 
@@ -1845,7 +1849,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     const searchRes = await yts(input);
                     const video = searchRes?.videos?.[0] || searchRes?.all?.[0];
                     if (!video) {
-                        if (vidSearchKey) { try { await nimesha.sendMessage(m.chat, { text: `❌ *YouTube හි හමු නොවිණී!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *ඉල්ලුම:* ${input}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: vidSearchKey }); } catch(e) {} }
+                        if (vidSearchKey) { try { await nimesha.sendMessage(m.chat, { text: `❌ *No results found on YouTube!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Request:* ${input}\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`, edit: vidSearchKey }); } catch(e) {} }
                         return;
                     }
                     const _vid = video.videoId || video.url?.match(/(?:v=|youtu\.be\/)([^&?#]+)/)?.[1];
@@ -1853,7 +1857,6 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     displayTitle = video.title || input;
                 }
 
-                // 2️⃣ Select button message — වෙනම new message
                 const videoButtons = [
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '1️⃣ 144p (Video)', id: '1' }) },
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '2️⃣ 360p (Video)', id: '2' }) },
@@ -1863,8 +1866,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                     { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '6️⃣ 720p (📄 Document)', id: '6' }) }
                 ];
                 const vidBtnMsg = await nimesha.sendListMsg(m.chat, {
-                    text: `🎯 *හමු වුණා!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *වීඩියෝ:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n📺 *Quality තෝරන්න:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
-                    footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬 | Quality තෝරන්න`,
+                    text: `🎯 *Found!*\n━━━━━━━━━━━━━━━━━━━━━━\n🎬 *Video:* ${displayTitle}\n🔗 ${videoUrl}\n━━━━━━━━━━━━━━━━━━━━━━\n📺 *Select quality:*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                    footer: `© Maureonix | Select quality`,
                     mentions: [m.sender],
                     buttons: videoButtons
                 }, { quoted: m });
@@ -1872,7 +1875,6 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
 
                 pendingDownload.set(m.sender, { type: 'video', input, url: videoUrl, displayTitle, statusKey: vidSearchKey, buttonKey: vidBtnKey });
 
-                // 330s තුළ button click නොකළොත් — searching + button messages delete
                 setTimeout(async () => {
                     if (pendingDownload.has(m.sender) && pendingDownload.get(m.sender).buttonKey === vidBtnKey) {
                         pendingDownload.delete(m.sender);
@@ -1880,7 +1882,7 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                         try { if (vidSearchKey) await nimesha.sendMessage(m.chat, { delete: vidSearchKey }); } catch(e) {}
                     }
                 }, AUTO_DELETE_SECS * 1000);
-            } catch (err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *දෝෂයකි:* ${err.message}`, botFooter, { quoted: m }); }
+            } catch (err) { await sendAutoDelete(nimesha, m.chat, `⚠️ *Error:* ${err.message}`, botFooter, { quoted: m }); }
         }
 
         // ══════════════════════════════════════════════════════
@@ -1892,8 +1894,8 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Menu', id: `${prefix}menu` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
-                text: `💻 *GitHub / Source Code*\n━━━━━━━━━━━━━━━━━━━━━━\n🌐 *GitHub:* https://github.com/nima-axis/nmd-axis\n👑 *Owner:* Nimesha Madhushan\n⭐ *Star the repo!*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
-                footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, mentions: [m.sender], buttons
+                text: `💻 *GitHub / Source Code*\n━━━━━━━━━━━━━━━━━━━━━━\n🌐 *GitHub:* https://github.com/luckyfelistine-bot/maureonix\n👑 *Owner:* Infinite Vybeflix\n⭐ *Star the repo!*\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
+                footer: `© Maureonix`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
 
@@ -1902,17 +1904,16 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         // ══════════════════════════════════════════════════════
         else if (cmd === 'help' || cmd === 'helpcenter') {
             const buttons = [
-                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 Main Menu', id: `${prefix}menu` }) },
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '✅ Alive Check', id: `${prefix}alive` }) },
                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed Test', id: `${prefix}speed` }) }
             ];
             await nimesha.sendListMsg(m.chat, {
                 text: `📋 *HELP CENTER*\n━━━━━━━━━━━━━━━━━━━━━━\n🎵 *MUSIC:* ${prefix}song, ${prefix}mp3, ${prefix}play\n🎬 *VIDEO:* ${prefix}video, ${prefix}mp4, ${prefix}ytmp4\n📱 *APK:* ${prefix}apk [app name]\n🤖 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama3\n🎨 *IMAGE:* ${prefix}imagine, ${prefix}flux, ${prefix}sora\n📸 *STICKER:* ${prefix}sticker, ${prefix}simage, ${prefix}attp\n🌐 *TRANSLATE:* ${prefix}trt [text] [lang]\n🔊 *TTS:* ${prefix}tts [text]\n📸 *SS:* ${prefix}ss [url]\n💡 *FACT:* ${prefix}fact\n😂 *JOKE:* ${prefix}joke\n💬 *QUOTE:* ${prefix}quote\n🎱 *8BALL:* ${prefix}8ball [question]\n🌤️ *WEATHER:* ${prefix}weather [city]\n📰 *NEWS:* ${prefix}news\n🌍 *CINFO:* ${prefix}cinfo [country]\n👥 *GROUP:* ${prefix}groupinfo, ${prefix}staff\n━━━━━━━━━━━━━━━━━━━━━━\n${botFooter}`,
-                footer: `© 🧬🌐『 𝖭𝖬𝖣 𝖠𝖷𝖨𝖲 』🌐🧬`, mentions: [m.sender], buttons
+                footer: `© Maureonix`, mentions: [m.sender], buttons
             }, { quoted: m });
         }
 
-        // ══════════════════════════════════════════════════════
+
         // ════════ AUTO STATUS VIEW + REACT ════════════════════
         // ══════════════════════════════════════════════════════
         if (m.messages && Object.values(m.messages).some(msg => msg?.key?.remoteJid === 'status@broadcast')) {

@@ -305,7 +305,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
         if (db.users[m.sender]?.ban && !isCreator) return;
         
         // Filter Set Api Key
-        if (cases.includes(command) && isCmd && (command !== 'setapikey') && global.APIKeys[global.APIs.nimesha] === 'nz-8ce9753907') {
+        if (cases.includes(command) && isCmd && (command !== 'setapikey') && global.APIKeys[global.APIs.nima] === 'nz-8ce9753907') {
             return m.reply('.setapikey nz-8ce9753907');
         }
         
@@ -1804,7 +1804,8 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 if (!isCreator) return m.reply(mess.owner);
                 if (!text) return m.reply('Where is the API key?');
                 if (!text.startsWith('nz-')) return m.reply('Invalid API key!\nGet API key at: https://nima.biz.id/profile');
-                let old_key = global.APIKeys[global.APIs.nimesha];
+                let old_key = global.APIKeys[global.APIs.nima];
+
                 await updateSettings({
                     filePath: settingsPath,
                     apikey: text.trim()
@@ -1836,9 +1837,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             break
             case 'donasi': case 'donate': {
                 const _msg_donasi = await m.reply('⏳ 💰 *Getting donation info...*');
-                await nimesha.sendMessage(m.chat, { text: 'You can donate via this URL:\nhttps://saweria.co/nima-axis', edit: _msg_donasi.key });
+                await nimesha.sendMessage(m.chat, { text: 'You can support Maureonix by Infinite Vybeflix:\nhttps://github.com/luckyfelistine-bot/maureonix', edit: _msg_donasi.key });
             }
             break
+
             
             // Group Menu
             case 'add': {
