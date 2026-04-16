@@ -4495,7 +4495,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                                             return;
                                         }
                                         const leaderCards = session.players.find(a => a.id === session.leader);
-                                        let buttons = leaderCards.cards.map(c => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${c.rank}${c.suit}`, id: `.${command} play ${c.rank}${c.suit}` })));
+                                        let buttons = leaderCards.cards.map(c => ({ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: `${c.rank}${c.suit}`, id: `.${command} play ${c.rank}${c.suit}` }));
                                         await nimesha.sendListMsg(session.leader, { text: 'Choose a card to start the next round', footer: leaderCards.cards.map(c => c.rank + c.suit).join(', '), buttons }, { quoted: m });
                                     }
                                 }
