@@ -1,3 +1,7 @@
+console.log('========================================');
+console.log('🦊 Maureonix – start.js loaded');
+console.log('========================================');
+
 const path = require('path');
 const chalk = require('chalk');
 const { spawn } = require('child_process');
@@ -1268,6 +1272,7 @@ async function installFFmpeg(osInfo) {
 // ═══════════════════════════════════════════════════════════
 
 async function start() {
+    console.log('[start.js] start() function called');
     try {
         await autoInstallDependencies();
 
