@@ -1501,4 +1501,20 @@ app.get('/pair', async (req, res) => {
 	}
 });
 
+
+// Debug endpoint to list files in menucards directory
+app.get('/debug-menucards', (req, res) => {
+    const fs = require('fs');
+    const dir = MENU_CARDS_DIR;
+    if (!fs.existsSync(dir)) {
+        return res.json({ error: 'Directory not found', path: dir });
+    }
+    const files = fs.readdirSync(dir);
+    res.json({ path: dir, files });
+});
+
+app.get('/version', (req, res) => {
+    res.json({ version: '2.0.0-rebranded', timestamp: new Date().toISOString() });
+});
+
 module.exports = { app, server, PORT };
