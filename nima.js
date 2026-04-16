@@ -472,27 +472,27 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 roof.status = 'play';
                 roof.asal = m.chat;
                 m.reply(`✅ Suit request sent!\n\n@${roof.p.split('@')[0]} vs @${roof.p2.split('@')[0]}\n\n📱 Give your choice in private chat:\nhttps://wa.me/${botNumber.split('@')[0]}`);
-                if (!roof.choice1) nimesha.sendMessage(roof.p, { text: `📌 Choose your option:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m });
-                if (!roof.choice2) nimesha.sendMessage(roof.p2, { text: `📌 Choose your option:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m });
+                if (!roof.තෝරන්න) nimesha.sendMessage(roof.p, { text: `📌 Choose your option:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m });
+                if (!roof.තෝරන්න2) nimesha.sendMessage(roof.p2, { text: `📌 Choose your option:\n\n🗿 Rock\n📄 Paper\n✂️ Scissors` }, { quoted: m });
             }
             let jwb = m.sender == roof.p, jwb2 = m.sender == roof.p2;
             let g = /scissors/i, b = /rock/i, k = /paper/i, reg = /^(rock|paper|scissors)/i;
             
-            if (jwb && reg.test(m.text) && !roof.choice1 && !m.isGroup) {
-                roof.choice1 = reg.exec(m.text.toLowerCase())[0];
+            if (jwb && reg.test(m.text) && !roof.තෝරන්න && !m.isGroup) {
+                roof.තෝරන්න = reg.exec(m.text.toLowerCase())[0];
                 roof.text = m.text;
-                m.reply(`You chose ${m.text} ${!roof.choice2 ? `\n\nWaiting for the opponent's choice.` : ''}`);
-                if (!roof.choice2) nimesha.sendMessage(roof.p2, { text: '_Opponent has chosen._\nNow it\'s your turn.' });
+                m.reply(`You chose ${m.text} ${!roof.තෝරන්න2 ? `\n\nWaiting for the opponent's choice.` : ''}`);
+                if (!roof.තෝරන්න2) nimesha.sendMessage(roof.p2, { text: '_Opponent has chosen._\nNow it\'s your turn.' });
             }
-            if (jwb2 && reg.test(m.text) && !roof.choice2 && !m.isGroup) {
-                roof.choice2 = reg.exec(m.text.toLowerCase())[0];
+            if (jwb2 && reg.test(m.text) && !roof.තෝරන්න2 && !m.isGroup) {
+                roof.තෝරන්න2 = reg.exec(m.text.toLowerCase())[0];
                 roof.text2 = m.text;
-                m.reply(`You chose ${m.text} ${!roof.choice1 ? `\n\nWaiting for the opponent's choice.` : ''}`);
-                if (!roof.choice1) nimesha.sendMessage(roof.p, { text: '_Opponent has chosen._\nNow it\'s your turn.' });
+                m.reply(`You chose ${m.text} ${!roof.තෝරන්න ? `\n\nWaiting for the opponent's choice.` : ''}`);
+                if (!roof.තෝරන්න) nimesha.sendMessage(roof.p, { text: '_Opponent has chosen._\nNow it\'s your turn.' });
             }
-            let stage = roof.choice1;
-            let stage2 = roof.choice2;
-            if (roof.choice1 && roof.choice2) {
+            let stage = roof.තෝරන්න;
+            let stage2 = roof.තෝරන්න2;
+            if (roof.තෝරන්න && roof.තෝරන්න2) {
                 if (b.test(stage) && g.test(stage2)) win = roof.p;
                 else if (b.test(stage) && k.test(stage2)) win = roof.p2;
                 else if (g.test(stage) && k.test(stage2)) win = roof.p;
@@ -1084,10 +1084,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
 
                     const _doBlockJid = async (jid) => {
                         try { await nimesha.updateBlockStatus(jid, 'block'); } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: jid } }] }); } catch {}
-                        try { await nimesha.query({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: jid } }] }); } catch {}
-                        try { await nimesha.sendNode({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid: jid } }] }); } catch {}
-                        try { await nimesha.ws?.sendNode?.({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'blocklist', id: nimesha.generateMessageTag() }, content: [{ tag: 'item', attrs: { action: 'block', jid: jid } }] }); } catch {}
+                        try { await nimesha.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }); } catch {}
+                        try { await nimesha.query({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }); } catch {}
+                        try { await nimesha.sendNode({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }); } catch {}
+                        try { await nimesha.ws?.sendNode?.({ tag: 'iq', attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'blocklist', id: nimesha.generateMessageTag() }, content: [{ tag: 'item', attrs: { action: 'block', jid } }] }); } catch {}
                         try { await nimesha.assertSessions([jid], true); await nimesha.updateBlockStatus(jid, 'block'); } catch {}
                     };
 
@@ -1254,7 +1254,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         await nimesha.query({
                             tag: 'iq',
                             attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'blocklist' },
-                            content: [{ tag: 'item', attrs: { action: 'unblock', jid: jid } }]
+                            content: [{ tag: 'item', attrs: { action: 'unblock', jid } }]
                         });
                         _umethods['m2'] = (_umethods['m2'] || 0) + 1;
                         return true;
@@ -1263,7 +1263,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         await nimesha.sendNode({
                             tag: 'iq',
                             attrs: { to: 's.whatsapp.net', type: 'set', id: nimesha.generateMessageTag(), xmlns: 'blocklist' },
-                            content: [{ tag: 'item', attrs: { action: 'unblock', jid: jid } }]
+                            content: [{ tag: 'item', attrs: { action: 'unblock', jid } }]
                         });
                         _umethods['m3'] = (_umethods['m3'] || 0) + 1;
                         return true;
