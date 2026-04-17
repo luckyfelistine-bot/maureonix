@@ -13,10 +13,17 @@ RUN apt-get update && \
   python3-pip \
   git \
   curl \
-  wget && \
-  pip3 install yt-dlp && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
+  wget \
+  # Required for compiling the 'canvas' npm package
+  build-essential \
+  libcairo2-dev \
+  libpango1.0-dev \
+  libjpeg-dev \
+  libgif-dev \
+  librsvg2-dev \
+  && pip3 install yt-dlp \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
