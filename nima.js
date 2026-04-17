@@ -1863,7 +1863,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 // 2. Persist to config.js (so it survives restart)
                 const fs = require('fs');
                 const path = require('path');
-                const configPath = path.join(process.cwd(), 'app', 'config.js');
+                const configPath = path.join(process.cwd(), 'config.js');   // ✅ FIXED PATH
                 let configContent = fs.readFileSync(configPath, 'utf8');
                 configContent = configContent.replace(/apiKey:\s*['"][^'"]*['"]/, `apiKey: '${newKey}'`);
                 fs.writeFileSync(configPath, configContent);
