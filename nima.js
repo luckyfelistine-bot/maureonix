@@ -103,7 +103,9 @@ const cases = global.db && global.db.cases ? global.db.cases : (global.db = glob
 
 module.exports = nimesha = async (nimesha, m, msg, store) => {
     await LoadDataBase(nimesha, m);
-    
+    if (!db.set) db.set = {};
+    const set = db.set[botNumber] = db.set[botNumber] || {};
+
     const botNumber = nimesha.decodeJid(nimesha.user.id);
     
     // Read Database
