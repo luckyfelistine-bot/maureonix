@@ -1856,12 +1856,19 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 if (!isCreator) return m.reply(mess.owner);
                 if (!text) return m.reply('Where is the API key?');
                 if (!text.startsWith('nz-')) return m.reply('Invalid API key!\nGet API key at: https://nima.biz.id/profile');
-                let old_key = global.APIKeys[global.APIs.nimesha];
-                await updateSettings({
-                    filePath: settingsPath,
-                    apikey: text.trim()
-                });
-                m.reply(`✅ *API Key* *${old_key}* *→* *${q}* *changed!*`);
+                const newKey = text.trim();
+                const oldKey = global.APIKeys[global.APIs.nima] || 'undefined';
+                // 1. Update in-memory immediately
+                global.APIKeys[global.APIs.nima] = newKey;
+                // 2. Persist to config.js (so it survives restart)
+                const fs = require('fs');
+                const path = require('path');
+                const configPath = path.join(process.cwd(), 'app', 'config.js');
+                let configContent = fs.readFileSync(configPath, 'utf8');
+                configContent = configContent.replace(/apiKey:\s*['"][^'"]*['"]/, `apiKey: '${newKey}'`);
+                fs.writeFileSync(configPath, configContent);
+                // 3. Success message
+                m.reply(`✅ *API Key* *${oldKey}* *→* *${newKey}* *changed!*`);
             }
             break
             case 'sc': case 'script': {
