@@ -2513,7 +2513,7 @@ module.exports = async (nimesha, m, msg, store) => {
         if (meta.cooldown && antiSpam.checkCooldown(m.sender, command)) {
             return m.reply('⏳ Command on cooldown');
         }
-        if (global.db.banned.includes(m.sender)) return m.reply('🚫 You are banned');
+        if (Array.isArray(global.db?.banned) && global.db.banned.includes(m.sender)) return m.reply('🚫 You are banned');
 
         // XP & Leveling
         if (global.db.users[m.sender] && !m.fromMe) {
