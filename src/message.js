@@ -180,6 +180,14 @@ Respect all members. 💚
 
 async function LoadDataBase(nimesha, m) {
     try {
+        // 🔒 Guard: ensure global.db and its collections exist
+        if (!global.db) global.db = {};
+        if (!global.db.users) global.db.users = {};
+        if (!global.db.groups) global.db.groups = {};
+        if (!global.db.game) global.db.game = {};
+        if (!global.db.set) global.db.set = {};
+        if (!global.db.premium) global.db.premium = [];
+
         const botNumber = await nimesha.decodeJid(nimesha.user.id);
         let game = global.db.game || {};
         let premium = global.db.premium || [];
@@ -272,7 +280,7 @@ async function LoadDataBase(nimesha, m) {
             if (_isOwnerGroup) {
                 if (!group.text) group.text = {};
                 if (!group.text.setwelcome) {
-                    group.text.setwelcome = "*Welcome to the group* 🥰🤗\n\nWelcome to our group.\n\n> This is a WhatsApp bot. If you don't know anything about it, just know that this is how it works. 🥰\n\n* Your presence here will make some tasks easier.\n* You can also have some fun.\n* There is a command for everything.\n\nFor example, let's try to get a song. Just type:\n\n.song song name\n\nWhen you type that, the bot will find the song and send it to you as an audio file, or as a voice note, or as a document — you choose which one 🥰\n\nThe dot \".\" is required. That is the prefix = .\n\nSo when we run a command, we need a prefix. Otherwise, if we just type \"song\", the bot won't recognize it. That's why we use {prefix}\"your command\" \"text or link or image or media\". Sorry if there are occasional errors — this bot is still being updated.\n\nThere is no other bot in Sri Lanka or anywhere in the world that works as completely in Sinhala as this one. Even if there were, they don't work now. There may be some errors, so please forgive them.\n\nThere are many more commands like this. You can make stickers, search photos, YouTube search, and much more 🌸😊.\n\nIf you want to see them, just type .allmenu or .menu and send a message to the group 😊🌸.\n\nThis is not perfect, but we give it to you.\n\nAnyway, you are here just because you have the WhatsApp package. You want to listen to a song. You can do whatever you need from this group. You can also download videos from here. See all the details by typing .menu or .allmenu and send us a message 😊🌸.\n\nIf you find these features helpful, please invite more people to our group and don't forget to share this info 😊🌸\n\n*Good day. THANK YOU for connecting with us*";
+                    group.text.setwelcome = "*Welcome to the group* 🥰🤗\n\nWelcome to our group.\n\n> This is a WhatsApp bot. If you don't know anything about it, just know that this is how it works. 🥰\n\n* Your presence here will make some tasks easier.\n* You can also have some fun.\n* There is a command for everything.\n\nFor example, let's try to get a song. Just type:\n\n.song song name\n\nWhen you type that, the bot will find the song and send it to you as an audio file, or as a voice note, or as a document — you choose which one 🥰\n\nThe dot \".\" is required. That is the prefix = .\n\nSo when we run a command, we need a prefix. Otherwise, if we just type \"song\", the bot won't recognize it. That's why we use {prefix}\"your command\" \"text or link or image or media\". Sorry if there are occasional errors — this bot is still being updated.\n\nThere is no other bot in kenya or anywhere in the world that works as completely in english as this one. Even if there were, they don't work now. There may be some errors, so please forgive them.\n\nThere are many more commands like this. You can make stickers, search photos, YouTube search, and much more 🌸😊.\n\nIf you want to see them, just type .allmenu or .menu and send a message to the group 😊🌸.\n\nThis is not perfect, but we give it to you.\n\nAnyway, you are here just because you have the WhatsApp package. You want to listen to a song. You can do whatever you need from this group. You can also download videos from here. See all the details by typing .menu or .allmenu and send us a message 😊🌸.\n\nIf you find these features helpful, please invite more people to our group and don't forget to share this info 😊🌸\n\n*Good day. THANK YOU for connecting with us*";
                 }
             }
         }
