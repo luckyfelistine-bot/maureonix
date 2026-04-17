@@ -1,6 +1,6 @@
 // ============================================================
 //                  MAUREONIX MASTER CONFIG
-//   All settings in one place – edit only this file
+//   All settings in one place — edit only this file
 // ============================================================
 
 const SecureConfig = {
@@ -22,6 +22,12 @@ const SecureConfig = {
     // ----- API Keys (keep as is) -----
     geminiApiKey: 'AIzaSyARjH2TwsNEpQ3vPHzDecf5a7v7evmQmZc',
     apiKey: 'nz-8ce9753907',
+    poeApiKey: 'sk-poe-JhCsJeD24vMIaEpkkBzmg4OSMBtEbQsfxcZNYSqMUCo',
+    omdbApiKey: 'c9e60a6f',
+    rapidApiKey: process.env.RAPIDAPI_KEY || 'YOUR_RAPIDAPI_KEY',
+    openaiKey: process.env.OPENAI_KEY || 'YOUR_OPENAI_KEY',
+    llamaKey: process.env.LLAMA_KEY || 'YOUR_LLAMA_KEY',
+    deepseekKey: process.env.DEEPSEEK_KEY || 'YOUR_DEEPSEEK_KEY',
 
     // ----- Bot Behavior -----
     pairingCode: true,               // true = pairing code, false = QR code
@@ -53,7 +59,7 @@ const SecureConfig = {
         prem: 'This command is only for premium users.',
         wait: 'Processing, please wait...',
         error: 'An error occurred. Please try again later.',
-        done: 'Done! 🎉'
+        done: 'Done! ✅'
     },
 
     // ----- Other -----

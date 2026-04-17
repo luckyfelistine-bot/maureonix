@@ -176,7 +176,7 @@ generateMenuCards();
 app.get('/menucard/:id', (req, res) => {
     const cardId = req.params.id;
     // 1) Try custom PNG (your beautiful images)
-    const pngPath = path.join(CUSTOM_MENU_DIR, cardId + '.png');
+    const MENU_CARDS_DIR = path.join(__dirname, '..', 'database', 'menucards');
     if (fs.existsSync(pngPath)) {
         res.setHeader('Content-Type', 'image/png');
         return res.sendFile(pngPath);
