@@ -28,6 +28,7 @@ const { performance } = require('perf_hooks');
 const PhoneNum = require('awesome-phonenumber');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
+const { generateMenuImage } = require('./lib/menuimage'); // adjust path
 
 // Core helpers (original)
 const { UguuSe } = require('./lib/uploader');
@@ -3201,49 +3202,124 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 await m.reply(`🥗 *${(args[0]||'balanced').toUpperCase()} Meal Plan*\n${plan.map((x,i) => `${i+1}. ${x}`).join('\n')}`);
             } break
 
-            // ===== MENU COMMANDS =====
+// ===== MENU COMMANDS =====
             case 'menu': case 'help': case 'allmenu': {
-                // Carousel menu with fallback to quantum image
+                // Primary: generate beautiful menu image
                 try {
-                    const buf = await generateQuantumMenu({
-                        width: 1080,
-                        height: 1920,
-                        theme: 'maureonix',
-                        botName: global.botname || 'MAUREONIX',
-                        subtitle: 'ULTIMATE v5.0',
-                        user: m.pushName || 'User',
+                    const buf = await generateMenuImage({
+                        botName: global.botname || 'Maureonix',
+                        ownerName: global.ownerName || 'Infinite Vybeflix',
+                        memberName: m.pushName || 'User',
                         prefix: prefix,
                         totalCmds: cases.length,
                         time: jam,
-                        date: tanggal,
-                        ownerName: global.ownerName || 'Infinite Vybeflix',
-                        sections: [
-                            { icon: '🤖', title: 'BOT', content: 'alive, ping, info, owner' },
-                            { icon: '👥', title: 'GROUP', content: 'add, kick, promote, tagall' },
-                            { icon: '⬇️', title: 'DOWNLOAD', content: 'song, video, tiktok, ig' },
-                            { icon: '🧠', title: 'AI', content: 'gpt, gemini, imagine, translate' }
-                        ]
+                        date: tanggal
                     });
-                    await nimesha.sendMessage(m.chat, { image: buf, caption: `╭━═✦〔 Maureonix 〕✦═━╮\n╰═✪═════════════════✪═╯\n\n👋 Hello *${m.pushName || 'User'}*!\n🔧 Prefix: *${prefix}*\n📊 Commands: *${cases.length}+*\n\n_Swipe carousel or use ${prefix}help <command>_` }, { quoted: m });
+
+                    const caption = `╭━═✦〔 Maureonix 〕✦═━╮
+╰═✪═════════════════✪═╯
+
+👋 Hello *${m.pushName || 'User'}*!
+🔧 Prefix: *${prefix}*
+📊 Commands: *${cases.length}+*
+
+_Type ${prefix}help <command> for details_`;
+                    await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
                 } catch (e) {
-                    // fallback to list menu
-                    const menuText = `╔══════════════════════╗\n║  *🦊 Maureonix*  ║\n╚══════════════════════╝\n\n👋 Hello *${m.pushName || 'User'}*!\n${ucapanWaktu}\n\n📅 *Date:* ${tanggal}\n🕐 *Time:* ${jam}\n📆 *Day:* ${dayName}\n\n✨ *Select a category:* ✨\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
-                    const menuButtons = [
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '1️⃣ 🤖 BOT', id: `${prefix}botmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '2️⃣ 👥 GROUP', id: `${prefix}groupmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '3️⃣ 📥 DOWNLOAD', id: `${prefix}downloadmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '4️⃣ 🛠️ TOOLS', id: `${prefix}toolsmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '5️⃣ 🤖 AI', id: `${prefix}aimenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '6️⃣ 🎮 GAMES', id: `${prefix}gamemenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '7️⃣ 😂 FUN', id: `${prefix}funmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '8️⃣ ANIME', id: `${prefix}animemenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '9️⃣ 🔤 TEXT ART', id: `${prefix}textmakermenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔟 🔍 SEARCH', id: `${prefix}searchmenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 OWNER', id: `${prefix}ownermenu` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ SPEED TEST', id: `${prefix}speed` }) },
-                        { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📋 HELP', id: `${prefix}help` }) },
+                    console.error('[menu image error]', e);
+                    // Fallback: interactive carousel menu (same rich experience)
+                    const carouselCards = [
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `🤖 *BOT COMMANDS*\n${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff`,
+                            footer: 'Bot utilities & info',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Stats', id: `${prefix}stats` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `👥 *GROUP COMMANDS*\n${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo`,
+                            footer: 'Manage your group efficiently',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔗 Link Group', id: `${prefix}linkgroup` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `⬇️ *DOWNLOAD COMMANDS*\n${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}play`,
+                            footer: 'Download from 20+ platforms',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎵 Song', id: `${prefix}song ` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `🧠 *AI COMMANDS*\n${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize`,
+                            footer: 'Chat with advanced AI models',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💬 GPT', id: `${prefix}gpt ` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `🎮 *GAMES*\n${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math`,
+                            footer: 'Fun games to play with friends',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '♟️ TicTacToe', id: `${prefix}tictactoe` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `😂 *FUN*\n${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare`,
+                            footer: 'Entertainment & random fun',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎱 8ball', id: `${prefix}8ball ` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `🔍 *SEARCH*\n${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm`,
+                            footer: 'Search the web instantly',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🌐 Google', id: `${prefix}google ` }) }
+                            ]
+                        },
+                        {
+                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
+                            body: `👑 *OWNER*\n${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart`,
+                            footer: 'Bot management (owner only)',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed Test', id: `${prefix}speed` }) }
+                            ]
+                        }
                     ];
-                    await nimesha.sendListMsg(m.chat, { text: menuText, footer: `© Maureonix`, mentions: [m.sender], buttons: menuButtons }, { quoted: m });
+
+                    const carouselBody = `╔══════════════════════╗
+║  *🦊 Maureonix*  ║
+╚══════════════════════╝
+
+👋 Hello *${m.pushName || 'User'}*!
+${ucapanWaktu}
+
+📅 *Date:* ${tanggal}
+🕐 *Time:* ${jam}
+📆 *Day:* ${dayName}
+
+🔧 *Prefix:* ${prefix}
+📊 *Commands:* ${cases.length}+
+
+✨ *Swipe to explore categories* ✨`;
+
+                    await nimesha.sendCarouselMsg(m.chat, carouselBody, `© Maureonix | ${prefix}help <cmd> for details`, carouselCards, { quoted: m });
                 }
             }
             break
