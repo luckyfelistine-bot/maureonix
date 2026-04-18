@@ -362,11 +362,6 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
         if (m.isBot) return;
         if (db.users[m.sender]?.ban && !isCreator) return;
         
-        // Filter Set Api Key
-        if (cases.includes(command) && isCmd && (command !== 'setapikey') && global.APIKeys[global.APIs.nima] === 'nz-8ce9753907') {
-            return m.reply('.setapikey nz-8ce9753907');
-        }
-        
         // Typing & Anti Spam & Hit
         if (nimesha.public && isCmd) {
             if (set.autotyping) {
