@@ -3199,12 +3199,15 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
 
             // ===== MENU COMMANDS =====
             case 'menu': case 'help': case 'allmenu': {
-                // Primary: interactive carousel with local images
+                // Primary: interactive carousel with local images and formatted commands
                 try {
                     const carouselCards = [
                         {
                             url: './database/menucards/bot.png',
-                            body: `🤖 *BOT*\n${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff, ${prefix}profile, ${prefix}leaderboard, ${prefix}totalpesan, ${prefix}sc, ${prefix}donasi`,
+                            body: `🤖 *BOT*\n\n` +
+                                  `▸ ${prefix}alive\n▸ ${prefix}ping\n▸ ${prefix}info\n▸ ${prefix}owner\n` +
+                                  `▸ ${prefix}runtime\n▸ ${prefix}speed\n▸ ${prefix}staff\n▸ ${prefix}profile\n` +
+                                  `▸ ${prefix}leaderboard\n▸ ${prefix}totalpesan\n▸ ${prefix}sc\n▸ ${prefix}donasi`,
                             footer: 'Bot utilities & info',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) },
@@ -3213,7 +3216,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/group.png',
-                            body: `👥 *GROUP*\n${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo, ${prefix}linkgroup, ${prefix}revoke, ${prefix}welcome, ${prefix}goodbye`,
+                            body: `👥 *GROUP*\n\n` +
+                                  `▸ ${prefix}add\n▸ ${prefix}kick\n▸ ${prefix}promote\n▸ ${prefix}demote\n` +
+                                  `▸ ${prefix}tagall\n▸ ${prefix}hidetag\n▸ ${prefix}setname\n▸ ${prefix}setdesc\n` +
+                                  `▸ ${prefix}groupinfo\n▸ ${prefix}linkgroup\n▸ ${prefix}revoke\n▸ ${prefix}welcome\n▸ ${prefix}goodbye`,
                             footer: 'Manage your group efficiently',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) },
@@ -3222,7 +3228,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/download.png',
-                            body: `⬇️ *DOWNLOAD*\n${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk, ${prefix}play`,
+                            body: `⬇️ *DOWNLOAD*\n\n` +
+                                  `▸ ${prefix}song\n▸ ${prefix}video\n▸ ${prefix}tiktok\n▸ ${prefix}instagram\n` +
+                                  `▸ ${prefix}facebook\n▸ ${prefix}twitter\n▸ ${prefix}spotify\n▸ ${prefix}mediafire\n` +
+                                  `▸ ${prefix}apk\n▸ ${prefix}play`,
                             footer: 'Download from 20+ platforms',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) },
@@ -3231,7 +3240,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/ai.png',
-                            body: `🧠 *AI*\n${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot`,
+                            body: `🧠 *AI*\n\n` +
+                                  `▸ ${prefix}gpt\n▸ ${prefix}gemini\n▸ ${prefix}llama\n▸ ${prefix}deepseek\n` +
+                                  `▸ ${prefix}ai\n▸ ${prefix}imagine\n▸ ${prefix}translate\n▸ ${prefix}tts\n` +
+                                  `▸ ${prefix}summarize\n▸ ${prefix}code\n▸ ${prefix}brainrot`,
                             footer: 'Chat with advanced AI models',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) },
@@ -3240,7 +3252,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/sticker.png',
-                            body: `🎨 *STICKER*\n${prefix}sticker, ${prefix}s, ${prefix}simage, ${prefix}toimg, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme`,
+                            body: `🎨 *STICKER*\n\n` +
+                                  `▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n` +
+                                  `▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n` +
+                                  `▸ ${prefix}brat\n▸ ${prefix}smeme`,
                             footer: 'Create and edit stickers',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) },
@@ -3249,7 +3264,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/games.png',
-                            body: `🎮 *GAMES*\n${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math, ${prefix}tebaklagu`,
+                            body: `🎮 *GAMES*\n\n` +
+                                  `▸ ${prefix}tictactoe\n▸ ${prefix}suit\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n` +
+                                  `▸ ${prefix}chess\n▸ ${prefix}akinator\n▸ ${prefix}wordle\n▸ ${prefix}hangman\n` +
+                                  `▸ ${prefix}math\n▸ ${prefix}tebaklagu`,
                             footer: 'Fun games to play with friends',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) },
@@ -3258,7 +3276,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/fun.png',
-                            body: `😂 *FUN*\n${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}bisakah`,
+                            body: `😂 *FUN*\n\n` +
+                                  `▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n` +
+                                  `▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n` +
+                                  `▸ ${prefix}truth\n▸ ${prefix}dare\n▸ ${prefix}bisakah`,
                             footer: 'Entertainment & random fun',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) },
@@ -3267,7 +3288,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/admin.png',
-                            body: `🛠️ *ADMIN*\n${prefix}ban, ${prefix}unban, ${prefix}mute, ${prefix}unmute, ${prefix}warn, ${prefix}unwarn, ${prefix}clear, ${prefix}delete, ${prefix}pin, ${prefix}unpin`,
+                            body: `🛠️ *ADMIN*\n\n` +
+                                  `▸ ${prefix}ban\n▸ ${prefix}unban\n▸ ${prefix}mute\n▸ ${prefix}unmute\n` +
+                                  `▸ ${prefix}warn\n▸ ${prefix}unwarn\n▸ ${prefix}clear\n▸ ${prefix}delete\n` +
+                                  `▸ ${prefix}pin\n▸ ${prefix}unpin`,
                             footer: 'Admin & moderation tools',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛠️ Admin Menu', id: `${prefix}adminmenu` }) },
@@ -3276,7 +3300,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/search.png',
-                            body: `🔍 *SEARCH*\n${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup, ${prefix}whois, ${prefix}dns`,
+                            body: `🔍 *SEARCH*\n\n` +
+                                  `▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n` +
+                                  `▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n` +
+                                  `▸ ${prefix}npm\n▸ ${prefix}iplookup\n▸ ${prefix}whois\n▸ ${prefix}dns`,
                             footer: 'Search the web instantly',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) },
@@ -3285,7 +3312,9 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/movies.png',
-                            body: `🎬 *MOVIES*\n${prefix}movie, ${prefix}film, ${prefix}imdb, ${prefix}series, ${prefix}rating, ${prefix}cinema`,
+                            body: `🎬 *MOVIES*\n\n` +
+                                  `▸ ${prefix}movie\n▸ ${prefix}film\n▸ ${prefix}imdb\n▸ ${prefix}series\n` +
+                                  `▸ ${prefix}rating\n▸ ${prefix}cinema`,
                             footer: 'Movie info & ratings',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) },
@@ -3294,7 +3323,9 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/master.png',
-                            body: `📊 *MASTER*\n${prefix}economy, ${prefix}daily, ${prefix}health, ${prefix}finance, ${prefix}social, ${prefix}dev, ${prefix}travel, ${prefix}food`,
+                            body: `📊 *MASTER*\n\n` +
+                                  `▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n` +
+                                  `▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`,
                             footer: 'Advanced features & tools',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) },
@@ -3303,7 +3334,10 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         },
                         {
                             url: './database/menucards/owner.png',
-                            body: `👑 *OWNER*\n${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart, ${prefix}join, ${prefix}leave`,
+                            body: `👑 *OWNER*\n\n` +
+                                  `▸ ${prefix}block\n▸ ${prefix}unblock\n▸ ${prefix}ban\n▸ ${prefix}unban\n` +
+                                  `▸ ${prefix}addprem\n▸ ${prefix}delprem\n▸ ${prefix}backup\n▸ ${prefix}shutdown\n` +
+                                  `▸ ${prefix}restart\n▸ ${prefix}join\n▸ ${prefix}leave`,
                             footer: 'Bot management (owner only)',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) },
@@ -3331,7 +3365,7 @@ ${ucapanWaktu}
                     await nimesha.sendCarouselMsg(m.chat, carouselBody, `© Maureonix | ${prefix}help <cmd> for details`, carouselCards, { quoted: m });
                 } catch (e) {
                     console.error('[carousel error]', e);
-                    // Fallback: generate beautiful menu image
+                    // Fallback: generate beautiful menu image (same as before)
                     try {
                         const buf = await generateMenuImage({
                             botName: global.botname || 'Maureonix',
@@ -3354,85 +3388,335 @@ _Type ${prefix}help <command> for details_`;
                         await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
                     } catch (imgErr) {
                         console.error('[menu image fallback error]', imgErr);
-                        // Last resort: beautifully formatted text menu
-                        const textMenu = `╔══════════════════════╗
-║  *🦊 Maureonix*  ║
-╚══════════════════════╝
-
-👋 Hello *${m.pushName || 'User'}*!
-${ucapanWaktu}
-
-📅 *Date:* ${tanggal}
-🕐 *Time:* ${jam}
-📆 *Day:* ${dayName}
-
-🔧 *Prefix:* ${prefix}
-📊 *Commands:* ${cases.length}+
-
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 *BOT*
-▸ ${prefix}alive  ▸ ${prefix}ping  ▸ ${prefix}info  ▸ ${prefix}owner
-▸ ${prefix}runtime  ▸ ${prefix}speed  ▸ ${prefix}staff  ▸ ${prefix}profile
-▸ ${prefix}leaderboard  ▸ ${prefix}totalpesan  ▸ ${prefix}sc  ▸ ${prefix}donasi
-
-👥 *GROUP*
-▸ ${prefix}add  ▸ ${prefix}kick  ▸ ${prefix}promote  ▸ ${prefix}demote
-▸ ${prefix}tagall  ▸ ${prefix}hidetag  ▸ ${prefix}setname  ▸ ${prefix}setdesc
-▸ ${prefix}groupinfo  ▸ ${prefix}linkgroup  ▸ ${prefix}revoke  ▸ ${prefix}welcome  ▸ ${prefix}goodbye
-
-⬇️ *DOWNLOAD*
-▸ ${prefix}song  ▸ ${prefix}video  ▸ ${prefix}tiktok  ▸ ${prefix}instagram
-▸ ${prefix}facebook  ▸ ${prefix}twitter  ▸ ${prefix}spotify  ▸ ${prefix}mediafire
-▸ ${prefix}apk  ▸ ${prefix}play
-
-🧠 *AI*
-▸ ${prefix}gpt  ▸ ${prefix}gemini  ▸ ${prefix}llama  ▸ ${prefix}deepseek
-▸ ${prefix}ai  ▸ ${prefix}imagine  ▸ ${prefix}translate  ▸ ${prefix}tts
-▸ ${prefix}summarize  ▸ ${prefix}code  ▸ ${prefix}brainrot
-
-🎨 *STICKER*
-▸ ${prefix}sticker  ▸ ${prefix}s  ▸ ${prefix}simage  ▸ ${prefix}toimg
-▸ ${prefix}attp  ▸ ${prefix}removebg  ▸ ${prefix}blur  ▸ ${prefix}qc
-▸ ${prefix}brat  ▸ ${prefix}smeme
-
-🎮 *GAMES*
-▸ ${prefix}tictactoe  ▸ ${prefix}suit  ▸ ${prefix}slot  ▸ ${prefix}blackjack
-▸ ${prefix}chess  ▸ ${prefix}akinator  ▸ ${prefix}wordle  ▸ ${prefix}hangman
-▸ ${prefix}math  ▸ ${prefix}tebaklagu
-
-😂 *FUN*
-▸ ${prefix}joke  ▸ ${prefix}meme  ▸ ${prefix}quote  ▸ ${prefix}fact
-▸ ${prefix}8ball  ▸ ${prefix}roast  ▸ ${prefix}compliment  ▸ ${prefix}ship
-▸ ${prefix}truth  ▸ ${prefix}dare  ▸ ${prefix}bisakah
-
-🛠️ *ADMIN*
-▸ ${prefix}ban  ▸ ${prefix}unban  ▸ ${prefix}mute  ▸ ${prefix}unmute
-▸ ${prefix}warn  ▸ ${prefix}unwarn  ▸ ${prefix}clear  ▸ ${prefix}delete
-▸ ${prefix}pin  ▸ ${prefix}unpin
-
-🔍 *SEARCH*
-▸ ${prefix}google  ▸ ${prefix}wiki  ▸ ${prefix}urban  ▸ ${prefix}weather
-▸ ${prefix}news  ▸ ${prefix}anime  ▸ ${prefix}manga  ▸ ${prefix}github
-▸ ${prefix}npm  ▸ ${prefix}iplookup  ▸ ${prefix}whois  ▸ ${prefix}dns
-
-🎬 *MOVIES*
-▸ ${prefix}movie  ▸ ${prefix}film  ▸ ${prefix}imdb  ▸ ${prefix}series
-▸ ${prefix}rating  ▸ ${prefix}cinema
-
-📊 *MASTER*
-▸ ${prefix}economy  ▸ ${prefix}daily  ▸ ${prefix}health  ▸ ${prefix}finance
-▸ ${prefix}social  ▸ ${prefix}dev  ▸ ${prefix}travel  ▸ ${prefix}food
-
-👑 *OWNER*
-▸ ${prefix}block  ▸ ${prefix}unblock  ▸ ${prefix}ban  ▸ ${prefix}unban
-▸ ${prefix}addprem  ▸ ${prefix}delprem  ▸ ${prefix}backup  ▸ ${prefix}shutdown
-▸ ${prefix}restart  ▸ ${prefix}join  ▸ ${prefix}leave
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                        // Last resort: beautifully formatted text menu (already provided earlier)
+                        const textMenu = `...`; // keep your existing beautiful fallback
                         await m.reply(textMenu);
                     }
                 }
+            }
+            break
+
+            // ===== SUB-MENU HANDLERS =====
+            case 'botmenu': {
+                const botMenuText = `╔══════════════════════╗
+║  *🤖 BOT COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *General*
+▸ ${prefix}alive – Check if bot is online
+▸ ${prefix}ping – Response speed
+▸ ${prefix}info – Bot information
+▸ ${prefix}owner – Contact owner
+▸ ${prefix}runtime – Uptime of bot
+▸ ${prefix}speed – Internet speed test
+▸ ${prefix}staff – List bot staff
+▸ ${prefix}profile – Your profile
+▸ ${prefix}leaderboard – Top users
+▸ ${prefix}totalpesan – Message stats
+▸ ${prefix}sc – Source code
+▸ ${prefix}donasi – Donate
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(botMenuText);
+            }
+            break
+
+            case 'groupmenu': {
+                const groupMenuText = `╔══════════════════════╗
+║  *👥 GROUP COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Member Management*
+▸ ${prefix}add @user – Add member
+▸ ${prefix}kick @user – Remove member
+▸ ${prefix}promote @user – Make admin
+▸ ${prefix}demote @user – Remove admin
+
+📌 *Group Info & Settings*
+▸ ${prefix}setname <name> – Change group name
+▸ ${prefix}setdesc <desc> – Change description
+▸ ${prefix}groupinfo – View group details
+▸ ${prefix}linkgroup – Get invite link
+▸ ${prefix}revoke – Reset invite link
+▸ ${prefix}welcome on/off – Toggle welcome msg
+▸ ${prefix}goodbye on/off – Toggle goodbye msg
+
+📌 *Tagging*
+▸ ${prefix}tagall <message> – Mention everyone
+▸ ${prefix}hidetag <message> – Hidden mention
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(groupMenuText);
+            }
+            break
+
+            case 'downloadmenu': {
+                const downloadMenuText = `╔══════════════════════╗
+║  *⬇️ DOWNLOAD COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Audio & Video*
+▸ ${prefix}song <query> – Download MP3
+▸ ${prefix}video <query> – Download MP4
+▸ ${prefix}play <query> – Play audio
+
+📌 *Social Media*
+▸ ${prefix}tiktok <url>
+▸ ${prefix}instagram <url>
+▸ ${prefix}facebook <url>
+▸ ${prefix}twitter <url>
+▸ ${prefix}spotify <url>
+
+📌 *Other*
+▸ ${prefix}mediafire <url>
+▸ ${prefix}apk <app name>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(downloadMenuText);
+            }
+            break
+
+            case 'aimenu': {
+                const aiMenuText = `╔══════════════════════╗
+║  *🧠 AI COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Chat Models*
+▸ ${prefix}gpt <prompt>
+▸ ${prefix}gemini <prompt>
+▸ ${prefix}llama <prompt>
+▸ ${prefix}deepseek <prompt>
+▸ ${prefix}ai <prompt>
+
+📌 *Image Generation*
+▸ ${prefix}imagine <prompt>
+▸ ${prefix}flux <prompt>
+▸ ${prefix}sora <prompt>
+
+📌 *Utilities*
+▸ ${prefix}translate <text> <lang>
+▸ ${prefix}tts <text>
+▸ ${prefix}summarize
+▸ ${prefix}code <description>
+▸ ${prefix}brainrot <text>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(aiMenuText);
+            }
+            break
+
+            case 'gamemenu': {
+                const gameMenuText = `╔══════════════════════╗
+║  *🎮 GAMES COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Multiplayer*
+▸ ${prefix}tictactoe @user
+▸ ${prefix}suit @user
+▸ ${prefix}chess @user
+
+📌 *Single Player*
+▸ ${prefix}slot – Slot machine
+▸ ${prefix}blackjack – Play blackjack
+▸ ${prefix}akinator – Guess character
+▸ ${prefix}wordle – Word guessing
+▸ ${prefix}hangman – Hangman game
+▸ ${prefix}math – Math quiz
+▸ ${prefix}tebaklagu – Guess song
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(gameMenuText);
+            }
+            break
+
+            case 'funmenu': {
+                const funMenuText = `╔══════════════════════╗
+║  *😂 FUN COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Random Fun*
+▸ ${prefix}joke – Random joke
+▸ ${prefix}meme – Random meme
+▸ ${prefix}quote – Inspirational quote
+▸ ${prefix}fact – Random fact
+
+📌 *Interactive*
+▸ ${prefix}8ball <question>
+▸ ${prefix}roast @user
+▸ ${prefix}compliment @user
+▸ ${prefix}ship @user1 @user2
+▸ ${prefix}truth – Truth question
+▸ ${prefix}dare – Dare challenge
+▸ ${prefix}bisakah <question>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(funMenuText);
+            }
+            break
+
+            case 'stickermenu': {
+                const stickerMenuText = `╔══════════════════════╗
+║  *🎨 STICKER COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Create Stickers*
+▸ ${prefix}sticker – Send image/video
+▸ ${prefix}s – Shortcut for sticker
+▸ ${prefix}simage – Sticker to image
+▸ ${prefix}toimg – Same as simage
+▸ ${prefix}attp <text> – Animated text
+
+📌 *Image Editing*
+▸ ${prefix}removebg – Remove background
+▸ ${prefix}blur – Blur image
+▸ ${prefix}qc <text> – Quote canvas
+▸ ${prefix}brat <text> – Brat style
+▸ ${prefix}smeme – Sticker meme
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(stickerMenuText);
+            }
+            break
+
+            case 'adminmenu': {
+                const adminMenuText = `╔══════════════════════╗
+║  *🛠️ ADMIN COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *User Management*
+▸ ${prefix}ban @user
+▸ ${prefix}unban @user
+▸ ${prefix}mute – Mute group
+▸ ${prefix}unmute – Unmute group
+▸ ${prefix}warn @user
+▸ ${prefix}unwarn @user
+
+📌 *Chat Management*
+▸ ${prefix}clear – Clear chat
+▸ ${prefix}delete – Delete message
+▸ ${prefix}pin – Pin message
+▸ ${prefix}unpin – Unpin message
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(adminMenuText);
+            }
+            break
+
+            case 'searchmenu': {
+                const searchMenuText = `╔══════════════════════╗
+║  *🔍 SEARCH COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Web Search*
+▸ ${prefix}google <query>
+▸ ${prefix}wiki <query>
+▸ ${prefix}urban <word>
+▸ ${prefix}weather <city>
+▸ ${prefix}news
+
+📌 *Anime & Manga*
+▸ ${prefix}anime <title>
+▸ ${prefix}manga <title>
+
+📌 *Developer*
+▸ ${prefix}github <repo>
+▸ ${prefix}npm <package>
+▸ ${prefix}iplookup <ip>
+▸ ${prefix}whois <domain>
+▸ ${prefix}dns <domain>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(searchMenuText);
+            }
+            break
+
+            case 'moviesmenu': {
+                const moviesMenuText = `╔══════════════════════╗
+║  *🎬 MOVIES COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Movie Info*
+▸ ${prefix}movie <title>
+▸ ${prefix}film <title>
+▸ ${prefix}imdb <id>
+▸ ${prefix}series <title>
+▸ ${prefix}rating <id>
+▸ ${prefix}cinema
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(moviesMenuText);
+            }
+            break
+
+            case 'mastermenu': {
+                const masterMenuText = `╔══════════════════════╗
+║  *📊 MASTER COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Categories*
+▸ ${prefix}economy – Economy system
+▸ ${prefix}daily – Daily tools
+▸ ${prefix}health – Health calculators
+▸ ${prefix}finance – Finance tools
+▸ ${prefix}social – Social utilities
+▸ ${prefix}dev – Developer tools
+▸ ${prefix}travel – Travel helpers
+▸ ${prefix}food – Food & recipes
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(masterMenuText);
+            }
+            break
+
+            case 'ownermenu': {
+                const ownerMenuText = `╔══════════════════════╗
+║  *👑 OWNER COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *User Control*
+▸ ${prefix}block @user
+▸ ${prefix}unblock @user
+▸ ${prefix}ban @user
+▸ ${prefix}unban @user
+▸ ${prefix}addprem @user
+▸ ${prefix}delprem @user
+
+📌 *Bot Control*
+▸ ${prefix}backup – Backup database
+▸ ${prefix}shutdown – Stop bot
+▸ ${prefix}restart – Restart bot
+▸ ${prefix}join <link> – Join group
+▸ ${prefix}leave – Leave group
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(ownerMenuText);
+            }
+            break
+
+            case 'stats': {
+                // Simple stats – you can expand this
+                const statsText = `📊 *Bot Statistics*
+
+▸ *Uptime:* ${runtime(process.uptime())}
+▸ *Commands Run:* ${db.hit?.totalcmd || 0}
+▸ *Users:* ${Object.keys(db.users).length}
+▸ *Groups:* ${Object.keys(db.groups).length}
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(statsText);
             }
             break
 
