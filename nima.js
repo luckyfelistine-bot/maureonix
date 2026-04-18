@@ -3197,36 +3197,14 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 await m.reply(`🥗 *${(args[0]||'balanced').toUpperCase()} Meal Plan*\n${plan.map((x,i) => `${i+1}. ${x}`).join('\n')}`);
             } break
 
-// ===== MENU COMMANDS =====
+            // ===== MENU COMMANDS =====
             case 'menu': case 'help': case 'allmenu': {
-                // Primary: generate beautiful menu image
+                // Primary: interactive carousel menu
                 try {
-                    const buf = await generateMenuImage({
-                        botName: global.botname || 'Maureonix',
-                        ownerName: global.ownerName || 'Infinite Vybeflix',
-                        memberName: m.pushName || 'User',
-                        prefix: prefix,
-                        totalCmds: cases.length,
-                        time: jam,
-                        date: tanggal
-                    });
-
-                    const caption = `╭━═✦〔 Maureonix 〕✦═━╮
-╰═✪═════════════════✪═╯
-
-👋 Hello *${m.pushName || 'User'}*!
-🔧 Prefix: *${prefix}*
-📊 Commands: *${cases.length}+*
-
-_Type ${prefix}help <command> for details_`;
-                    await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
-                } catch (e) {
-                    console.error('[menu image error]', e);
-                    // Fallback: interactive carousel menu (same rich experience)
                     const carouselCards = [
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `🤖 *BOT COMMANDS*\n${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `🤖 *BOT*\n${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff, ${prefix}profile, ${prefix}leaderboard, ${prefix}totalpesan, ${prefix}sc, ${prefix}donasi`,
                             footer: 'Bot utilities & info',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) },
@@ -3234,8 +3212,8 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `👥 *GROUP COMMANDS*\n${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `👥 *GROUP*\n${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo, ${prefix}linkgroup, ${prefix}revoke, ${prefix}welcome, ${prefix}goodbye`,
                             footer: 'Manage your group efficiently',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) },
@@ -3243,8 +3221,8 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `⬇️ *DOWNLOAD COMMANDS*\n${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}play`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `⬇️ *DOWNLOAD*\n${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk, ${prefix}play`,
                             footer: 'Download from 20+ platforms',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) },
@@ -3252,8 +3230,8 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `🧠 *AI COMMANDS*\n${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `🧠 *AI*\n${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot`,
                             footer: 'Chat with advanced AI models',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) },
@@ -3261,8 +3239,17 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `🎮 *GAMES*\n${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `🎨 *STICKER*\n${prefix}sticker, ${prefix}s, ${prefix}simage, ${prefix}toimg, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme`,
+                            footer: 'Create and edit stickers',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🖼️ Sticker', id: `${prefix}sticker` }) }
+                            ]
+                        },
+                        {
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `🎮 *GAMES*\n${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math, ${prefix}tebaklagu`,
                             footer: 'Fun games to play with friends',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) },
@@ -3270,8 +3257,8 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `😂 *FUN*\n${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `😂 *FUN*\n${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}bisakah`,
                             footer: 'Entertainment & random fun',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) },
@@ -3279,8 +3266,35 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `🔍 *SEARCH*\n${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `💰 *ECONOMY*\n${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}lb, ${prefix}buy, ${prefix}inventory`,
+                            footer: 'Earn and manage virtual money',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy Menu', id: `${prefix}economymenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🏦 Balance', id: `${prefix}balance` }) }
+                            ]
+                        },
+                        {
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `📅 *DAILY*\n${prefix}remindme, ${prefix}note, ${prefix}todo, ${prefix}habit, ${prefix}mood, ${prefix}water, ${prefix}expense, ${prefix}grocery, ${prefix}timer, ${prefix}alarm`,
+                            footer: 'Productivity & wellness tools',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📅 Daily Menu', id: `${prefix}dailymenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⏰ Remind Me', id: `${prefix}remindme ` }) }
+                            ]
+                        },
+                        {
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `💪 *HEALTH*\n${prefix}bmi, ${prefix}bmr, ${prefix}tdee, ${prefix}macros, ${prefix}watercalc, ${prefix}sleep, ${prefix}heartrate, ${prefix}onerm, ${prefix}bodyfat, ${prefix}workout, ${prefix}yoga`,
+                            footer: 'Fitness and health calculators',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💪 Health Menu', id: `${prefix}healthmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚖️ BMI', id: `${prefix}bmi ` }) }
+                            ]
+                        },
+                        {
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `🔍 *SEARCH*\n${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup, ${prefix}whois, ${prefix}dns`,
                             footer: 'Search the web instantly',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) },
@@ -3288,8 +3302,8 @@ _Type ${prefix}help <command> for details_`;
                             ]
                         },
                         {
-                            url: `${global.my?.ch || 'https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h'}`,
-                            body: `👑 *OWNER*\n${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart`,
+                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            body: `👑 *OWNER*\n${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart, ${prefix}join, ${prefix}leave`,
                             footer: 'Bot management (owner only)',
                             buttons: [
                                 { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) },
@@ -3315,6 +3329,87 @@ ${ucapanWaktu}
 ✨ *Swipe to explore categories* ✨`;
 
                     await nimesha.sendCarouselMsg(m.chat, carouselBody, `© Maureonix | ${prefix}help <cmd> for details`, carouselCards, { quoted: m });
+                } catch (e) {
+                    console.error('[carousel error]', e);
+                    // Fallback: generate beautiful menu image
+                    try {
+                        const buf = await generateMenuImage({
+                            botName: global.botname || 'Maureonix',
+                            ownerName: global.ownerName || 'Infinite Vybeflix',
+                            memberName: m.pushName || 'User',
+                            prefix: prefix,
+                            totalCmds: cases.length,
+                            time: jam,
+                            date: tanggal
+                        });
+
+                        const caption = `╭━═✦〔 Maureonix 〕✦═━╮
+╰═✪═════════════════✪═╯
+
+👋 Hello *${m.pushName || 'User'}*!
+🔧 Prefix: *${prefix}*
+📊 Commands: *${cases.length}+*
+
+_Type ${prefix}help <command> for details_`;
+                        await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
+                    } catch (imgErr) {
+                        console.error('[menu image fallback error]', imgErr);
+                        // Last resort: comprehensive text menu
+                        const textMenu = `╔══════════════════════╗
+║  *🦊 Maureonix*  ║
+╚══════════════════════╝
+
+👋 Hello *${m.pushName || 'User'}*!
+${ucapanWaktu}
+
+📅 *Date:* ${tanggal}
+🕐 *Time:* ${jam}
+📆 *Day:* ${dayName}
+
+🔧 *Prefix:* ${prefix}
+📊 *Commands:* ${cases.length}+
+
+━━━━━━━━━━━━━━━━━━━━━━
+🤖 *BOT*
+${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff, ${prefix}profile, ${prefix}leaderboard, ${prefix}totalpesan, ${prefix}sc, ${prefix}donasi
+
+👥 *GROUP*
+${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo, ${prefix}linkgroup, ${prefix}revoke, ${prefix}welcome, ${prefix}goodbye
+
+⬇️ *DOWNLOAD*
+${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk, ${prefix}play
+
+🧠 *AI*
+${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot
+
+🎨 *STICKER*
+${prefix}sticker, ${prefix}s, ${prefix}simage, ${prefix}toimg, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme
+
+🎮 *GAMES*
+${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math, ${prefix}tebaklagu
+
+😂 *FUN*
+${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}bisakah
+
+💰 *ECONOMY*
+${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}lb, ${prefix}buy, ${prefix}inventory
+
+📅 *DAILY*
+${prefix}remindme, ${prefix}note, ${prefix}todo, ${prefix}habit, ${prefix}mood, ${prefix}water, ${prefix}expense, ${prefix}grocery, ${prefix}timer, ${prefix}alarm
+
+💪 *HEALTH*
+${prefix}bmi, ${prefix}bmr, ${prefix}tdee, ${prefix}macros, ${prefix}watercalc, ${prefix}sleep, ${prefix}heartrate, ${prefix}onerm, ${prefix}bodyfat, ${prefix}workout, ${prefix}yoga
+
+🔍 *SEARCH*
+${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup, ${prefix}whois, ${prefix}dns
+
+👑 *OWNER*
+${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart, ${prefix}join, ${prefix}leave
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                        await m.reply(textMenu);
+                    }
                 }
             }
             break
