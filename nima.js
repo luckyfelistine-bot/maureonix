@@ -3199,11 +3199,11 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
 
             // ===== MENU COMMANDS =====
             case 'menu': case 'help': case 'allmenu': {
-                // Primary: interactive carousel menu
+                // Primary: interactive carousel with local images
                 try {
                     const carouselCards = [
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/bot.png',
                             body: `🤖 *BOT*\n${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff, ${prefix}profile, ${prefix}leaderboard, ${prefix}totalpesan, ${prefix}sc, ${prefix}donasi`,
                             footer: 'Bot utilities & info',
                             buttons: [
@@ -3212,7 +3212,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/group.png',
                             body: `👥 *GROUP*\n${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo, ${prefix}linkgroup, ${prefix}revoke, ${prefix}welcome, ${prefix}goodbye`,
                             footer: 'Manage your group efficiently',
                             buttons: [
@@ -3221,7 +3221,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/download.png',
                             body: `⬇️ *DOWNLOAD*\n${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk, ${prefix}play`,
                             footer: 'Download from 20+ platforms',
                             buttons: [
@@ -3230,7 +3230,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/ai.png',
                             body: `🧠 *AI*\n${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot`,
                             footer: 'Chat with advanced AI models',
                             buttons: [
@@ -3239,7 +3239,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/sticker.png',
                             body: `🎨 *STICKER*\n${prefix}sticker, ${prefix}s, ${prefix}simage, ${prefix}toimg, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme`,
                             footer: 'Create and edit stickers',
                             buttons: [
@@ -3248,7 +3248,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/games.png',
                             body: `🎮 *GAMES*\n${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math, ${prefix}tebaklagu`,
                             footer: 'Fun games to play with friends',
                             buttons: [
@@ -3257,7 +3257,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/fun.png',
                             body: `😂 *FUN*\n${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}bisakah`,
                             footer: 'Entertainment & random fun',
                             buttons: [
@@ -3266,34 +3266,16 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
-                            body: `💰 *ECONOMY*\n${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}lb, ${prefix}buy, ${prefix}inventory`,
-                            footer: 'Earn and manage virtual money',
+                            url: './database/menucards/admin.png',
+                            body: `🛠️ *ADMIN*\n${prefix}ban, ${prefix}unban, ${prefix}mute, ${prefix}unmute, ${prefix}warn, ${prefix}unwarn, ${prefix}clear, ${prefix}delete, ${prefix}pin, ${prefix}unpin`,
+                            footer: 'Admin & moderation tools',
                             buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy Menu', id: `${prefix}economymenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🏦 Balance', id: `${prefix}balance` }) }
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛠️ Admin Menu', id: `${prefix}adminmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔇 Mute', id: `${prefix}mute` }) }
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
-                            body: `📅 *DAILY*\n${prefix}remindme, ${prefix}note, ${prefix}todo, ${prefix}habit, ${prefix}mood, ${prefix}water, ${prefix}expense, ${prefix}grocery, ${prefix}timer, ${prefix}alarm`,
-                            footer: 'Productivity & wellness tools',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📅 Daily Menu', id: `${prefix}dailymenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⏰ Remind Me', id: `${prefix}remindme ` }) }
-                            ]
-                        },
-                        {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
-                            body: `💪 *HEALTH*\n${prefix}bmi, ${prefix}bmr, ${prefix}tdee, ${prefix}macros, ${prefix}watercalc, ${prefix}sleep, ${prefix}heartrate, ${prefix}onerm, ${prefix}bodyfat, ${prefix}workout, ${prefix}yoga`,
-                            footer: 'Fitness and health calculators',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💪 Health Menu', id: `${prefix}healthmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚖️ BMI', id: `${prefix}bmi ` }) }
-                            ]
-                        },
-                        {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/search.png',
                             body: `🔍 *SEARCH*\n${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup, ${prefix}whois, ${prefix}dns`,
                             footer: 'Search the web instantly',
                             buttons: [
@@ -3302,7 +3284,25 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                             ]
                         },
                         {
-                            url: 'https://telegra.ph/file/95670d63378f7f4210f03.png',
+                            url: './database/menucards/movies.png',
+                            body: `🎬 *MOVIES*\n${prefix}movie, ${prefix}film, ${prefix}imdb, ${prefix}series, ${prefix}rating, ${prefix}cinema`,
+                            footer: 'Movie info & ratings',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📽️ Movie', id: `${prefix}movie ` }) }
+                            ]
+                        },
+                        {
+                            url: './database/menucards/master.png',
+                            body: `📊 *MASTER*\n${prefix}economy, ${prefix}daily, ${prefix}health, ${prefix}finance, ${prefix}social, ${prefix}dev, ${prefix}travel, ${prefix}food`,
+                            footer: 'Advanced features & tools',
+                            buttons: [
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) },
+                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }
+                            ]
+                        },
+                        {
+                            url: './database/menucards/owner.png',
                             body: `👑 *OWNER*\n${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart, ${prefix}join, ${prefix}leave`,
                             footer: 'Bot management (owner only)',
                             buttons: [
@@ -3354,7 +3354,7 @@ _Type ${prefix}help <command> for details_`;
                         await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
                     } catch (imgErr) {
                         console.error('[menu image fallback error]', imgErr);
-                        // Last resort: comprehensive text menu
+                        // Last resort: beautifully formatted text menu
                         const textMenu = `╔══════════════════════╗
 ║  *🦊 Maureonix*  ║
 ╚══════════════════════╝
@@ -3371,40 +3371,62 @@ ${ucapanWaktu}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🤖 *BOT*
-${prefix}alive, ${prefix}ping, ${prefix}info, ${prefix}owner, ${prefix}runtime, ${prefix}speed, ${prefix}staff, ${prefix}profile, ${prefix}leaderboard, ${prefix}totalpesan, ${prefix}sc, ${prefix}donasi
+▸ ${prefix}alive  ▸ ${prefix}ping  ▸ ${prefix}info  ▸ ${prefix}owner
+▸ ${prefix}runtime  ▸ ${prefix}speed  ▸ ${prefix}staff  ▸ ${prefix}profile
+▸ ${prefix}leaderboard  ▸ ${prefix}totalpesan  ▸ ${prefix}sc  ▸ ${prefix}donasi
 
 👥 *GROUP*
-${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}setname, ${prefix}setdesc, ${prefix}groupinfo, ${prefix}linkgroup, ${prefix}revoke, ${prefix}welcome, ${prefix}goodbye
+▸ ${prefix}add  ▸ ${prefix}kick  ▸ ${prefix}promote  ▸ ${prefix}demote
+▸ ${prefix}tagall  ▸ ${prefix}hidetag  ▸ ${prefix}setname  ▸ ${prefix}setdesc
+▸ ${prefix}groupinfo  ▸ ${prefix}linkgroup  ▸ ${prefix}revoke  ▸ ${prefix}welcome  ▸ ${prefix}goodbye
 
 ⬇️ *DOWNLOAD*
-${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk, ${prefix}play
+▸ ${prefix}song  ▸ ${prefix}video  ▸ ${prefix}tiktok  ▸ ${prefix}instagram
+▸ ${prefix}facebook  ▸ ${prefix}twitter  ▸ ${prefix}spotify  ▸ ${prefix}mediafire
+▸ ${prefix}apk  ▸ ${prefix}play
 
 🧠 *AI*
-${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot
+▸ ${prefix}gpt  ▸ ${prefix}gemini  ▸ ${prefix}llama  ▸ ${prefix}deepseek
+▸ ${prefix}ai  ▸ ${prefix}imagine  ▸ ${prefix}translate  ▸ ${prefix}tts
+▸ ${prefix}summarize  ▸ ${prefix}code  ▸ ${prefix}brainrot
 
 🎨 *STICKER*
-${prefix}sticker, ${prefix}s, ${prefix}simage, ${prefix}toimg, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme
+▸ ${prefix}sticker  ▸ ${prefix}s  ▸ ${prefix}simage  ▸ ${prefix}toimg
+▸ ${prefix}attp  ▸ ${prefix}removebg  ▸ ${prefix}blur  ▸ ${prefix}qc
+▸ ${prefix}brat  ▸ ${prefix}smeme
 
 🎮 *GAMES*
-${prefix}tictactoe, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}chess, ${prefix}akinator, ${prefix}wordle, ${prefix}hangman, ${prefix}math, ${prefix}tebaklagu
+▸ ${prefix}tictactoe  ▸ ${prefix}suit  ▸ ${prefix}slot  ▸ ${prefix}blackjack
+▸ ${prefix}chess  ▸ ${prefix}akinator  ▸ ${prefix}wordle  ▸ ${prefix}hangman
+▸ ${prefix}math  ▸ ${prefix}tebaklagu
 
 😂 *FUN*
-${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}bisakah
+▸ ${prefix}joke  ▸ ${prefix}meme  ▸ ${prefix}quote  ▸ ${prefix}fact
+▸ ${prefix}8ball  ▸ ${prefix}roast  ▸ ${prefix}compliment  ▸ ${prefix}ship
+▸ ${prefix}truth  ▸ ${prefix}dare  ▸ ${prefix}bisakah
 
-💰 *ECONOMY*
-${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}lb, ${prefix}buy, ${prefix}inventory
-
-📅 *DAILY*
-${prefix}remindme, ${prefix}note, ${prefix}todo, ${prefix}habit, ${prefix}mood, ${prefix}water, ${prefix}expense, ${prefix}grocery, ${prefix}timer, ${prefix}alarm
-
-💪 *HEALTH*
-${prefix}bmi, ${prefix}bmr, ${prefix}tdee, ${prefix}macros, ${prefix}watercalc, ${prefix}sleep, ${prefix}heartrate, ${prefix}onerm, ${prefix}bodyfat, ${prefix}workout, ${prefix}yoga
+🛠️ *ADMIN*
+▸ ${prefix}ban  ▸ ${prefix}unban  ▸ ${prefix}mute  ▸ ${prefix}unmute
+▸ ${prefix}warn  ▸ ${prefix}unwarn  ▸ ${prefix}clear  ▸ ${prefix}delete
+▸ ${prefix}pin  ▸ ${prefix}unpin
 
 🔍 *SEARCH*
-${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup, ${prefix}whois, ${prefix}dns
+▸ ${prefix}google  ▸ ${prefix}wiki  ▸ ${prefix}urban  ▸ ${prefix}weather
+▸ ${prefix}news  ▸ ${prefix}anime  ▸ ${prefix}manga  ▸ ${prefix}github
+▸ ${prefix}npm  ▸ ${prefix}iplookup  ▸ ${prefix}whois  ▸ ${prefix}dns
+
+🎬 *MOVIES*
+▸ ${prefix}movie  ▸ ${prefix}film  ▸ ${prefix}imdb  ▸ ${prefix}series
+▸ ${prefix}rating  ▸ ${prefix}cinema
+
+📊 *MASTER*
+▸ ${prefix}economy  ▸ ${prefix}daily  ▸ ${prefix}health  ▸ ${prefix}finance
+▸ ${prefix}social  ▸ ${prefix}dev  ▸ ${prefix}travel  ▸ ${prefix}food
 
 👑 *OWNER*
-${prefix}block, ${prefix}unblock, ${prefix}ban, ${prefix}unban, ${prefix}addprem, ${prefix}delprem, ${prefix}backup, ${prefix}shutdown, ${prefix}restart, ${prefix}join, ${prefix}leave
+▸ ${prefix}block  ▸ ${prefix}unblock  ▸ ${prefix}ban  ▸ ${prefix}unban
+▸ ${prefix}addprem  ▸ ${prefix}delprem  ▸ ${prefix}backup  ▸ ${prefix}shutdown
+▸ ${prefix}restart  ▸ ${prefix}join  ▸ ${prefix}leave
 
 ━━━━━━━━━━━━━━━━━━━━━━
 > *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
