@@ -4015,3 +4015,5 @@ Reach higher floors for tougher enemies!
                 if (!(budy.toLowerCase() in global.db.database)) return;
                 await nimesha.relayMessage(m.chat, global.db.database[budy.toLowerCase()], {});
             }
+    } // ← closes the switch statement
+}   // ← closes the module.exports function
