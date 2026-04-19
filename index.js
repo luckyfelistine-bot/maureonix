@@ -259,6 +259,16 @@
 
 require('./settings');
 require('./protection');
+
+// 🔒 Ensure database structure exists
+if (!global.db) global.db = {};
+if (!global.db.set) global.db.set = {};
+if (!global.db.users) global.db.users = {};
+if (!global.db.groups) global.db.groups = {};
+if (!global.db.game) global.db.game = {};
+if (!global.db.premium) global.db.premium = [];
+if (!global.db.sewa) global.db.sewa = [];
+
 const os = require('os');
 const pino = require('pino');
 const axios = require('axios');
