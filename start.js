@@ -1032,6 +1032,37 @@ async function autoInstallDependencies() {
         for (const tool of optionalToolsList) {
             log.header(`📥 Installing ${tool}`);
 
+            // Special handling for spotifydl: install via npm
+            if (tool === 'spotifydl') {
+                let spotifyInstalled = false;
+                const npmMethods = [
+                    'npm install -g spotifydl',
+                    'sudo npm install -g spotifydl',
+                    'npm install spotifydl',
+                    'sudo npm install spotifydl'
+                ];
+                for (let i = 0; i < npmMethods.length; i++) {
+                    try {
+                        log.info(`[${i+1}/${npmMethods.length}] ${npmMethods[i]}`);
+                        execSync(npmMethods[i], { stdio: 'pipe', timeout: 60000, shell: '/bin/bash' });
+                        // Check if command exists after installation
+                        try {
+                            execSync('spotifydl --version', { stdio: 'pipe', timeout: 5000 });
+                            log.success(`✅ ${tool} installed successfully via npm!`);
+                            spotifyInstalled = true;
+                            break;
+                        } catch {}
+                    } catch (e) {
+                        log.warn(`✗ ${npmMethods[i]}`);
+                    }
+                }
+                if (!spotifyInstalled) {
+                    log.warn(`⚠️ ${tool} installation failed — Spotify downloads will not work`);
+                }
+                continue;
+            }
+
+            // For other tools, use existing multi-method installer
             const pkgName = tool === 'aria2c' ? 'aria2' : tool;
             const YTDLP_BIN_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
             const termuxBin = '/data/data/com.termux/files/usr/bin/yt-dlp';
@@ -1039,7 +1070,7 @@ async function autoInstallDependencies() {
 
             const toolMethods = [];
 
-            if (['yt-dlp', 'youtube-dl', 'spotifydl'].includes(tool)) {
+            if (['yt-dlp', 'youtube-dl'].includes(tool)) {
                 toolMethods.push(
                     { cmd: `pip3 install -U --break-system-packages ${tool}`,           desc: `pip3 --break-system-packages` },
                     { cmd: `pip3 install -U ${tool}`,                                   desc: `pip3 -U` },
@@ -1084,6 +1115,7 @@ async function autoInstallDependencies() {
                 try {
                     log.info(`[${i+1}/${toolMethods.length}] ${m.desc}`);
                     execSync(m.cmd, { stdio: 'pipe', timeout: 120000, shell: '/bin/bash' });
+                    // Verify installation
                     if (commandExists(tool)) {
                         log.success(`✅ ${tool} installed successfully! (${m.desc})`);
                         toolInstalled = true;
@@ -1100,39 +1132,37 @@ async function autoInstallDependencies() {
         }
     }
 
-    // Other optional tools
+    // Other optional tools (imagemagick, etc.)
     const otherOptionalTools = missingOptional.filter(tool => !['yt-dlp', 'youtube-dl', 'spotifydl', 'wget', 'aria2c', 'sox'].includes(tool));
     if (otherOptionalTools.length > 0) {
         log.warn(`\nOther missing optional tools: ${otherOptionalTools.join(', ')}`);
 
         log.info('Attempting automatic installation...\n');
         
+        // Try multiple methods without sudo for environments like Railway
+        const installMethods = [
+            `apt-get update -y && apt-get install -y ${otherOptionalTools.join(' ')}`,
+            `apt update -y && apt install -y ${otherOptionalTools.join(' ')}`,
+            `pkg install -y ${otherOptionalTools.join(' ')}`,
+            `yum install -y ${otherOptionalTools.join(' ')}`,
+            `dnf install -y ${otherOptionalTools.join(' ')}`
+        ];
+
         let optionalInstallSuccess = false;
-        let optionalAttempts = 0;
-        const maxOptionalAttempts = 3;
-        
-        while (!optionalInstallSuccess && optionalAttempts < maxOptionalAttempts) {
-            optionalAttempts++;
+        for (let i = 0; i < installMethods.length; i++) {
             try {
-                const optionalCmds = getInstallCommands(osInfo, missingOptional);
-                log.info(`[Attempt ${optionalAttempts}/${maxOptionalAttempts}] Installing optional dependencies...`);
-                console.log(`  ${chalk.cyan(optionalCmds.install)}\n`);
-                
-                execSync(optionalCmds.install, { 
-                    stdio: 'inherit',
-                    timeout: 180000,
-                    shell: '/bin/bash'
-                });
-                
+                log.info(`[Attempt ${i+1}/${installMethods.length}] Installing: ${installMethods[i]}`);
+                execSync(installMethods[i], { stdio: 'inherit', timeout: 180000, shell: '/bin/bash' });
                 optionalInstallSuccess = true;
                 log.success('✅ Optional dependencies installed successfully!');
+                break;
             } catch (e) {
-                log.warn(`Attempt ${optionalAttempts} failed — continuing without optional dependencies...`);
+                log.warn(`Attempt ${i+1} failed`);
             }
         }
         
         if (!optionalInstallSuccess) {
-            log.info('\n⚠️ The following optional dependencies are missing, some features may be limited:', missingOptional.join(', '));
+            log.info('\n⚠️ The following optional dependencies are missing, some features may be limited:', otherOptionalTools.join(', '));
         }
     }
 

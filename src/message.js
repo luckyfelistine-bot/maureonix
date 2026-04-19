@@ -330,31 +330,41 @@ async function MessagesUpsert(nimesha, message, store) {
         let botNumber = await nimesha.decodeJid(nimesha.user.id);
         const set = global.db?.set?.[botNumber] || {};
 
-        // ── 2026 fix: loop ALL messages (not just [0]) ─────────────
+        // Ensure store.messages exists
+        store.messages = store.messages || {};
+
         const allMsgs = message.messages || [];
         if (!allMsgs.length) return;
 
         for (const msg of allMsgs) {
             if (!msg?.key?.remoteJid) continue;
             const remoteJid = msg.key.remoteJid;
-            (store.messages ??= {})[remoteJid] ??= {};
-            store.messages[remoteJid].array ??= [];
-            store.messages[remoteJid].keyId ??= new Set();
-            if (!(store.messages[remoteJid].keyId instanceof Set)) {
+
+            // Initialize per-chat message array if missing
+            if (!store.messages[remoteJid]) {
+                store.messages[remoteJid] = { array: [], keyId: new Set() };
+            }
+            if (!store.messages[remoteJid].keyId) {
                 store.messages[remoteJid].keyId = new Set(store.messages[remoteJid].array.map(m => m.key.id));
             }
+
             if (remoteJid !== 'status@broadcast' && store.messages[remoteJid].keyId.has(msg.key.id)) continue;
             store.messages[remoteJid].array.push(msg);
             store.messages[remoteJid].keyId.add(msg.key.id);
+
             if (store.messages[remoteJid].array.length > (global.chatLength || 250)) {
                 const removed = store.messages[remoteJid].array.shift();
                 store.messages[remoteJid].keyId.delete(removed.key.id);
             }
-            if (!store.groupMetadata || Object.keys(store.groupMetadata).length === 0) store.groupMetadata ??= await nimesha.groupFetchAllParticipating().catch(e => ({}));
+
+            if (!store.groupMetadata || Object.keys(store.groupMetadata).length === 0) {
+                store.groupMetadata = await nimesha.groupFetchAllParticipating().catch(e => ({}));
+            }
+
             const type = msg.message ? (getContentType(msg.message) || Object.keys(msg.message)[0]) : '';
             const m = await Serialize(nimesha, msg, store);
             await require('../nima')(nimesha, m, msg, store).catch(e => console.error('[nima error]', e?.message || e));
-            
+
             // ===== AUTO-REACT TO MENTIONS (Group only) =====
             if (set.autoreactmention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
                 const emojis = ['❤️', '👍', '👀', '🙌', '💯', '🔥', '✨', '😊', '🥰', '👋'];
@@ -368,7 +378,7 @@ async function MessagesUpsert(nimesha, message, store) {
             }
 
             if (msg.key.remoteJid === 'status@broadcast') {
-                // ── giveme auto-reply (without prefix) ──────────────────────
+                // --- giveme auto-reply (without prefix) ---
                 try {
                     const _senderJid = msg.key.participant || msg.key.remoteJid;
                     const _statusType = type;
@@ -420,7 +430,8 @@ async function MessagesUpsert(nimesha, message, store) {
 
                             if (!_sent && /(image|video|audio)/i.test(_resolvedType)) {
                                 try {
-                                    const _buf = await baileysDownloadMedia(msg, 'buffer');
+                                    const { downloadMediaMessage } = require('baileys');
+                                    const _buf = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: nimesha.updateMediaMessage });
                                     if (/image/i.test(_resolvedType)) {
                                         await nimesha.sendMessage(_replyTo, { image: _buf, caption: _caption });
                                     } else if (/video/i.test(_resolvedType)) {
@@ -467,7 +478,7 @@ async function MessagesUpsert(nimesha, message, store) {
                     console.error('[status giveme error]', _sErr?.message);
                 }
 
-                // ── AUTO VIEW & REACT STATUS ──────────────────────────────────────────
+                // AUTO VIEW & REACT STATUS
                 if (set.autostatus || set.autostatusreact) {
                     try {
                         await nimesha.readMessages([msg.key]);
@@ -481,7 +492,7 @@ async function MessagesUpsert(nimesha, message, store) {
                     } catch (e) { /* ignore */ }
                 }
 
-                // ── readsw handler (legacy) ──────────────────────────────────────────
+                // readsw handler (legacy)
                 if (set.readsw) {
                     await nimesha.readMessages([msg.key]);
                     if (/protocolMessage/i.test(type)) await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, '@' + msg.key.participant.split('@')[0] + ' has deleted their status.', msg, { mentions: [msg.key.participant] });
