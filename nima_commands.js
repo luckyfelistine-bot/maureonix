@@ -1,4 +1,4 @@
-// nima_commands.js – ALL COMMAND CASES (including nmd_axis imports)
+// nima_commands.js – ALL COMMAND CASES
 // ═══════════════════════════════════════════════════════════════════════════
 
 module.exports = async (nimesha, m, ctx) => {
@@ -2553,7 +2553,7 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        // ===== ADDITIONAL FUN COMMANDS FROM nmd_axis =====
+        // ===== ADDITIONAL FUN COMMANDS =====
         case 'insult': {
             const mentioned = m.mentionedJid?.[0] || m.sender;
             const insults = ['You have the personality of a wet sock! 🧦', 'You bring everyone so much joy... when you leave.', 'I\'d agree with you but then we\'d both be wrong.'];
