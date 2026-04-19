@@ -273,7 +273,7 @@ const { parsePhoneNumber } = require('awesome-phonenumber');
 const { default: makeWASocket, useMultiFileAuthState, Browsers, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestWaWebVersion, jidNormalizedUser } = await import('baileys');
 const WAConnection = makeWASocket;
 
-const { dataBase } = require('./src/database');
+const { dataBase } = require('./lib/database');
 const { app, server, PORT } = require('./src/server');
 const { assertInstalled, unsafeAgent } = require('./lib/function');
 const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
