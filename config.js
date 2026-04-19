@@ -19,6 +19,10 @@ const SecureConfig = {
     tiktokLink: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/',
     githubRepo: 'https://github.com/luckyfelistine-bot/maureonix',
 
+// ----- API Keys (Sports) -----
+    apiSportsKey: 'e77f42417ca17805d5c16951a9af6137',
+    oddsApiKey: '4ac89ebfd82a84d98aa247d8cad45817',
+
     // ----- API Keys (keep as is) -----
     geminiApiKey: 'AIzaSyARjH2TwsNEpQ3vPHzDecf5a7v7evmQmZc',
     apiKey: 'nz-8ce9753907',

@@ -32,7 +32,6 @@ const { generateMenuImage } = require('./lib/menuimage'); // adjust path
 
 // Core helpers (original)
 const { UguuSe } = require('./lib/uploader');
-const TicTacToe = require('./lib/tictactoe');
 const { antiSpam } = require('./lib/antispam');
 const { ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload } = require('./lib/scraper');
 const templateMenu = require('./lib/template_menu');
@@ -40,21 +39,17 @@ const { toAudio, toPTT, toVideo } = require('./lib/converter');
 const { GroupUpdate, LoadDataBase } = require('./src/message');
 const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./lib/database');
-const { rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer, Blackjack, SnakeLadder } = require('./lib/game');
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, unsafeAgent, tarBackup } = require('./lib/function');
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const Poe = require('./lib/poe');
 const AI = require('./lib/ai');
-const Movie = require('./lib/movie');
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
 const Economy = require('./lib/economy');
-const Games = require('./lib/games');
 const Admin = require('./lib/admin');
 const Daily = require('./lib/daily');
 const Health = require('./lib/health');
@@ -64,6 +59,21 @@ const Dev = require('./lib/dev');
 const Travel = require('./lib/travel');
 const Food = require('./lib/food');
 const { generateQuantumMenu } = require('./lib/menuimage');
+
+// ═══════════════════════════════════════════════════════════════════
+//  GODMODE IMPORTS (v6.0.0)
+// ═══════════════════════════════════════════════════════════════════
+const {
+  TicTacToe, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
+  Blackjack, BlackjackCasino,
+  RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs,
+  RPGAdventure, slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+  rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer
+} = require('./lib/game');
+
+const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
+
+const { APISports, OddsAPI, ESPN } = require('./lib/sports');
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  HELPER: fetchApi (fallback chain)
@@ -460,47 +470,86 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
         checkExpired(premium);
         checkExpired(sewa, nimesha);
         
-        // TicTacToe
-        let room = Object.values(tictactoe).find(room => room.id && room.game && room.state && room.id.startsWith('tictactoe') && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state == 'PLAYING');
-        if (room) {
+        // Connect 4 Game (replaces TicTacToe)
+        let connect4Room = Object.values(db.game.connect4 || {}).find(room => room.id && room.state === 'PLAYING' && [room.player1, room.player2].includes(m.sender));
+        if (connect4Room) {
             let now = Date.now();
-            if (now - (room.lastMove || now) > 5 * 60 * 1000) {
-                m.reply('Tic-Tac-Toe game cancelled due to 5 minutes of inactivity.');
-                delete tictactoe[room.id];
+            if (now - (connect4Room.lastMove || now) > 10 * 60 * 1000) {
+                m.reply('⌛ Connect 4 game cancelled due to 10 minutes of inactivity.');
+                delete db.game.connect4[connect4Room.id];
                 return;
             }
-            room.lastMove = now;
-            let ok, isWin = false, isTie = false, isSurrender = false;
-            if (!/^([1-9]|(me)?nyerah|surr?ender|off|skip)$/i.test(m.text)) return;
-            isSurrender = !/^[1-9]$/.test(m.text);
-            if (m.sender !== room.game.currentTurn) {
-                if (!isSurrender) return true;
+            connect4Room.lastMove = now;
+
+            if (!/^[1-7]$|^(me)?nyerah|surr?ender$/i.test(m.text)) return;
+
+            if (/^(me)?nyerah|surr?ender$/i.test(m.text)) {
+                const winner = m.sender === connect4Room.player1 ? connect4Room.player2 : connect4Room.player1;
+                m.reply(`🏳️ @${m.sender.split('@')[0]} surrendered!\n@${winner.split('@')[0]} wins!`, { mentions: [m.sender, winner] });
+                delete db.game.connect4[connect4Room.id];
+                return;
             }
-            if (!isSurrender && 1 > (ok = room.game.turn(m.sender === room.game.playerO, parseInt(m.text) - 1))) {
-                m.reply({'-3':'Game ended','-2':'Invalid','-1':'Invalid position',0:'Invalid position'}[ok]);
-                return true;
+
+            const currentPlayer = connect4Room.turn === 1 ? connect4Room.player1 : connect4Room.player2;
+            if (m.sender !== currentPlayer) return m.reply('⏳ Not your turn!');
+
+            const col = parseInt(m.text) - 1;
+            const { board, turn } = connect4Room;
+
+            let row = -1;
+            for (let r = 5; r >= 0; r--) {
+                if (board[r][col] === 0) {
+                    row = r;
+                    break;
+                }
             }
-            if (m.sender === room.game.winner) isWin = true;
-            else if (room.game.board === 511) isTie = true;
-            if (!(room.game instanceof TicTacToe)) {
-                room.game = Object.assign(new TicTacToe(room.game.playerX, room.game.playerO), room.game);
+            if (row === -1) return m.reply('❌ Column is full! Choose another.');
+
+            board[row][col] = turn;
+            connect4Room.turn = turn === 1 ? 2 : 1;
+
+            const checkWin = (r, c, p) => {
+                const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+                for (let [dr, dc] of dirs) {
+                    let count = 1;
+                    for (let d of [1, -1]) {
+                        for (let i = 1; i < 4; i++) {
+                            const nr = r + dr * i * d;
+                            const nc = c + dc * i * d;
+                            if (nr >= 0 && nr < 6 && nc >= 0 && nc < 7 && board[nr][nc] === p) count++;
+                            else break;
+                        }
+                    }
+                    if (count >= 4) return true;
+                }
+                return false;
+            };
+
+            const isWin = checkWin(row, col, turn === 1 ? 2 : 1);
+            const isDraw = board.every(row => row.every(cell => cell !== 0));
+
+            const symbols = { 0: '⚪', 1: '🔴', 2: '🟡' };
+            let boardStr = '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n';
+            for (let r = 0; r < 6; r++) {
+                for (let c = 0; c < 7; c++) {
+                    boardStr += symbols[board[r][c]];
+                }
+                boardStr += '\n';
             }
-            let arr = room.game.render().map(v => ({X: '❌',O: '⭕',1: '1️⃣',2: '2️⃣',3: '3️⃣',4: '4️⃣',5: '5️⃣',6: '6️⃣',7: '7️⃣',8: '8️⃣',9: '9️⃣'}[v]));
-            if (isSurrender) {
-                room.game._currentTurn = m.sender === room.game.playerX;
-                isWin = true;
-            }
-            let winner = isSurrender ? room.game.currentTurn : room.game.winner;
+            boardStr += '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣';
+
             if (isWin) {
-                db.users[m.sender].limit += 3;
-                db.users[m.sender].money += 3000;
+                const winner = turn === 1 ? connect4Room.player2 : connect4Room.player1;
+                m.reply(`🎉 @${winner.split('@')[0]} wins!\n\n${boardStr}`, { mentions: [winner] });
+                delete db.game.connect4[connect4Room.id];
+            } else if (isDraw) {
+                m.reply(`🤝 It's a draw!\n\n${boardStr}`);
+                delete db.game.connect4[connect4Room.id];
+            } else {
+                const nextPlayer = connect4Room.turn === 1 ? connect4Room.player1 : connect4Room.player2;
+                m.reply(`🔴 ${currentPlayer === connect4Room.player1 ? 'Red' : 'Yellow'}'s move made.\n🟡 Turn: @${nextPlayer.split('@')[0]}\n\n${boardStr}\n\nReply with column number (1-7) or "nyerah" to surrender.`, { mentions: [nextPlayer] });
             }
-            let str = `Room ID: ${room.id}\n\n${arr.slice(0, 3).join('')}\n${arr.slice(3, 6).join('')}\n${arr.slice(6).join('')}\n\n${isWin ? `@${winner.split('@')[0]} wins!` : isTie ? `Game drawn` : `Turn: ${['❌', '⭕'][1 * room.game._currentTurn]} (@${room.game.currentTurn.split('@')[0]})`}\n❌: @${room.game.playerX.split('@')[0]}\n⭕: @${room.game.playerO.split('@')[0]}\n\nType *nyerah* to surrender.`;
-            if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat)
-                room[room.game._currentTurn ^ isSurrender ? 'x' : 'o'] = m.chat;
-            if (room.x !== room.o) await nimesha.sendMessage(room.x, { text: str, mentions: parseMention(str) }, { quoted: m });
-            await nimesha.sendMessage(room.o, { text: str, mentions: parseMention(str) }, { quoted: m });
-            if (isTie || isWin) delete tictactoe[room.id];
+            return;
         }
         
         // Suit PvP
@@ -930,6 +979,38 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             m.reply(`@${m.sender.split('@')[0]} is no longer AFK${user.afkReason ? ' because ' + user.afkReason : ''}\nTime: ${clockString(new Date - user.afkTime)}`);
             user.afkTime = -1;
             user.afkReason = '';
+        }
+
+        // ─── Mini game answer handlers ───────────────────────────────────
+        if ((!isCmd || isCreator) && db.users[m.sender]?._trivia && budy) {
+            if (budy.toLowerCase().trim() === db.users[m.sender]._trivia.toLowerCase()) { m.reply('🎉 Correct! +50 money'); db.users[m.sender].money += 50; delete db.users[m.sender]._trivia; }
+            else { m.reply('❌ Wrong!'); delete db.users[m.sender]._trivia; }
+        }
+        if ((!isCmd || isCreator) && db.users[m.sender]?._math && !isNaN(budy)) {
+            if (parseInt(budy) === db.users[m.sender]._math.ans) { m.reply('🧠 Correct! +30 money'); db.users[m.sender].money += 30; }
+            else { m.reply(`❌ Wrong! Answer was ${db.users[m.sender]._math.ans}`); }
+            delete db.users[m.sender]._math;
+        }
+        if ((!isCmd || isCreator) && db.users[m.sender]?._anagram && budy.length > 2) {
+            if (budy.toUpperCase().trim() === db.users[m.sender]._anagram) { m.reply('🔤 Correct! +40 money'); db.users[m.sender].money += 40; }
+            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._anagram}`); }
+            delete db.users[m.sender]._anagram;
+        }
+        if ((!isCmd || isCreator) && db.users[m.sender]?._gtn && !isNaN(budy)) {
+            const g = db.users[m.sender]._gtn; const n = parseInt(budy); g.tries++;
+            if (n === g.target) { m.reply(`🎉 Correct in ${g.tries} tries! +${100 - g.tries * 5} money`); db.users[m.sender].money += Math.max(10, 100 - g.tries * 5); delete db.users[m.sender]._gtn; }
+            else if (n < g.target) { m.reply('📈 Higher!'); }
+            else { m.reply('📉 Lower!'); }
+        }
+        if ((!isCmd || isCreator) && db.users[m.sender]?._pokemon && budy.length > 2) {
+            if (budy.toLowerCase().trim() === db.users[m.sender]._pokemon) { m.reply('🔮 Correct! It\'s ' + db.users[m.sender]._pokemon + '! +60 money'); db.users[m.sender].money += 60; }
+            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._pokemon}`); }
+            delete db.users[m.sender]._pokemon;
+        }
+        if ((!isCmd || isCreator) && db.users[m.sender]?._movieguess && budy.length > 2) {
+            if (budy.toLowerCase().trim() === db.users[m.sender]._movieguess.toLowerCase()) { m.reply('🎬 Correct! +70 money'); db.users[m.sender].money += 70; }
+            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._movieguess}`); }
+            delete db.users[m.sender]._movieguess;
         }
 
         
@@ -1750,6 +1831,449 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                         fileName: tglnya + '_database.json'
                     });
                     break
+            // ═══════════════════════════════════════════════════════════════
+            //  🎮 RAWG / GAME DATABASE
+            // ═══════════════════════════════════════════════════════════════
+            case 'rawg': case 'gamesearch': {
+                if (!text) return m.reply(`Example: ${prefix + command} elden ring`);
+                await m.reply('🎮 Searching RAWG...');
+                try {
+                    const r = await RAWG.search(text, 1, 8);
+                    if (!r.results?.length) return m.reply('No games found.');
+                    let txt = `🎮 *RAWG Results*\n\n`;
+                    r.results.forEach((g, i) => { txt += `${i + 1}. *${g.name}* (${g.released || 'TBA'})\n⭐ ${g.rating || '?'}/5\n`; });
+                    txt += `\n_Use ${prefix}gameinfo <id> for details_`;
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'gameinfo': {
+                if (!text) return m.reply(`Example: ${prefix + command} <rawg-id or slug>`);
+                await m.reply('🎮 Fetching game details...');
+                try {
+                    const g = await RAWG.details(text);
+                    m.reply(RAWG.format(g));
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'gamestores': case 'store': {
+                if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+                try {
+                    const s = await RAWG.stores(text);
+                    let txt = `🏪 *Stores*\n`; (s.results || []).forEach(x => txt += `• ${x.store.name}: ${x.url}\n`);
+                    m.reply(txt || 'No store links.');
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'screenshots': case 'ss': {
+                if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+                try {
+                    const s = await RAWG.screens(text);
+                    if (!s.results?.length) return m.reply('No screenshots.');
+                    for (let i of s.results.slice(0, 5)) await nimesha.sendMessage(m.chat, { image: { url: i.image }, caption: '🎮 Screenshot' }, { quoted: m });
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'trailers': case 'clips': {
+                if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+                try {
+                    const t = await RAWG.trailers(text);
+                    if (!t.results?.length) return m.reply('No trailers.');
+                    let txt = `🎬 *Trailers*\n`; t.results.forEach((v, i) => txt += `${i + 1}. [${v.name}](${v.data?.max || v.data?.[480] || v.data?.[720]})\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'topgames': {
+                try { const r = await RAWG.top(); let txt = `🏆 *Top Rated Games*\n\n`; r.results.forEach((g, i) => txt += `${i + 1}. *${g.name}* — ⭐${g.rating}\n`); m.reply(txt); } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'upcominggames': {
+                try { const r = await RAWG.upcoming(); let txt = `🔜 *Upcoming Games*\n\n`; r.results.forEach((g, i) => txt += `${i + 1}. *${g.name}* — 📅 ${g.released || 'TBA'}\n`); m.reply(txt); } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+
+            // ═══════════════════════════════════════════════════════════════
+            //  🃏 CASINO / BRAIN GAMES
+            // ═══════════════════════════════════════════════════════════════
+            case 'roulette': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <red/black/even/odd/number>`);
+                const bet = parseInt(args[0]); const choice = args[1].toLowerCase();
+                if (isNaN(bet) || db.users[m.sender].money < bet) return m.reply('Invalid bet or insufficient money.');
+                const r = rouletteSpin(); let win = false, mult = 0;
+                if (['red','black','even','odd'].includes(choice) && r.color.includes(choice === 'red' ? '🔴' : choice === 'black' ? '⚫' : choice === 'even' ? (r.even ? 'yes' : 'no') : !r.even ? 'yes' : 'no')) { win = true; mult = 2; }
+                else if (!isNaN(parseInt(choice)) && parseInt(choice) === r.res) { win = true; mult = 36; }
+                if (win) { db.users[m.sender].money += bet * mult; m.reply(`🎰 ${r.res} ${r.color}\n\n🎉 WIN! +${bet * mult}`); }
+                else { db.users[m.sender].money -= bet; m.reply(`🎰 ${r.res} ${r.color}\n\n💀 Lose -${bet}`); }
+            }
+            break
+            case 'crash': {
+                if (!args[0]) return m.reply(`Example: ${prefix + command} <amount> <auto-cashout-multiplier>`);
+                const bet = parseInt(args[0]); const target = parseFloat(args[1]) || 2.0;
+                if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+                db.users[m.sender].money -= bet;
+                const c = crash();
+                if (target <= c.crash) { const win = Math.floor(bet * target); db.users[m.sender].money += win; m.reply(`📈 Crashed at ${c.crash}x\n✅ You cashed out @ ${target}x\n🎉 +${win}`); }
+                else { m.reply(`📈 Crashed at ${c.crash}x\n💀 You aimed for ${target}x\nBUST!`); }
+            }
+            break
+            case 'dice': case 'roll': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <over/under> <number 2-11>`);
+                const bet = parseInt(args[0]); const mode = args[1]; const num = parseInt(args[2]);
+                if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+                const d1 = diceRoll(), d2 = diceRoll(), sum = d1 + d2;
+                const win = (mode === 'over' && sum > num) || (mode === 'under' && sum < num) || (mode === 'exact' && sum === num);
+                const mult = mode === 'exact' ? 5 : 2;
+                if (win) { db.users[m.sender].money += bet * mult; m.reply(`🎲 ${d1} + ${d2} = ${sum}\n🎉 WIN! +${bet * mult}`); }
+                else { db.users[m.sender].money -= bet; m.reply(`🎲 ${d1} + ${d2} = ${sum}\n💀 Lose`); }
+            }
+            break
+            case 'coin': case 'coinflip': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <heads/tails>`);
+                const bet = parseInt(args[0]); const side = args[1].toLowerCase(); const r = coinflip();
+                if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+                if (side === r) { db.users[m.sender].money += bet; m.reply(`🪙 ${r}\n🎉 WIN +${bet}`); }
+                else { db.users[m.sender].money -= bet; m.reply(`🪙 ${r}\n💀 Lose`); }
+            }
+            break
+            case 'rps': case 'suitpro': {
+                const choices = ['rock','paper','scissors','lizard','spock'];
+                if (!args[0] || !choices.includes(args[0])) return m.reply(`Pick: rock, paper, scissors, lizard, spock`);
+                const p1 = args[0]; const p2 = pickRandom(choices);
+                const res = rpsls(p1, p2);
+                m.reply(`You: ${p1}\nBot: ${p2}\n\n${res === 'draw' ? '🤝 Draw' : res === 'p1' ? '🎉 You win!' : '💀 Bot wins!'}`);
+            }
+            break
+            case 'math': case 'mathquiz': {
+                const diff = args[0] || 'medium';
+                const q = mathQuiz(diff);
+                db.users[m.sender]._math = q;
+                m.reply(`🧠 *Math Quiz [${diff}]*\n${q.q}\n\nReply with the answer.`);
+            }
+            break
+            case 'anagram': case 'scramble': {
+                const a = anagram();
+                db.users[m.sender]._anagram = a.original;
+                m.reply(`🔤 Unscramble: *${a.scrambled}*\n\nReply with the correct word.`);
+            }
+            break
+            case 'guessnum': case 'gtn': {
+                db.users[m.sender]._gtn = numberGuess(parseInt(args[0]) || 1, parseInt(args[1]) || 100);
+                m.reply(`🔢 Guess the number between ${db.users[m.sender]._gtn.min} and ${db.users[m.sender]._gtn.max}`);
+            }
+            break
+            case 'trivia': {
+                try {
+                    const q = await TriviaMaster.get(args[0], args[1]);
+                    db.users[m.sender]._trivia = q.correct;
+                    let txt = `🎯 *Trivia* — ${q.category} | ${q.difficulty}\n\n${q.q}\n\n`;
+                    q.options.forEach((o, i) => txt += `${String.fromCharCode(65 + i)}. ${o}\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ Trivia failed'); }
+            }
+            break
+            case 'pokemon': {
+                try {
+                    const p = await PokemonGame.random();
+                    db.users[m.sender]._pokemon = p.name;
+                    await nimesha.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n\n${p.desc.slice(0, 120)}...\n\nReply with the name!` }, { quoted: m });
+                } catch (e) { m.reply('❌ Pokemon API error'); }
+            }
+            break
+            case 'numbers': {
+                try { const t = await NumbersGame.trivia(); m.reply(`🔢 *Did you know?*\n${t}`); } catch (e) { m.reply('❌ Error'); }
+            }
+            break
+
+            // ═══════════════════════════════════════════════════════════════
+            //  🧙 RPG SYSTEM
+            // ═══════════════════════════════════════════════════════════════
+            case 'rpg': case 'adventure': {
+                if (!db.users[m.sender].rpg) db.users[m.sender].rpg = new RPGAdventure(m.sender);
+                const r = db.users[m.sender].rpg;
+                if (args[0] === 'fight' || args[0] === 'attack') {
+                    if (!r.enemy) r.spawn();
+                    const res = r.attack();
+                    if (res.dead) { delete db.users[m.sender].rpg; m.reply(`💀 You died on floor ${r.floor}! Game over.`); }
+                    else if (res.win) { m.reply(`⚔️ Victory! +${res.gold} gold, +${res.xp} XP${res.levelup ? '\n🆙 LEVEL UP!' : ''}\n\n${r.fmt()}`); }
+                    else m.reply(`⚔️ You dealt ${res.dmg}, enemy dealt ${res.edmg}\nEnemy HP: ${res.ehp}\n${r.fmt()}`);
+                } else if (args[0] === 'heal') { const h = r.heal(); m.reply(h === 'poor' ? 'Need 10 gold' : `❤️ Healed! HP: ${h.hp}\n${r.fmt()}`); }
+                else if (args[0] === 'spawn') { r.spawn(); m.reply(`👹 ${r.enemy.name} appeared!\n${r.fmt()}`); }
+                else { m.reply(r.fmt()); }
+            }
+            break
+
+            // ═══════════════════════════════════════════════════════════════
+            //  🎬 MOVIE / SHOW / ANIME COMMANDS
+            // ═══════════════════════════════════════════════════════════════
+            case 'tv': case 'tvmaze': {
+                if (!text) return m.reply(`Example: ${prefix + command} breaking bad`);
+                try {
+                    const r = await TVMaze.search(text);
+                    if (!r.length) return m.reply('No shows found.');
+                    const s = r[0].show;
+                    m.reply(TVMaze.fmtShow(s));
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'episodes': case 'eps': {
+                if (!args[0]) return m.reply(`Example: ${prefix + command} <tvmaze-show-id>`);
+                try {
+                    const e = await TVMaze.episodes(args[0]);
+                    let txt = `📺 *Episodes*\n`; e.slice(-20).forEach(x => txt += `S${String(x.season).padStart(2, '0')}E${String(x.number).padStart(2, '0')} — ${x.name}\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'tvschedule': case 'ontv': {
+                try {
+                    const s = await TVMaze.schedule('US');
+                    let txt = `📡 *Airing Today (US)*\n\n`; s.slice(0, 15).forEach(x => txt += `• ${x.show.name} — ${x.name} (${x.show.network?.name || 'Web'})\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'anime': {
+                if (!text) return m.reply(`Example: ${prefix + command} attack on titan`);
+                try {
+                    const r = await AniList.searchAnime(text, 1, 5);
+                    if (!r.Page.media.length) return m.reply('No anime found.');
+                    const a = r.Page.media[0];
+                    await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtAnime(a) }, { quoted: m });
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'manga': {
+                if (!text) return m.reply(`Example: ${prefix + command} one piece`);
+                try {
+                    const r = await AniList.searchManga(text, 1, 5);
+                    if (!r.Page.media.length) return m.reply('No manga found.');
+                    const a = r.Page.media[0];
+                    await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtManga(a) }, { quoted: m });
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'trendinganime': {
+                try {
+                    const r = await AniList.trending();
+                    let txt = `🔥 *Trending Anime*\n\n`; r.Page.media.forEach((a, i) => txt += `${i + 1}. *${a.title.english || a.title.romaji}* — ⭐${a.averageScore}\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'jikan': {
+                if (!text) return m.reply(`Example: ${prefix + command} naruto`);
+                try {
+                    const r = await Jikan.anime(text);
+                    if (!r?.length) return m.reply('No results.');
+                    const a = r[0];
+                    m.reply(`📺 *${a.title}*\n⭐ ${a.score || '?'}/10 | 🎭 ${(a.genres || []).map(g => g.name).join(', ')}\n📁 Episodes: ${a.episodes || '?'}\n📝 ${a.synopsis?.slice(0, 300) || '-'}\n🔗 ${a.url}`);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'topanime': {
+                try {
+                    const r = await Jikan.topAnime();
+                    let txt = `🏆 *Top Anime*\n\n`; r.slice(0, 10).forEach((a, i) => txt += `${i + 1}. *${a.title}* — ⭐${a.score}\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+            case 'moviequote': case 'emojimovie': {
+                const mg = new MovieGuesser(); const q = mg.random();
+                db.users[m.sender]._movieguess = q.t;
+                m.reply(`🎬 Guess the movie:\n\n${q.e}\n\nReply with the title!`);
+            }
+            break
+            case 'season': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <imdb-id> <season-number>`);
+                try {
+                    const s = await OMDB.season(args[0], args[1]);
+                    let txt = `📂 *${s.Title} — Season ${s.Season}*\n\n`; (s.Episodes || []).forEach(e => txt += `E${e.Episode} — ${e.Title} ⭐${e.imdbRating}\n`);
+                    m.reply(txt);
+                } catch (e) { m.reply('❌ ' + e.message); }
+            }
+            break
+
+            // ═══════════════════════════════════════════════════════════════
+            //  ⚽ SPORTS COMMANDS (API Sports + Odds + ESPN)
+            // ═══════════════════════════════════════════════════════════════
+            case 'leagues': case 'football': {
+                await m.reply('⚽ Fetching football leagues...');
+                try {
+                    const leagues = await APISports.leagues({ current: 'true' });
+                    if (!leagues.length) return m.reply('No leagues found.');
+                    let txt = `📋 *Football Leagues*\n\n`;
+                    leagues.slice(0, 15).forEach(l => { txt += `• *${l.league.name}* (${l.country.name})\n  ID: ${l.league.id}\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'fixtures': case 'matches': {
+                if (!text) return m.reply(`Example: ${prefix}fixtures <league-id>\nExample: ${prefix}fixtures 39 (Premier League)`);
+                const league = parseInt(text);
+                if (isNaN(league)) return m.reply('Invalid league ID.');
+                await m.reply('⚽ Fetching fixtures...');
+                try {
+                    const fixtures = await APISports.fixtures({ league, season: '2025', next: 10 });
+                    if (!fixtures.length) return m.reply('No fixtures found.');
+                    let txt = `📅 *Upcoming Fixtures*\n\n`;
+                    fixtures.forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'live': case 'livescore': {
+                const league = parseInt(text) || 39;
+                await m.reply('⚽ Fetching live scores...');
+                try {
+                    const live = await APISports.live(league);
+                    if (!live.length) return m.reply('No live matches.');
+                    let txt = `🔥 *Live Scores*\n\n`;
+                    live.forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'standings': case 'table': {
+                if (!text) return m.reply(`Example: ${prefix}standings <league-id>\nExample: ${prefix}standings 39`);
+                const league = parseInt(text);
+                if (isNaN(league)) return m.reply('Invalid league ID.');
+                await m.reply('📊 Fetching standings...');
+                try {
+                    const standings = await APISports.standings(league, '2025');
+                    if (!standings.length) return m.reply('No standings found.');
+                    m.reply(APISports.fmtStandings({ league: { name: 'League', standings: standings } }));
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'team': {
+                if (!text) return m.reply(`Example: ${prefix}team <team-id>\nExample: ${prefix}team 33`);
+                const id = parseInt(text);
+                if (isNaN(id)) return m.reply('Invalid team ID.');
+                await m.reply('🏟️ Fetching team info...');
+                try {
+                    const team = await APISports.team(id);
+                    m.reply(APISports.fmtTeam(team[0] || {}));
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'player': {
+                if (!text) return m.reply(`Example: ${prefix}player <player-id>\nExample: ${prefix}player 276`);
+                const id = parseInt(text);
+                if (isNaN(id)) return m.reply('Invalid player ID.');
+                await m.reply('👤 Fetching player info...');
+                try {
+                    const player = await APISports.player(id, '2025');
+                    m.reply(APISports.fmtPlayer(player[0] || {}));
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'h2h': case 'headtohead': {
+                if (!text) return m.reply(`Example: ${prefix}h2h <team1-id>-<team2-id>\nExample: ${prefix}h2h 33-40`);
+                const [t1, t2] = text.split('-').map(x => parseInt(x.trim()));
+                if (isNaN(t1) || isNaN(t2)) return m.reply('Invalid format. Use: 33-40');
+                await m.reply('⚽ Fetching head-to-head...');
+                try {
+                    const h2h = await APISports.headToHead(`${t1}-${t2}`);
+                    if (!h2h.length) return m.reply('No matches found.');
+                    let txt = `⚔️ *Head to Head*\n\n`;
+                    h2h.slice(0, 5).forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'predict': case 'prediction': {
+                if (!text) return m.reply(`Example: ${prefix}prediction <fixture-id>`);
+                const id = parseInt(text);
+                if (isNaN(id)) return m.reply('Invalid fixture ID.');
+                await m.reply('🔮 Fetching prediction...');
+                try {
+                    const pred = await APISports.predictions(id);
+                    if (!pred.length) return m.reply('No prediction available.');
+                    const p = pred[0];
+                    let txt = `🔮 *Match Prediction*\n\n`;
+                    txt += `⚽ ${p.teams?.home?.name} vs ${p.teams?.away?.name}\n\n`;
+                    txt += `📊 *Win Probability*\n`;
+                    txt += `Home: ${p.predictions?.percent?.home || '?'}%\n`;
+                    txt += `Draw: ${p.predictions?.percent?.draw || '?'}%\n`;
+                    txt += `Away: ${p.predictions?.percent?.away || '?'}%\n`;
+                    txt += `\n💡 *Advice:* ${p.predictions?.advice || 'N/A'}`;
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'odds': case 'betting': {
+                if (!text) return m.reply(`Example: ${prefix}odds <sport-key>\nExample: ${prefix}odds soccer_epl`);
+                const sport = text.trim();
+                await m.reply('🎲 Fetching odds...');
+                try {
+                    const odds = await OddsAPI.odds(sport, 'us', 'h2h');
+                    if (!odds.length) return m.reply('No odds found.');
+                    let txt = `🎲 *Betting Odds*\n\n`;
+                    odds.slice(0, 5).forEach(e => { txt += `${OddsAPI.fmtOdds(e)}\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'sports': {
+                await m.reply('🎲 Fetching available sports...');
+                try {
+                    const sports = await OddsAPI.sports();
+                    if (!sports.length) return m.reply('No sports found.');
+                    let txt = `🏈 *Available Sports*\n\n`;
+                    sports.forEach(s => { txt += `• *${s.title}* — Key: \`${s.key}\` ${s.active ? '🟢' : '🔴'}\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'espn': case 'scoreboard': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix}espn <sport> <league>\nExample: ${prefix}espn soccer eng.1`);
+                const sport = args[0]; const league = args[1];
+                await m.reply('📺 Fetching ESPN scoreboard...');
+                try {
+                    const sb = await ESPN.scoreboard(sport, league);
+                    m.reply(ESPN.fmtScoreboard(sb));
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+            case 'espnnews': case 'sportsnews': {
+                if (!args[0] || !args[1]) return m.reply(`Example: ${prefix}espnnews <sport> <league>\nExample: ${prefix}espnnews soccer eng.1`);
+                const sport = args[0]; const league = args[1];
+                await m.reply('📰 Fetching news...');
+                try {
+                    const news = await ESPN.news(sport, league);
+                    let txt = `📰 *ESPN News*\n\n`;
+                    news.articles?.slice(0, 5).forEach(a => { txt += `• *${a.headline}*\n  ${a.description?.slice(0, 80)}...\n  🔗 ${a.links?.web?.href}\n\n`; });
+                    m.reply(txt);
+                } catch (e) { m.reply(`❌ ${e.message}`); }
+            }
+            break
+
+            // ═══════════════════════════════════════════════════════════════
+            //  🎮 CONNECT 4 (Multiplayer)
+            // ═══════════════════════════════════════════════════════════════
+            case 'connect4': case 'c4': {
+                if (!m.isGroup) return m.reply('This game is only available in groups.');
+                const opponent = m.mentionedJid?.[0];
+                if (!opponent) return m.reply(`Mention an opponent!\nExample: ${prefix}connect4 @user`);
+                if (opponent === m.sender) return m.reply('You cannot play against yourself!');
+                if (opponent === botNumber) return m.reply('Bot cannot play Connect 4 yet.');
+                if (!db.game.connect4) db.game.connect4 = {};
+                const existing = Object.values(db.game.connect4).find(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender));
+                if (existing) return m.reply('You are already in an active game! Finish it first.');
+                const gameId = `c4_${Date.now()}`;
+                const board = Array(6).fill().map(() => Array(7).fill(0));
+                const firstTurn = Math.random() < 0.5 ? 1 : 2;
+                db.game.connect4[gameId] = { id: gameId, player1: m.sender, player2: opponent, turn: firstTurn, board: board, state: 'PLAYING', lastMove: Date.now() };
+                const symbols = { 0: '⚪', 1: '🔴', 2: '🟡' };
+                let boardStr = '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n';
+                for (let r = 0; r < 6; r++) { for (let c = 0; c < 7; c++) { boardStr += symbols[board[r][c]]; } boardStr += '\n'; }
+                boardStr += '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣';
+                const firstPlayer = firstTurn === 1 ? m.sender : opponent;
+                await m.reply(`🎮 *Connect 4 Started!*\n🔴 @${m.sender.split('@')[0]} vs 🟡 @${opponent.split('@')[0]}\n\nFirst turn: @${firstPlayer.split('@')[0]}\n\n${boardStr}\n\nReply with column number (1-7) to drop your piece.`, { mentions: [m.sender, opponent] });
+            }
+            break
                     default:
                     m.reply('Use commands:\n- backup all\n- backup auto\n- backup session\n- backup database');
                 }
@@ -2285,58 +2809,82 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             // ===== AI COMMANDS =====
             case 'gpt': case 'chatgpt': case 'openai': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                await m.reply('🧠 *Processing...*');
-                const res = await AI.ultimateAI(text, m.sender, 'gpt');
-                await m.reply(`🤖 *${res.provider.toUpperCase()}*\n\n${res.text}`);
+                await m.reply('🧠 *Groq AI thinking...*');
+                try {
+                    const res = await AI.askModel(text, 'gpt', m.sender);
+                    await m.reply(`🤖 *GPT (Groq)*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'poe': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                await m.reply('⚡ *Querying POE...*');
-                const res = await AI.poeChat(text, 'Claude-Opus-4.6', m.sender);
-                await m.reply(`🧠 *POE Response*\n\n${res}`);
+                await m.reply('⚡ *Using Groq AI...*');
+                try {
+                    const res = await AI.ultimateAI(text, m.sender);
+                    await m.reply(`🧠 *AI Response*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'gemini': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                await m.reply('✨ *Gemini thinking...*');
-                const res = await AI.gemini(text);
-                await m.reply(`♊ *Gemini:*\n\n${res}`);
+                await m.reply('♊ *Gemini (via Groq)* thinking...');
+                try {
+                    const res = await AI.askModel(text, 'gemini', m.sender);
+                    await m.reply(`♊ *Gemini*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'llama': case 'llama3': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                const res = await AI.llama3(text);
-                await m.reply(`🦙 *Llama3:*\n\n${res}`);
+                await m.reply('🦙 *Llama 3 thinking...*');
+                try {
+                    const res = await AI.askModel(text, 'llama', m.sender);
+                    await m.reply(`🦙 *Llama 3*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'deepseek': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                const res = await AI.deepseek(text);
-                await m.reply(`🐋 *DeepSeek:*\n\n${res}`);
+                await m.reply('🐋 *DeepSeek (via Groq)* thinking...');
+                try {
+                    const res = await AI.askModel(text, 'deepseek', m.sender);
+                    await m.reply(`🐋 *DeepSeek*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'ai': case 'ask': case 'brain': {
                 if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-                await m.reply('🌐 *Ultimate AI Chain...*');
-                const res = await AI.ultimateAI(text, m.sender, 'poe');
-                await m.reply(`🎯 *${res.provider.toUpperCase()}*\n\n${res.text}`);
+                await m.reply('🌐 *Ultimate AI thinking...*');
+                try {
+                    const res = await AI.ultimateAI(text, m.sender);
+                    await m.reply(`🎯 *${res.provider}*\n\n${res.text}`);
+                } catch (e) {
+                    await m.reply(`❌ AI error: ${e.message}`);
+                }
             }
             break
             case 'imagine': case 'aiimage': case 'draw': case 'create': {
                 if (!text) return m.reply(`Example: ${prefix + command} <prompt>`);
                 await m.reply('🎨 *Generating image...*');
                 const url = await AI.imagine(text);
-                await nimesha.sendMessage(m.chat, { image: { url }, caption: `🎨 ${text}` }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { image: { url }, caption: `🎨 *${text}*` }, { quoted: m });
             }
             break
             case 'poeimage': {
                 if (!text) return m.reply(`Example: ${prefix + command} <prompt>`);
-                await m.reply('🖼️ *POE Image Gen...*');
-                const res = await Poe.generateImage(text, 'FLUX-pro');
-                const url = res.data?.[0]?.url;
-                if (url) await nimesha.sendMessage(m.chat, { image: { url }, caption: `🖼️ ${text}` }, { quoted: m });
-                else m.reply('Failed');
+                await m.reply('🖼️ *Generating image...*');
+                const url = await AI.imagine(text);
+                await nimesha.sendMessage(m.chat, { image: { url }, caption: `🖼️ ${text}` }, { quoted: m });
             }
             break
             case 'translate': case 'tr': {
@@ -2349,27 +2897,40 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             break
             case 'tts': {
                 if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-                const gTTS = require('gtts');
-                const tts = new gTTS(text, 'en');
-                const file = path.join(__dirname, 'database', 'temp', `${Date.now()}.mp3`);
-                tts.save(file, async () => {
-                    await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(file), mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
-                    fs.unlinkSync(file);
-                });
+                const lang = 'en';
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
+                try {
+                    const fetch = require('node-fetch');
+                    const audioBuffer = await fetch(url).then(r => r.buffer());
+                    await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+                } catch {
+                    try {
+                        const gTTS = require('gtts');
+                        const tts = new gTTS(text, 'en');
+                        const file = path.join(__dirname, 'database', 'temp', `${Date.now()}.mp3`);
+                        tts.save(file, async () => {
+                            await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(file), mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+                            fs.unlinkSync(file);
+                        });
+                    } catch (e) {
+                        m.reply('❌ TTS failed: ' + e.message);
+                    }
+                }
             }
             break
             case 'summarize': {
-                const msgs = store?.messages[m.chat]?.array?.slice(-30) || [];
-                const convo = msgs.map(msg => msg.body).filter(Boolean).join('\n');
-                if (!convo) return m.reply('No recent conversation');
-                const res = await AI.summarize(convo);
-                await m.reply(`📋 *Summary:*\n\n${res.text}`);
+                if (!m.quoted) return m.reply('Reply to a long message to summarize');
+                const toSummarize = m.quoted.body || m.quoted.text || '';
+                if (!toSummarize) return m.reply('No text to summarize');
+                await m.reply('📋 *Summarizing...*');
+                const summary = await AI.summarize(toSummarize);
+                await m.reply(`📋 *Summary:*\n\n${summary}`);
             }
             break
             case 'code': case 'coding': case 'program': {
                 if (!text) return m.reply(`Example: ${prefix + command} <description>`);
                 const lang = args[0].startsWith('--') ? args.shift().slice(2) : 'javascript';
-                const res = await AI.codeAI(args.join(' '), lang);
+                const res = await AI.codeAI(text, lang);
                 await m.reply(`💻 *${lang.toUpperCase()} Code:*\n\n\`\`\`${lang}\n${res.text}\n\`\`\``);
             }
             break
@@ -2380,7 +2941,7 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
             }
             break
             case 'roastai': {
-                if (!text) return m.reply(`Example: ${prefix + command} <name>`);
+                if (!text) return m.reply(`Example: ${prefix + command} <name/thing>`);
                 const res = await AI.roast(text);
                 await m.reply(`🔥 *AI Roast:*\n${res.text}`);
             }
@@ -2396,12 +2957,12 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 await m.reply('🧹 AI memory cleared');
             }
             break
-            case 'poebalance': {
+            case 'poebalance': case 'aibalance': {
                 try {
-                    const bal = await Poe.getBalance();
-                    await m.reply(`💰 *POE Balance:* ${bal.current_point_balance} points`);
+                    const bal = await AI.getBalance();
+                    await m.reply(`💰 *AI Service Status*\n\nBalance: ${bal.current_point_balance}\nRate Limit: ${bal.rate_limit}\nModels: ${bal.models_available.join(', ')}`);
                 } catch (e) {
-                    await m.reply('❌ Failed to fetch balance');
+                    await m.reply('❌ Failed to fetch status');
                 }
             }
             break
@@ -3202,148 +3763,21 @@ module.exports = nimesha = async (nimesha, m, msg, store) => {
                 // Primary: interactive carousel with local images and formatted commands
                 try {
                     const carouselCards = [
-                        {
-                            url: './database/menucards/bot.png',
-                            body: `🤖 *BOT*\n\n` +
-                                  `▸ ${prefix}alive\n▸ ${prefix}ping\n▸ ${prefix}info\n▸ ${prefix}owner\n` +
-                                  `▸ ${prefix}runtime\n▸ ${prefix}speed\n▸ ${prefix}staff\n▸ ${prefix}profile\n` +
-                                  `▸ ${prefix}leaderboard\n▸ ${prefix}totalpesan\n▸ ${prefix}sc\n▸ ${prefix}donasi`,
-                            footer: 'Bot utilities & info',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Stats', id: `${prefix}stats` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/group.png',
-                            body: `👥 *GROUP*\n\n` +
-                                  `▸ ${prefix}add\n▸ ${prefix}kick\n▸ ${prefix}promote\n▸ ${prefix}demote\n` +
-                                  `▸ ${prefix}tagall\n▸ ${prefix}hidetag\n▸ ${prefix}setname\n▸ ${prefix}setdesc\n` +
-                                  `▸ ${prefix}groupinfo\n▸ ${prefix}linkgroup\n▸ ${prefix}revoke\n▸ ${prefix}welcome\n▸ ${prefix}goodbye`,
-                            footer: 'Manage your group efficiently',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔗 Link Group', id: `${prefix}linkgroup` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/download.png',
-                            body: `⬇️ *DOWNLOAD*\n\n` +
-                                  `▸ ${prefix}song\n▸ ${prefix}video\n▸ ${prefix}tiktok\n▸ ${prefix}instagram\n` +
-                                  `▸ ${prefix}facebook\n▸ ${prefix}twitter\n▸ ${prefix}spotify\n▸ ${prefix}mediafire\n` +
-                                  `▸ ${prefix}apk\n▸ ${prefix}play`,
-                            footer: 'Download from 20+ platforms',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎵 Song', id: `${prefix}song ` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/ai.png',
-                            body: `🧠 *AI*\n\n` +
-                                  `▸ ${prefix}gpt\n▸ ${prefix}gemini\n▸ ${prefix}llama\n▸ ${prefix}deepseek\n` +
-                                  `▸ ${prefix}ai\n▸ ${prefix}imagine\n▸ ${prefix}translate\n▸ ${prefix}tts\n` +
-                                  `▸ ${prefix}summarize\n▸ ${prefix}code\n▸ ${prefix}brainrot`,
-                            footer: 'Chat with advanced AI models',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💬 GPT', id: `${prefix}gpt ` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/sticker.png',
-                            body: `🎨 *STICKER*\n\n` +
-                                  `▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n` +
-                                  `▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n` +
-                                  `▸ ${prefix}brat\n▸ ${prefix}smeme`,
-                            footer: 'Create and edit stickers',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🖼️ Sticker', id: `${prefix}sticker` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/games.png',
-                            body: `🎮 *GAMES*\n\n` +
-                                  `▸ ${prefix}tictactoe\n▸ ${prefix}suit\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n` +
-                                  `▸ ${prefix}chess\n▸ ${prefix}akinator\n▸ ${prefix}wordle\n▸ ${prefix}hangman\n` +
-                                  `▸ ${prefix}math\n▸ ${prefix}tebaklagu`,
-                            footer: 'Fun games to play with friends',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '♟️ TicTacToe', id: `${prefix}tictactoe` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/fun.png',
-                            body: `😂 *FUN*\n\n` +
-                                  `▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n` +
-                                  `▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n` +
-                                  `▸ ${prefix}truth\n▸ ${prefix}dare\n▸ ${prefix}bisakah`,
-                            footer: 'Entertainment & random fun',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎱 8ball', id: `${prefix}8ball ` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/admin.png',
-                            body: `🛠️ *ADMIN*\n\n` +
-                                  `▸ ${prefix}ban\n▸ ${prefix}unban\n▸ ${prefix}mute\n▸ ${prefix}unmute\n` +
-                                  `▸ ${prefix}warn\n▸ ${prefix}unwarn\n▸ ${prefix}clear\n▸ ${prefix}delete\n` +
-                                  `▸ ${prefix}pin\n▸ ${prefix}unpin`,
-                            footer: 'Admin & moderation tools',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛠️ Admin Menu', id: `${prefix}adminmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔇 Mute', id: `${prefix}mute` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/search.png',
-                            body: `🔍 *SEARCH*\n\n` +
-                                  `▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n` +
-                                  `▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n` +
-                                  `▸ ${prefix}npm\n▸ ${prefix}iplookup\n▸ ${prefix}whois\n▸ ${prefix}dns`,
-                            footer: 'Search the web instantly',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🌐 Google', id: `${prefix}google ` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/movies.png',
-                            body: `🎬 *MOVIES*\n\n` +
-                                  `▸ ${prefix}movie\n▸ ${prefix}film\n▸ ${prefix}imdb\n▸ ${prefix}series\n` +
-                                  `▸ ${prefix}rating\n▸ ${prefix}cinema`,
-                            footer: 'Movie info & ratings',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📽️ Movie', id: `${prefix}movie ` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/master.png',
-                            body: `📊 *MASTER*\n\n` +
-                                  `▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n` +
-                                  `▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`,
-                            footer: 'Advanced features & tools',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }
-                            ]
-                        },
-                        {
-                            url: './database/menucards/owner.png',
-                            body: `👑 *OWNER*\n\n` +
-                                  `▸ ${prefix}block\n▸ ${prefix}unblock\n▸ ${prefix}ban\n▸ ${prefix}unban\n` +
-                                  `▸ ${prefix}addprem\n▸ ${prefix}delprem\n▸ ${prefix}backup\n▸ ${prefix}shutdown\n` +
-                                  `▸ ${prefix}restart\n▸ ${prefix}join\n▸ ${prefix}leave`,
-                            footer: 'Bot management (owner only)',
-                            buttons: [
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) },
-                                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed Test', id: `${prefix}speed` }) }
-                            ]
-                        }
+                        { url: './database/menucards/bot.png', body: `🤖 *BOT*\n\n▸ ${prefix}alive\n▸ ${prefix}ping\n▸ ${prefix}info\n▸ ${prefix}owner\n▸ ${prefix}runtime\n▸ ${prefix}speed\n▸ ${prefix}staff\n▸ ${prefix}profile\n▸ ${prefix}leaderboard\n▸ ${prefix}totalpesan\n▸ ${prefix}sc\n▸ ${prefix}donasi`, footer: 'Bot utilities & info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Stats', id: `${prefix}stats` }) }] },
+                        { url: './database/menucards/group.png', body: `👥 *GROUP*\n\n▸ ${prefix}add\n▸ ${prefix}kick\n▸ ${prefix}promote\n▸ ${prefix}demote\n▸ ${prefix}tagall\n▸ ${prefix}hidetag\n▸ ${prefix}setname\n▸ ${prefix}setdesc\n▸ ${prefix}groupinfo\n▸ ${prefix}linkgroup\n▸ ${prefix}revoke\n▸ ${prefix}welcome\n▸ ${prefix}goodbye`, footer: 'Manage your group', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔗 Link Group', id: `${prefix}linkgroup` }) }] },
+                        { url: './database/menucards/download.png', body: `⬇️ *DOWNLOAD*\n\n▸ ${prefix}song\n▸ ${prefix}video\n▸ ${prefix}tiktok\n▸ ${prefix}instagram\n▸ ${prefix}facebook\n▸ ${prefix}twitter\n▸ ${prefix}spotify\n▸ ${prefix}mediafire\n▸ ${prefix}apk\n▸ ${prefix}play`, footer: 'Download from 20+ platforms', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎵 Song', id: `${prefix}song ` }) }] },
+                        { url: './database/menucards/ai.png', body: `🧠 *AI*\n\n▸ ${prefix}gpt\n▸ ${prefix}gemini\n▸ ${prefix}llama\n▸ ${prefix}deepseek\n▸ ${prefix}ai\n▸ ${prefix}imagine\n▸ ${prefix}translate\n▸ ${prefix}tts\n▸ ${prefix}summarize\n▸ ${prefix}code\n▸ ${prefix}brainrot`, footer: 'Chat with advanced AI', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💬 GPT', id: `${prefix}gpt ` }) }] },
+                        { url: './database/menucards/sticker.png', body: `🎨 *STICKER*\n\n▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n▸ ${prefix}brat\n▸ ${prefix}smeme`, footer: 'Create and edit stickers', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🖼️ Sticker', id: `${prefix}sticker` }) }] },
+                        { url: './database/menucards/games.png', body: `🎮 *GAMES*\n\n▸ ${prefix}connect4 @user\n▸ ${prefix}suit @user\n▸ ${prefix}chess @user\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n▸ ${prefix}akinator\n▸ ${prefix}wordle\n▸ ${prefix}hangman\n▸ ${prefix}math\n▸ ${prefix}tebaklagu`, footer: 'Multiplayer & solo games', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔴 Connect4', id: `${prefix}connect4 ` }) }] },
+                        { url: './database/menucards/fun.png', body: `😂 *FUN*\n\n▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n▸ ${prefix}truth\n▸ ${prefix}dare\n▸ ${prefix}bisakah`, footer: 'Entertainment & random fun', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎱 8ball', id: `${prefix}8ball ` }) }] },
+                        { url: './database/menucards/admin.png', body: `🛠️ *ADMIN*\n\n▸ ${prefix}ban\n▸ ${prefix}unban\n▸ ${prefix}mute\n▸ ${prefix}unmute\n▸ ${prefix}warn\n▸ ${prefix}unwarn\n▸ ${prefix}clear\n▸ ${prefix}delete\n▸ ${prefix}pin\n▸ ${prefix}unpin`, footer: 'Admin & moderation tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛠️ Admin Menu', id: `${prefix}adminmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔇 Mute', id: `${prefix}mute` }) }] },
+                        { url: './database/menucards/search.png', body: `🔍 *SEARCH*\n\n▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n▸ ${prefix}npm\n▸ ${prefix}iplookup\n▸ ${prefix}whois\n▸ ${prefix}dns`, footer: 'Search the web instantly', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🌐 Google', id: `${prefix}google ` }) }] },
+                        { url: './database/menucards/movies.png', body: `🎬 *MOVIES*\n\n▸ ${prefix}movie\n▸ ${prefix}film\n▸ ${prefix}imdb\n▸ ${prefix}series\n▸ ${prefix}rating\n▸ ${prefix}tv\n▸ ${prefix}anime`, footer: 'Movie & TV show info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📽️ Movie', id: `${prefix}movie ` }) }] },
+                        { url: './database/menucards/sports.png', body: `⚽ *SPORTS*\n\n▸ ${prefix}leagues\n▸ ${prefix}fixtures <league>\n▸ ${prefix}live\n▸ ${prefix}standings <league>\n▸ ${prefix}team <id>\n▸ ${prefix}player <id>\n▸ ${prefix}odds <sport>\n▸ ${prefix}espn`, footer: 'Live scores, stats & betting', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚽ Sports Menu', id: `${prefix}sportsmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔥 Live', id: `${prefix}live` }) }] },
+                        { url: './database/menucards/casino.png', body: `🎰 *CASINO*\n\n▸ ${prefix}slot\n▸ ${prefix}roulette <bet> <choice>\n▸ ${prefix}crash <bet> <mult>\n▸ ${prefix}dice <bet> over/under <num>\n▸ ${prefix}coin <bet> heads/tails\n▸ ${prefix}rps rock/paper/scissors`, footer: 'Bet & win virtual coins', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎰 Casino Menu', id: `${prefix}casinomenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎲 Roulette', id: `${prefix}roulette ` }) }] },
+                        { url: './database/menucards/rpg.png', body: `🧙 *RPG*\n\n▸ ${prefix}rpg – View stats\n▸ ${prefix}rpg fight – Attack\n▸ ${prefix}rpg heal – Heal (10 gold)\n▸ ${prefix}rpg spawn – New enemy`, footer: 'Adventure & level up', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧙 RPG Menu', id: `${prefix}rpgmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚔️ Fight', id: `${prefix}rpg fight` }) }] },
+                        { url: './database/menucards/master.png', body: `📊 *MASTER*\n\n▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`, footer: 'Advanced features & tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }] },
+                        { url: './database/menucards/owner.png', body: `👑 *OWNER*\n\n▸ ${prefix}block\n▸ ${prefix}unblock\n▸ ${prefix}ban\n▸ ${prefix}unban\n▸ ${prefix}addprem\n▸ ${prefix}delprem\n▸ ${prefix}backup\n▸ ${prefix}shutdown\n▸ ${prefix}restart\n▸ ${prefix}join\n▸ ${prefix}leave`, footer: 'Bot management (owner only)', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚡ Speed Test', id: `${prefix}speed` }) }] }
                     ];
 
                     const carouselBody = `╔══════════════════════╗
@@ -3678,7 +4112,82 @@ _Type ${prefix}help <command> for details_`;
                 await m.reply(masterMenuText);
             }
             break
+            // ===== SPORTS SUB‑MENU =====
+            case 'sportsmenu': {
+                const sportsMenuText = `╔══════════════════════╗
+║  *⚽ SPORTS COMMANDS*  ║
+╚══════════════════════╝
 
+📌 *Football (API Sports)*
+▸ ${prefix}leagues – List leagues & IDs
+▸ ${prefix}fixtures <league-id> – Upcoming matches
+▸ ${prefix}live – Live scores (Premier League)
+▸ ${prefix}standings <league-id> – League table
+▸ ${prefix}team <id> – Team info
+▸ ${prefix}player <id> – Player stats
+▸ ${prefix}h2h <id1>-<id2> – Head to head
+▸ ${prefix}predict <fixture-id> – Match prediction
+
+📌 *Betting (Odds API)*
+▸ ${prefix}sports – List available sports
+▸ ${prefix}odds <sport-key> – Current odds
+
+📌 *ESPN (Free)*
+▸ ${prefix}espn <sport> <league> – Live scoreboard
+▸ ${prefix}espnnews <sport> <league> – News
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(sportsMenuText);
+            }
+            break
+
+            // ===== CASINO SUB‑MENU =====
+            case 'casinomenu': {
+                const casinoMenuText = `╔══════════════════════╗
+║  *🎰 CASINO COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Games*
+▸ ${prefix}slot – Spin the slot machine
+▸ ${prefix}roulette <bet> <red/black/even/odd/number>
+▸ ${prefix}crash <bet> <multiplier> – Crash game
+▸ ${prefix}dice <bet> over/under <2-11>
+▸ ${prefix}coin <bet> heads/tails
+▸ ${prefix}rps <rock/paper/scissors/lizard/spock>
+
+📌 *Classic Casino*
+▸ ${prefix}casino <bet> – Simple number game
+▸ ${prefix}samgong <bet> – Card game
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(casinoMenuText);
+            }
+            break
+
+            // ===== RPG SUB‑MENU =====
+            case 'rpgmenu': {
+                const rpgMenuText = `╔══════════════════════╗
+║  *🧙 RPG ADVENTURE*  ║
+╚══════════════════════╝
+
+📌 *Commands*
+▸ ${prefix}rpg – View your stats
+▸ ${prefix}rpg fight – Attack current enemy
+▸ ${prefix}rpg heal – Heal 40 HP (costs 10 gold)
+▸ ${prefix}rpg spawn – Summon a new enemy
+
+📌 *How to Play*
+Defeat enemies to earn gold and XP.
+Level up to increase HP, attack, and defense.
+Reach higher floors for tougher enemies!
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(rpgMenuText);
+            }
+            break
             case 'ownermenu': {
                 const ownerMenuText = `╔══════════════════════╗
 ║  *👑 OWNER COMMANDS*  ║
@@ -3717,6 +4226,211 @@ _Type ${prefix}help <command> for details_`;
 ━━━━━━━━━━━━━━━━━━━━━━
 > *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
                 await m.reply(statsText);
+            }
+            break
+
+            // ===== MASTER SUB‑MENUS =====
+            case 'economymenu': {
+                const economyMenuText = `╔══════════════════════╗
+║  *💰 ECONOMY COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Actions*
+▸ ${prefix}daily – Claim daily reward
+▸ ${prefix}work – Work to earn coins
+▸ ${prefix}rob @user – Attempt to rob someone
+▸ ${prefix}balance – Check your balance
+▸ ${prefix}deposit <amount> – Deposit to bank
+▸ ${prefix}withdraw <amount> – Withdraw from bank
+▸ ${prefix}transfer @user <amount> – Send coins
+▸ ${prefix}lb – Leaderboard
+▸ ${prefix}buy <item> – Buy from shop
+▸ ${prefix}inventory – View your items
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(economyMenuText);
+            }
+            break
+
+            case 'dailymenu': {
+                const dailyMenuText = `╔══════════════════════╗
+║  *📅 DAILY TOOLS*  ║
+╚══════════════════════╝
+
+📌 *Reminders*
+▸ ${prefix}remindme <minutes> <text>
+▸ ${prefix}reminders – List reminders
+▸ ${prefix}clearme – Clear all reminders
+
+📌 *Notes*
+▸ ${prefix}note <title>|<content>
+▸ ${prefix}mynotes – View your notes
+▸ ${prefix}delnote <number> – Delete a note
+
+📌 *To‑Do*
+▸ ${prefix}todo <task>|<priority>
+▸ ${prefix}todos – List tasks
+▸ ${prefix}done <number> – Mark as done
+▸ ${prefix}cleartodo – Clear completed
+
+📌 *Habits*
+▸ ${prefix}habit <name> – Check in
+▸ ${prefix}habits – View habits
+
+📌 *Mood & Health*
+▸ ${prefix}mood <1-10> [note]
+▸ ${prefix}moodgraph – View history
+▸ ${prefix}water <ml> – Log water intake
+
+📌 *Finance*
+▸ ${prefix}expense <amount> <category>
+▸ ${prefix}myexpenses – View spending
+
+📌 *Shopping*
+▸ ${prefix}grocery <item> – Add to list
+▸ ${prefix}cleargrocery – Clear list
+
+📌 *Timers*
+▸ ${prefix}timer <minutes> [label]
+▸ ${prefix}alarm <HH:MM> [message]
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(dailyMenuText);
+            }
+            break
+
+            case 'healthmenu': {
+                const healthMenuText = `╔══════════════════════╗
+║  *💪 HEALTH COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Calculators*
+▸ ${prefix}bmi <kg> <cm>
+▸ ${prefix}bmr <kg> <cm> <age> <gender>
+▸ ${prefix}tdee <bmr> <activity>
+▸ ${prefix}macros <calories> [goal]
+▸ ${prefix}watercalc <kg>
+
+📌 *Fitness*
+▸ ${prefix}sleep – Wake‑up times
+▸ ${prefix}heartrate <age>
+▸ ${prefix}onerm <weight> <reps>
+▸ ${prefix}bodyfat <gender> <waist> <neck> <height>
+▸ ${prefix}workout [type]
+▸ ${prefix}yoga [pose]
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(healthMenuText);
+            }
+            break
+
+            case 'financemenu': {
+                const financeMenuText = `╔══════════════════════╗
+║  *📊 FINANCE COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Stocks & Crypto*
+▸ ${prefix}stock <symbol>
+▸ ${prefix}crypto <symbol>
+▸ ${prefix}portfolio – Your holdings
+▸ ${prefix}addstock <sym> <qty> <price>
+▸ ${prefix}addcrypto <sym> <qty> <price>
+
+📌 *Calculators*
+▸ ${prefix}tip <amount> <percent> [people]
+▸ ${prefix}loan <principal> <rate%> <months>
+▸ ${prefix}savings <goal> <monthly> [rate%]
+▸ ${prefix}forex <from> <to>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(financeMenuText);
+            }
+            break
+
+            case 'socialmenu': {
+                const socialMenuText = `╔══════════════════════╗
+║  *📱 SOCIAL COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Content Ideas*
+▸ ${prefix}bio [niche]
+▸ ${prefix}hashtag <topic>
+▸ ${prefix}caption [mood]
+▸ ${prefix}username <name> [style]
+▸ ${prefix}slogan [business]
+
+📌 *Communication*
+▸ ${prefix}email <purpose>
+▸ ${prefix}invoice <to> <amount> <desc>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(socialMenuText);
+            }
+            break
+
+            case 'devmenu': {
+                const devMenuText = `╔══════════════════════╗
+║  *💻 DEVELOPER TOOLS*  ║
+╚══════════════════════╝
+
+📌 *Utilities*
+▸ ${prefix}uuid – Generate UUID
+▸ ${prefix}password [length]
+▸ ${prefix}json <string> – Validate/format
+▸ ${prefix}regex <pattern> <flags> <text>
+▸ ${prefix}encode <type> <text>
+▸ ${prefix}decode <type> <text>
+▸ ${prefix}lorem [words]
+▸ ${prefix}palette – Color palette
+▸ ${prefix}qrvcard <name> <phone> <email>
+▸ ${prefix}qrwifi <ssid> <pass>
+▸ ${prefix}checksum – Reply to file
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(devMenuText);
+            }
+            break
+
+            case 'travelmenu': {
+                const travelMenuText = `╔══════════════════════╗
+║  *✈️ TRAVEL COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Planning*
+▸ ${prefix}packing <dest> <days> <weather>
+▸ ${prefix}itinerary <city> <days>
+▸ ${prefix}worldclock <city>
+▸ ${prefix}phrasebook [language]
+▸ ${prefix}convert <value> <from> <to>
+▸ ${prefix}detectlang <text>
+▸ ${prefix}readtime <text>
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(travelMenuText);
+            }
+            break
+
+            case 'foodmenu': {
+                const foodMenuText = `╔══════════════════════╗
+║  *🍔 FOOD COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Recipes & More*
+▸ ${prefix}recipe <dish>
+▸ ${prefix}cocktail [name]
+▸ ${prefix}substitute <ingredient>
+▸ ${prefix}mealprep [type]
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+                await m.reply(foodMenuText);
             }
             break
 

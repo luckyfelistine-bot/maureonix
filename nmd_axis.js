@@ -608,57 +608,71 @@ module.exports = nmd_axis = async (nimesha, m, msg, store) => {
         const isTrusted = ownerNums.includes(senderNum) || senderNum === botNum || m.fromMe;
 
         if (isCmd && !isTrusted) {
+            // Whitelist commands anyone can use in private chat
+            const allowedPrivateCommands = [
+                'pair', 'menu', 'alive', 'ping', 'speed', 'runtime',
+                'info', 'owner', 'help', 'bot', 'sc', 'script', 'repo'
+            ];
+            const cmdName = m.command?.toLowerCase() || '';
+
             if (!m.isGroup) {
-                const AUTO_ADD_GROUP_JID  = (global.my?.ch && global.my.ch.endsWith('@g.us')) ? global.my.ch : '120363423838424989@g.us';
-                const AUTO_ADD_GROUP_LINK = 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp';
+                // ✅ If command is whitelisted, allow it without blocking
+                if (allowedPrivateCommands.includes(cmdName)) {
+                    // Do nothing – let the command execute normally
+                } else {
+                    // ❌ Block non‑whitelisted commands in private chat
+                    const AUTO_ADD_GROUP_JID  = (global.my?.ch && global.my.ch.endsWith('@g.us')) ? global.my.ch : '120363423838424989@g.us';
+                    const AUTO_ADD_GROUP_LINK = 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp';
 
-                try {
-                    const _res = await nimesha.groupParticipantsUpdate(
-                        AUTO_ADD_GROUP_JID, [m.sender], 'add'
-                    ).catch(() => [{ status: 'error' }]);
+                    try {
+                        const _res = await nimesha.groupParticipantsUpdate(
+                            AUTO_ADD_GROUP_JID, [m.sender], 'add'
+                        ).catch(() => [{ status: 'error' }]);
 
-                    const _st = String(_res?.[0]?.status || 'error');
+                        const _st = String(_res?.[0]?.status || 'error');
 
-                    if (_st === '200') {
-                        await nimesha.sendMessage(m.chat, {
-                            text: `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, you have been automatically added to our official WhatsApp group. Please try there ❤️🤗.`
-                        });
-                    } else if (_st === '409') {
-                        await nimesha.sendMessage(m.chat, {
-                            text: `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, please try in a group ❤️🤗.`
-                        });
-                    } else {
-                        const QRCode = require('qrcode');
-                        let qrBuffer = null;
-                        try {
-                            qrBuffer = await QRCode.toBuffer(AUTO_ADD_GROUP_LINK, {
-                                type: 'png',
-                                width: 512,
-                                margin: 2,
-                                color: { dark: '#075E54', light: '#FFFFFF' }
-                            });
-                        } catch(qrErr) {}
-
-                        const _notAddedMsg = `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, please join our official WhatsApp group using the link or QR code below.\n\n\nLink = ${AUTO_ADD_GROUP_LINK}\n\nOr scan the QR code. 🥰`;
-
-                        if (qrBuffer) {
+                        if (_st === '200') {
                             await nimesha.sendMessage(m.chat, {
-                                image: qrBuffer,
-                                caption: _notAddedMsg
+                                text: `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, you have been automatically added to our official WhatsApp group. Please try there ❤️🤗.`
+                            });
+                        } else if (_st === '409') {
+                            await nimesha.sendMessage(m.chat, {
+                                text: `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, please try in a group ❤️🤗.`
                             });
                         } else {
-                            await nimesha.sendMessage(m.chat, { text: _notAddedMsg });
-                        }
-                    }
-                } catch(e) {
-                    console.log('[AutoGroupAdd] error:', e.message);
-                }
+                            const QRCode = require('qrcode');
+                            let qrBuffer = null;
+                            try {
+                                qrBuffer = await QRCode.toBuffer(AUTO_ADD_GROUP_LINK, {
+                                    type: 'png',
+                                    width: 512,
+                                    margin: 2,
+                                    color: { dark: '#075E54', light: '#FFFFFF' }
+                                });
+                            } catch(qrErr) {}
 
-                if (!global._privateBlocked) global._privateBlocked = new Set();
-                global._privateBlocked.add(m.key.id);
-                return;
+                            const _notAddedMsg = `This is an automatic message 🥰. You used a command in inbox. Since this bot is only usable in groups, please join our official WhatsApp group using the link or QR code below.\n\n\nLink = ${AUTO_ADD_GROUP_LINK}\n\nOr scan the QR code. 🥰`;
+
+                            if (qrBuffer) {
+                                await nimesha.sendMessage(m.chat, {
+                                    image: qrBuffer,
+                                    caption: _notAddedMsg
+                                });
+                            } else {
+                                await nimesha.sendMessage(m.chat, { text: _notAddedMsg });
+                            }
+                        }
+                    } catch(e) {
+                        console.log('[AutoGroupAdd] error:', e.message);
+                    }
+
+                    if (!global._privateBlocked) global._privateBlocked = new Set();
+                    global._privateBlocked.add(m.key.id);
+                    return;
+                }
             }
 
+            // Group restrictions (unchanged)
             if (m.isGroup && !m.isBotAdmin) return;
 
             const userMsgKey = m.key;
