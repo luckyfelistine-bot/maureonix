@@ -187,6 +187,7 @@ async function LoadDataBase(nimesha, m) {
         if (!global.db.game) global.db.game = {};
         if (!global.db.set) global.db.set = {};
         if (!global.db.premium) global.db.premium = [];
+        if (!global.db.database) global.db.database = {};
 
         const botNumber = await nimesha.decodeJid(nimesha.user.id);
         let game = global.db.game || {};
@@ -322,6 +323,9 @@ async function LoadDataBase(nimesha, m) {
         
     } catch (e) {
         console.error('[LoadDataBase error]', e);
+        // Ensure db exists even after error
+        if (!global.db) global.db = {};
+        if (!global.db.database) global.db.database = {};
     }
 }
 

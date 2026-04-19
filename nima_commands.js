@@ -4008,10 +4008,10 @@ Reach higher floors for tougher enemies!
                     if (stdout) return m.reply(stdout);
                 });
             }
-            if ((!isCmd || isCreator) && budy.toLowerCase() != undefined) {
+            if ((!isCmd || isCreator) && budy && typeof budy === 'string' && budy.toLowerCase() !== undefined) {
                 if (m.chat.endsWith('broadcast')) return;
-                if (!(budy.toLowerCase() in db.database)) return;
-                await nimesha.relayMessage(m.chat, db.database[budy.toLowerCase()], {});
+                // Guard: ensure db and db.database exist
+                if (!global.db || !global.db.database) return;
+                if (!(budy.toLowerCase() in global.db.database)) return;
+                await nimesha.relayMessage(m.chat, global.db.database[budy.toLowerCase()], {});
             }
-    }
-};

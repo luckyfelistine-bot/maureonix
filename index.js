@@ -1,3 +1,5 @@
+const SecureConfig = require('./config');
+
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
 // ═══════════════════════════════════════════════════════════
 // (async () => {
@@ -5,7 +7,6 @@
     const { execSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
-    const SecureConfig = require('./config');
 
     // ═══════════════════════════════════════════════════════
     // 📦 Auto Dependency Installer

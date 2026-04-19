@@ -115,6 +115,12 @@ const cases = global.db && global.db.cases ? global.db.cases : (global.db = glob
 
 const coreHandler = async (nimesha, m, msg, store) => {
     await LoadDataBase(nimesha, m);
+
+    // Ensure db is defined even if LoadDataBase failed partially
+    if (!global.db) {
+        global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
+    }
+    if (!global.db.database) global.db.database = {};
     
     const botNumber = nimesha.decodeJid(nimesha.user.id);
     
