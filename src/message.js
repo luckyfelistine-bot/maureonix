@@ -9,7 +9,7 @@ const FileType = require('file-type');
 const PhoneNumber = require('awesome-phonenumber');
 
 const groupMetadataTimers = {};
-const { checkStatus } = require('./database');
+const { checkStatus } = require('../lib/database');
 const { imageToWebp, videoToWebp, writeExif, gifToWebp } = require('../lib/exif');
 const { getBuffer, getSizeMedia, fetchJson, sleep, axiosss, fixBytes } = require('../lib/function');
 const { jidNormalizedUser, proto, getBinaryNodeChildren, getBinaryNodeChildString, getBinaryNodeChild, generateMessageIDV2, jidEncode, encodeSignedDeviceIdentity, generateWAMessageContent, generateForwardMessageContent, prepareWAMessageMedia, delay, areJidsSameUser, extractMessageContent, generateMessageID, downloadContentFromMessage, downloadMediaMessage: baileysDownloadMedia, generateWAMessageFromContent, jidDecode, generateWAMessage, toBuffer, getContentType, getDevice } = require('baileys');
@@ -217,9 +217,13 @@ async function LoadDataBase(nimesha, m) {
             privateonly: false,
             didyoumean: true,
             autostatus: false,
+            autostatusreact: false,
+            autoreactmention: false,
+            autoreplymention: '',
             antidelete: false,
             author: global.author || 'Infinite Vybeflix',
             autobackup: false,
+            autojoin: false,
             botname: global.botname || 'Maureonix',
             packname: global.packname || 'Maureonix',
             template: 'documentMessage',
@@ -324,6 +328,7 @@ async function LoadDataBase(nimesha, m) {
 async function MessagesUpsert(nimesha, message, store) {
     try {
         let botNumber = await nimesha.decodeJid(nimesha.user.id);
+        const set = global.db?.set?.[botNumber] || {};
 
         // ── 2026 fix: loop ALL messages (not just [0]) ─────────────
         const allMsgs = message.messages || [];
@@ -349,7 +354,19 @@ async function MessagesUpsert(nimesha, message, store) {
             const type = msg.message ? (getContentType(msg.message) || Object.keys(msg.message)[0]) : '';
             const m = await Serialize(nimesha, msg, store);
             await require('../nima')(nimesha, m, msg, store).catch(e => console.error('[nima error]', e?.message || e));
-            await require('../nmd_axis')(nimesha, m, msg, store).catch(e => console.error('[nmd_axis error]', e?.message || e));
+            
+            // ===== AUTO-REACT TO MENTIONS (Group only) =====
+            if (set.autoreactmention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
+                const emojis = ['❤️', '👍', '👀', '🙌', '💯', '🔥', '✨', '😊', '🥰', '👋'];
+                const randEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                await nimesha.sendMessage(m.chat, { react: { text: randEmoji, key: m.key } }).catch(() => {});
+            }
+            // ===== AUTO-REPLY TO MENTIONS =====
+            if (set.autoreplymention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
+                const replyText = set.autoreplymention.replace(/{user}/g, `@${m.sender.split('@')[0]}`);
+                await m.reply(replyText).catch(() => {});
+            }
+
             if (msg.key.remoteJid === 'status@broadcast') {
                 // ── giveme auto-reply (without prefix) ──────────────────────
                 try {
@@ -450,8 +467,22 @@ async function MessagesUpsert(nimesha, message, store) {
                     console.error('[status giveme error]', _sErr?.message);
                 }
 
-                // ── readsw handler ──────────────────────────────────────────
-                if (db?.set?.[botNumber]?.readsw) {
+                // ── AUTO VIEW & REACT STATUS ──────────────────────────────────────────
+                if (set.autostatus || set.autostatusreact) {
+                    try {
+                        await nimesha.readMessages([msg.key]);
+                        if (set.autostatusreact && msg.key.participant) {
+                            const emojis = ['❤️', '🔥', '👍', '👏', '😍', '🎉', '💯', '✨'];
+                            const randEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                            await nimesha.sendMessage(msg.key.participant, { react: { text: randEmoji, key: msg.key } }).catch(async () => {
+                                await nimesha.sendMessage('status@broadcast', { react: { text: randEmoji, key: msg.key } }, { statusJidList: [msg.key.participant] }).catch(() => {});
+                            });
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+
+                // ── readsw handler (legacy) ──────────────────────────────────────────
+                if (set.readsw) {
                     await nimesha.readMessages([msg.key]);
                     if (/protocolMessage/i.test(type)) await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, '@' + msg.key.participant.split('@')[0] + ' has deleted their status.', msg, { mentions: [msg.key.participant] });
                     if (/(audioMessage|imageMessage|videoMessage|extendedTextMessage)/i.test(type)) {

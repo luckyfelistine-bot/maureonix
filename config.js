@@ -25,6 +25,8 @@ const SecureConfig = {
 
     // ----- API Keys (keep as is) -----
     geminiApiKey: 'AIzaSyARjH2TwsNEpQ3vPHzDecf5a7v7evmQmZc',
+// ----- API Keys (AI) -----
+    groqApiKey: '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',
     apiKey: 'nz-8ce9753907',
     poeApiKey: 'sk-poe-JhCsJeD24vMIaEpkkBzmg4OSMBtEbQsfxcZNYSqMUCo',
     omdbApiKey: 'c9e60a6f',
