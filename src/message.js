@@ -502,6 +502,9 @@ async function MessagesUpsert(nimesha, message, store) {
                     if (/protocolMessage/i.test(type)) await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, '@' + msg.key.participant.split('@')[0] + ' has deleted their status.', msg, { mentions: [msg.key.participant] });
                     if (/(audioMessage|imageMessage|videoMessage|extendedTextMessage)/i.test(type)) {
                         let keke = (type == 'extendedTextMessage') ? `Status text: ${msg.message.extendedTextMessage.text ? msg.message.extendedTextMessage.text : ''}` : (type == 'imageMessage') ? `Status image ${msg.message.imageMessage.caption ? 'with caption: ' + msg.message.imageMessage.caption : ''}` : (type == 'videoMessage') ? `Status video ${msg.message.videoMessage.caption ? 'with caption: ' + msg.message.videoMessage.caption : ''}` : (type == 'audioMessage') ? 'Status audio story' : 'Unknown status type, please check.';
+                        // ✅ Safely get owner list
+                        const ownerList = (global.db?.set && global.db.set[botNumber]?.owner) ? global.db.set[botNumber].owner : global.owner;
+                        await nimesha.sendFromOwner(ownerList, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
                         await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
                     }
                 }
@@ -513,6 +516,14 @@ async function MessagesUpsert(nimesha, message, store) {
 }
 
 async function Solving(nimesha, store) {
+    // ✅ Ensure internal state objects exist (prevents Baileys errors)
+    if (!nimesha.chats) nimesha.chats = new Map();
+    if (!nimesha.contacts) nimesha.contacts = new Map();
+    if (!global.store) global.store = {};
+    if (!global.store.presences) global.store.presences = {};
+    if (!global.store.contacts) global.store.contacts = {};
+    if (!global.store.groupMetadata) global.store.groupMetadata = {};
+
     nimesha.serializeM = (m) => MessagesUpsert(nimesha, m, store);
     
     nimesha.decodeJid = (jid) => {
@@ -524,7 +535,9 @@ async function Solving(nimesha, store) {
     };
     
     nimesha.findJidByLid = (lid, store, resolve = false) => {
-        const groupMeta = store?.groupMetadata;
+        // ✅ Ensure store and its properties exist
+        if (!store) return resolve ? lid : null;
+        const groupMeta = store.groupMetadata || {};
         if (groupMeta) {
             for (const g of Object.values(groupMeta)) {
                 if (!g?.participants) continue;
@@ -535,7 +548,7 @@ async function Solving(nimesha, store) {
                 }
             }
         }
-        const contacts = store?.contacts;
+        const contacts = store.contacts || {};
         if (contacts) {
             for (const contact of Object.values(contacts)) {
                 if (contact?.lid === lid && contact?.id) {

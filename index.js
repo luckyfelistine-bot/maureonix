@@ -408,6 +408,18 @@ async function startnimaBot() {
         } else {
             global.db = loadData;
         }
+
+        // ✅ Ensure all critical sub-objects exist even if missing from loaded data
+        global.db.set = global.db.set || {};
+        global.db.users = global.db.users || {};
+        global.db.groups = global.db.groups || {};
+        global.db.premium = global.db.premium || [];
+        global.db.sewa = global.db.sewa || [];
+        global.db.hit = global.db.hit || {};
+        global.db.cmd = global.db.cmd || {};
+        global.db.game = global.db.game || {};
+        global.db.store = global.db.store || {};
+
         if (!storeLoadData || Object.keys(storeLoadData).length === 0) {
             global.store = {
                 contacts: {},
@@ -753,6 +765,15 @@ process.on('SIGINT', () => cleanup('SIGINT'));
 process.on('SIGTERM', () => cleanup('SIGTERM'));
 process.on('SIGUSR1', () => console.log('SIGUSR1 received — ignored'));
 process.on('SIGUSR2', () => console.log('SIGUSR2 received — ignored'));
+
+process.on('uncaughtException', (err) => {
+    console.error('🔥 Uncaught Exception:', err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
