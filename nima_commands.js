@@ -1,6 +1,7 @@
 // nima_commands.js – ALL COMMAND CASES (FULLY FIXED & COMPLETE)
 // ═══════════════════════════════════════════════════════════════════════════
 
+const fs = require('fs');
 const { getBuffer } = require('./lib/function');
 const { writeExif } = require('./lib/exif');
 
@@ -184,11 +185,15 @@ module.exports = async (nimesha, m, ctx) => {
             if (!m.quoted) return m.reply('Reply to an image, video, or GIF to convert to sticker.');
             try {
                 const buffer = await m.quoted.download();
-                const stickerBuffer = await writeExif(buffer, {
+                const stickerPath = await writeExif(buffer, {
                     packname: packname,
                     author: author
                 });
+                // ✅ Read the file as buffer
+                const stickerBuffer = fs.readFileSync(stickerPath);
                 await nimesha.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
+                // Clean up temp file
+                fs.unlinkSync(stickerPath);
             } catch (e) {
                 m.reply('❌ Failed to create sticker: ' + e.message);
             }
