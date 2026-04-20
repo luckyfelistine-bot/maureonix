@@ -41,6 +41,7 @@ const { GroupUpdate, LoadDataBase } = require('./src/message');
 const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./lib/database');
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, unsafeAgent, tarBackup } = require('./lib/function');
+const { writeExif } = require('./lib/exif');
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
@@ -1043,7 +1044,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload,
             toAudio, toPTT, toVideo, generateMenuImage,
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-            pickRandom, similarity, almost, cases
+            pickRandom, similarity, almost, cases, getBuffer, writeExif 
         });
 
     } catch (e) {
