@@ -348,7 +348,8 @@ async function MessagesUpsert(nimesha, message, store) {
             if (!store.messages[remoteJid]) {
                 store.messages[remoteJid] = { array: [], keyId: new Set() };
             }
-            if (!store.messages[remoteJid].keyId) {
+            // Ensure keyId is a Set (fixes plain object loaded from JSON)
+            if (!store.messages[remoteJid].keyId || !(store.messages[remoteJid].keyId instanceof Set)) {
                 store.messages[remoteJid].keyId = new Set(store.messages[remoteJid].array.map(m => m.key.id));
             }
 

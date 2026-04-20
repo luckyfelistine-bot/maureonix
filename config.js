@@ -27,6 +27,8 @@ const SecureConfig = {
     geminiApiKey: 'AIzaSyARjH2TwsNEpQ3vPHzDecf5a7v7evmQmZc',
 // ----- API Keys (AI) -----
     groqApiKey: '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',
+    removeBgApiKey: '8EFJ7He4wghiENEFjLGNTb9n',
+    voiceRssApiKey: '79b0ea4a2b424f9098ad09859db8e0a0',
     apiKey: 'nz-8ce9753907',
     poeApiKey: 'sk-poe-JhCsJeD24vMIaEpkkBzmg4OSMBtEbQsfxcZNYSqMUCo',
     omdbApiKey: 'c9e60a6f',

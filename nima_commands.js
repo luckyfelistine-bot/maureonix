@@ -222,130 +222,116 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         case 'attp': {
-            if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            await m.reply('🎬 *Creating animated sticker...*');
-            
-            const apis = [
-                {
-                    name: 'vihangayt',
-                    url: `https://vihangayt.me/maker/attp?text=${encodeURIComponent(text)}`
-                },
-                {
-                    name: 'vihangayt2',
-                    url: `https://vihangayt.me/maker/attp2?text=${encodeURIComponent(text)}`
-                },
-                {
-                    name: 'vihangayt3',
-                    url: `https://vihangayt.me/maker/attp3?text=${encodeURIComponent(text)}`
-                },
-                {
-                    name: 'vihangayt4',
-                    url: `https://vihangayt.me/maker/attp4?text=${encodeURIComponent(text)}`
-                },
-                {
-                    name: 'vihangayt5',
-                    url: `https://vihangayt.me/maker/attp5?text=${encodeURIComponent(text)}`
-                },
-                {
-                    name: 'vihangayt6',
-                    url: `https://vihangayt.me/maker/attp6?text=${encodeURIComponent(text)}`
-                }
-            ];
-            
-            let success = false;
-            let lastError = '';
-            
-            for (const api of apis) {
-                try {
-                    const fetch = require('node-fetch');
-                    const res = await fetch(api.url);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const buffer = await res.buffer();
-                    // Verify buffer is not empty and looks like WebP
-                    if (buffer && buffer.length > 100) {
-                        // Check WebP header (first 4 bytes: RIFF)
-                        const header = buffer.slice(0, 4).toString('ascii');
-                        if (header === 'RIFF') {
-                            await nimesha.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
-                            success = true;
-                            break;
-                        } else {
-                            lastError = `${api.name}: invalid WebP header`;
-                        }
-                    } else {
-                        lastError = `${api.name}: empty response`;
-                    }
-                } catch (e) {
-                    lastError = `${api.name}: ${e.message}`;
-                }
-            }
-            
-            if (!success) {
-                m.reply(`❌ Failed to create attp. All APIs failed.\nLast error: ${lastError}`);
-            }
-        }
-        break
-
-        case 'removebg': {
-            if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to remove background.');
-            await m.reply('🎨 *Removing background...*');
+            if (!text) return m.reply(`Example: ${prefix + command} Hello`);
+            await m.reply('🎨 *Creating animated sticker...*');
             try {
+                // FFmpeg direct to WebP
+                const webpBuffer = await new Promise((resolve, reject) => {
+                    const { spawn } = require('child_process');
+                    const os = require('os');
+                    const path = require('path');
+                    const fs = require('fs');
+                    const fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+                    const escTxt = (s) => s
+                        .replace(/\\/g, '\\\\')
+                        .replace(/'/g, "\\'")
+                        .replace(/:/g, '\\:')
+                        .replace(/,/g, '\\,')
+                        .replace(/\[/g, '\\[')
+                        .replace(/\]/g, '\\]')
+                        .replace(/%/g, '\\%');
+                    const safeText = escTxt(text);
+                    const tmpOut = path.join(os.tmpdir(), `attp_${Date.now()}.webp`);
+                    const cycle = 0.3, dur = 1.8;
+                    const base = `fontfile='${fontPath}':text='${safeText}':borderw=3:bordercolor=black@0.8:fontsize=72:x=(w-text_w)/2:y=(h-text_h)/2`;
+                    const drawRed   = `drawtext=${base}:fontcolor=#FF4444:enable='lt(mod(t\\,${cycle})\\,0.1)'`;
+                    const drawBlue  = `drawtext=${base}:fontcolor=#4488FF:enable='between(mod(t\\,${cycle})\\,0.1\\,0.2)'`;
+                    const drawGreen = `drawtext=${base}:fontcolor=#44FF88:enable='gte(mod(t\\,${cycle})\\,0.2)'`;
+                    const args = [
+                        '-y',
+                        '-f', 'lavfi', '-i', `color=c=black:s=512x512:d=${dur}:r=15`,
+                        '-vf', `${drawRed},${drawBlue},${drawGreen},scale=512:512`,
+                        '-vcodec', 'libwebp',
+                        '-lossless', '0',
+                        '-compression_level', '4',
+                        '-quality', '70',
+                        '-loop', '0',
+                        '-preset', 'default',
+                        '-an', '-vsync', '0',
+                        '-t', String(dur),
+                        tmpOut
+                    ];
+                    const ff = spawn('ffmpeg', args);
+                    let stderr = '';
+                    ff.stderr.on('data', d => stderr += d);
+                    ff.on('error', reject);
+                    ff.on('close', code => {
+                        if (code === 0 && fs.existsSync(tmpOut)) {
+                            const buf = fs.readFileSync(tmpOut);
+                            fs.unlinkSync(tmpOut);
+                            resolve(buf);
+                        } else {
+                            try { fs.unlinkSync(tmpOut); } catch {}
+                            reject(new Error(stderr.slice(-200)));
+                        }
+                    });
+                });
+                await nimesha.sendMessage(m.chat, { sticker: webpBuffer }, { quoted: m });
+                m.reply(`✅ ATTP sticker created!`);
+            } catch (ffErr) {
+                console.log('ATTP ffmpeg fail:', ffErr.message.slice(0, 200));
+                // Fallback to free APIs
                 const fetch = require('node-fetch');
-                const FormData = require('form-data');
-                const buffer = await m.quoted.download();
-                const formData = new FormData();
-                formData.append('image_file', buffer, 'image.png');
-                formData.append('size', 'auto');
-                
-                // Using remove.bg free tier (requires API key - using alternative free services)
-                // Fallback to other free services
                 const apis = [
-                    {
-                        name: 'removebg.me',
-                        url: 'https://api.removebg.me/v1/remove',
-                        headers: { 'X-Api-Key': 'demo' }
-                    },
-                    {
-                        name: 'picwish',
-                        url: 'https://api.picwish.com/v1/remove-bg',
-                        process: async (buf) => {
-                            const fd = new FormData();
-                            fd.append('image', buf, 'image.jpg');
-                            return fd;
-                        }
-                    }
+                    `https://api.paxsenix.biz.id/sticker/attp?text=${encodeURIComponent(text)}`,
+                    `https://api.lolhuman.xyz/api/attp?apikey=demo&text=${encodeURIComponent(text)}`
                 ];
-                
                 let success = false;
-                for (const api of apis) {
+                for (const url of apis) {
                     try {
-                        let body = buffer;
-                        let headers = api.headers || {};
-                        if (api.process) {
-                            body = await api.process(buffer);
-                            headers = body.getHeaders ? body.getHeaders() : {};
-                        }
-                        const res = await fetch(api.url, {
-                            method: 'POST',
-                            headers,
-                            body
-                        });
+                        const res = await fetch(url);
                         if (!res.ok) continue;
-                        const result = await res.buffer();
-                        if (result && result.length > 100) {
-                            await nimesha.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
+                        const buffer = await res.buffer();
+                        if (buffer && buffer.length > 100) {
+                            await nimesha.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
+                            m.reply(`✅ ATTP sticker created!`);
                             success = true;
                             break;
                         }
                     } catch (e) { continue; }
                 }
-                
-                if (!success) {
-                    // Last resort: use Adobe Express free API or inform user
-                    m.reply('❌ Remove BG failed. Please set a REMOVE_BG_KEY in .env or use a free alternative.\nFree alternative: https://www.remove.bg/upload then send the result back.');
+                if (!success) m.reply('❌ Failed to create ATTP sticker.');
+            }
+        }
+        break
+
+        case 'removebg': case 'rmbg': {
+            if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to remove background.');
+            await m.reply('🎨 *Removing background...*');
+            try {
+                const buffer = await m.quoted.download();
+                const fetch = require('node-fetch');
+                const FormData = require('form-data');
+                const form = new FormData();
+                form.append('image_file', buffer, 'image.png');
+                form.append('size', 'auto');
+
+                const res = await fetch('https://api.remove.bg/v1.0/removebg', {
+                    method: 'POST',
+                    headers: { 'X-Api-Key': global.removeBgKey },
+                    body: form
+                });
+
+                if (res.ok) {
+                    const result = await res.buffer();
+                    await nimesha.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
+                } else {
+                    const errorText = await res.text();
+                    throw new Error(`API error: ${res.status} - ${errorText}`);
                 }
             } catch (e) {
-                m.reply('❌ Remove BG failed: ' + e.message);
+                console.error('RemoveBG error:', e.message);
+                m.reply('❌ Failed to remove background. The image may be invalid or API limit reached.');
             }
         }
         break
@@ -395,14 +381,16 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         case 'brat': {
-            if (!text) return m.reply(`Example: ${prefix + command} <text>`);
+            if (!isLimit) return m.reply(mess.limit);
+            if (!text && (!m.quoted || !m.quoted.text)) return m.reply(`📌 Reply with text or type: ${prefix + command} <text>`);
+            const inputText = text || m.quoted.text;
+            await m.reply('🎨 *Generating brat sticker...*');
             try {
                 const fetch = require('node-fetch');
                 const apis = [
-                    `https://api.vihangayt.me/maker/brat?text=${encodeURIComponent(text)}`,
-                    `https://api.davidcyriltech.my.id/brat?text=${encodeURIComponent(text)}`
+                    `https://api.paxsenix.biz.id/maker/brat?text=${encodeURIComponent(inputText)}`,
+                    `https://api.davidcyriltech.my.id/brat?text=${encodeURIComponent(inputText)}`
                 ];
-                
                 let success = false;
                 for (const url of apis) {
                     try {
@@ -410,16 +398,16 @@ module.exports = async (nimesha, m, ctx) => {
                         if (!res.ok) continue;
                         const buffer = await res.buffer();
                         if (buffer && buffer.length > 100) {
-                            await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+                            await nimesha.sendAsSticker(m.chat, buffer, m);
                             success = true;
                             break;
                         }
                     } catch (e) { continue; }
                 }
-                
                 if (!success) throw new Error('All APIs failed');
+                setLimit(m, db);
             } catch (e) {
-                m.reply('❌ Brat failed: ' + e.message);
+                m.reply('❌ Brat generation failed.');
             }
         }
         break
@@ -511,66 +499,199 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         case 'translate': case 'tr': {
-            if (args.length < 2) return m.reply(`Example: ${prefix + command} <lang> <text>`);
-            const lang = args[0];
-            const txt = args.slice(1).join(' ');
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} si Hello world\nExample: ${prefix + command} en ආයුබෝවන්`);
+            const targetLang = args[0].toLowerCase();
+            const textToTranslate = args.slice(1).join(' ');
+            if (!textToTranslate) return m.reply('Please provide text to translate.');
+
+            await m.reply('🌐 *Translating...*');
+
             try {
                 const fetch = require('node-fetch');
-                // Using MyMemory API (free, no key required)
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=auto|${lang}`;
-                const res = await fetch(url);
-                const json = await res.json();
-                if (json.responseStatus === 200) {
-                    await m.reply(`🌐 *Translated (${lang}):*\n${json.responseData.translatedText}`);
-                } else {
-                    throw new Error(json.responseDetails || 'Translation failed');
-                }
-            } catch (e) {
-                // Fallback to Google Translate scrape
+
+                // Helper function to try multiple translation services
+                const tryTranslate = async (url, parseFn) => {
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return await parseFn(res);
+                };
+
+                let translatedText = null;
+
+                // 1. MyMemory API (free, 1000 chars/day, supports Sinhala 'si')
                 try {
-                    const res = await AI.translate(txt, lang);
-                    await m.reply(`🌐 *Translated (${lang}):*\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ Translation failed: ' + e.message);
+                    const myMemoryUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=auto|${targetLang}`;
+                    translatedText = await tryTranslate(myMemoryUrl, async (res) => {
+                        const json = await res.json();
+                        if (json.responseStatus === 200 && json.responseData?.translatedText) {
+                            return json.responseData.translatedText;
+                        }
+                        throw new Error('MyMemory failed');
+                    });
+                } catch (e) {
+                    console.log('MyMemory failed:', e.message);
                 }
+
+                // 2. Google Translate (via libreTranslate fallback or custom scraping)
+                if (!translatedText) {
+                    try {
+                        // Using LibreTranslate (public instances, supports many languages)
+                        const libreUrl = `https://translate.argosopentech.com/translate`;
+                        const libreBody = {
+                            q: textToTranslate,
+                            source: 'auto',
+                            target: targetLang,
+                            format: 'text'
+                        };
+                        const res = await fetch(libreUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(libreBody)
+                        });
+                        if (res.ok) {
+                            const json = await res.json();
+                            translatedText = json.translatedText;
+                        }
+                    } catch (e) {
+                        console.log('LibreTranslate failed:', e.message);
+                    }
+                }
+
+                // 3. Google Translate via a free API wrapper (paxsenix)
+                if (!translatedText) {
+                    try {
+                        const gTranslateUrl = `https://api.paxsenix.biz.id/tools/translate?text=${encodeURIComponent(textToTranslate)}&to=${targetLang}`;
+                        translatedText = await tryTranslate(gTranslateUrl, async (res) => {
+                            const json = await res.json();
+                            if (json.status === 200 && json.result) {
+                                return json.result;
+                            }
+                            throw new Error('Paxsenix failed');
+                        });
+                    } catch (e) {
+                        console.log('Paxsenix translate failed:', e.message);
+                    }
+                }
+
+                // 4. Final fallback: Google Translate via direct URL (may be blocked on some servers)
+                if (!translatedText) {
+                    try {
+                        const googleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(textToTranslate)}`;
+                        translatedText = await tryTranslate(googleUrl, async (res) => {
+                            const json = await res.json();
+                            if (json && json[0] && json[0][0] && json[0][0][0]) {
+                                return json[0].map(part => part[0]).join('');
+                            }
+                            throw new Error('Google Translate failed');
+                        });
+                    } catch (e) {
+                        console.log('Google Translate fallback failed:', e.message);
+                    }
+                }
+
+                if (translatedText) {
+                    await m.reply(`🌐 *Translated (${targetLang})*\n\n${translatedText}`);
+                } else {
+                    throw new Error('All translation services failed');
+                }
+
+            } catch (e) {
+                m.reply(`❌ Translation failed: ${e.message}`);
             }
         }
         break
 
         case 'tts': {
-            if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            const lang = args[0]?.length === 2 ? args.shift() : 'en';
+            if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
+            // Let user specify full language code (e.g., 'en-us', 'si', 'ja')
+            const lang = args[0]?.length >= 2 ? args.shift() : 'en-us';
             const txt = args.join(' ') || text;
-            
+            await m.reply('🔊 *Generating voice...*');
+
+            const fetch = require('node-fetch');
+            let audioBuffer = null;
+
+            const isValidAudio = (buf) => {
+                if (!buf || buf.length < 100) return false;
+                if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true; // MP3
+                if (buf.slice(0, 4).toString() === 'OggS') return true;        // OPUS
+                return false;
+            };
+
+            // 1. Google Translate TTS (free)
             try {
-                const fetch = require('node-fetch');
-                // Using Google Translate TTS (free, no key)
                 const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
                 const res = await fetch(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
                 });
-                if (!res.ok) throw new Error('Google TTS failed');
-                const audioBuffer = await res.buffer();
-                await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+                if (res.ok) {
+                    const buf = await res.buffer();
+                    if (isValidAudio(buf)) audioBuffer = buf;
+                }
             } catch (e) {
-                // Fallback to VoiceRSS (free tier available) or other TTS
+                console.log('Google TTS failed:', e.message);
+            }
+
+            // 2. VoiceRSS (uses your key)
+            if (!audioBuffer && global.voiceRssKey) {
+                try {
+                    const url = `https://api.voicerss.org/?key=${global.voiceRssKey}&hl=${lang}&src=${encodeURIComponent(txt)}&c=MP3&f=44khz_16bit_stereo`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const buf = await res.buffer();
+                        if (isValidAudio(buf)) audioBuffer = buf;
+                    }
+                } catch (e) {
+                    console.log('VoiceRSS failed:', e.message);
+                }
+            }
+
+            // 3. gTTS (local)
+            if (!audioBuffer) {
                 try {
                     const gTTS = require('gtts');
-                    const tts = new gTTS(txt, lang);
-                    const file = path.join(__dirname, 'database', 'temp', `${Date.now()}.mp3`);
-                    tts.save(file, async () => {
-                        await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(file), mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
-                        fs.unlinkSync(file);
+                    const tempFile = path.join(require('os').tmpdir(), `tts_${Date.now()}.mp3`);
+                    await new Promise((resolve, reject) => {
+                        const tts = new gTTS(txt, lang);
+                        tts.save(tempFile, (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        });
                     });
-                } catch (e2) {
-                    m.reply('❌ TTS failed: ' + e.message);
+                    const buf = fs.readFileSync(tempFile);
+                    fs.unlinkSync(tempFile);
+                    if (isValidAudio(buf)) audioBuffer = buf;
+                } catch (e) {
+                    console.log('gTTS failed:', e.message);
                 }
+            }
+
+            // 4. Free public API fallback
+            if (!audioBuffer) {
+                try {
+                    const url = `https://api.paxsenix.biz.id/tools/tts?text=${encodeURIComponent(txt)}&lang=${lang}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const buf = await res.buffer();
+                        if (isValidAudio(buf)) audioBuffer = buf;
+                    }
+                } catch (e) {
+                    console.log('Paxsenix TTS failed:', e.message);
+                }
+            }
+
+            if (audioBuffer) {
+                await nimesha.sendMessage(m.chat, {
+                    audio: audioBuffer,
+                    mimetype: 'audio/mpeg',
+                    ptt: true
+                }, { quoted: m });
+                m.reply('✅ Voice generated!');
+            } else {
+                m.reply('❌ TTS failed. All services are unavailable.');
             }
         }
         break
-
         case 'summarize': {
             if (!m.quoted) return m.reply('Reply to a long message to summarize');
             const toSummarize = m.quoted.body || m.quoted.text || '';
@@ -2709,7 +2830,11 @@ module.exports = async (nimesha, m, ctx) => {
                     { url: './database/menucards/sticker.png', body: `🎨 *STICKER*\n\n▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n▸ ${prefix}brat\n▸ ${prefix}smeme`, footer: 'Create and edit stickers', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) }] },
                     { url: './database/menucards/games.png', body: `🎮 *GAMES*\n\n▸ ${prefix}connect4 @user\n▸ ${prefix}suit @user\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n▸ ${prefix}rpg\n▸ ${prefix}math\n▸ ${prefix}tebaklagu`, footer: 'Multiplayer & solo games', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) }] },
                     { url: './database/menucards/fun.png', body: `😂 *FUN*\n\n▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n▸ ${prefix}truth\n▸ ${prefix}dare`, footer: 'Entertainment & random fun', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) }] },
-                    { url: './database/menucards/search.png', body: `🔍 *SEARCH*\n\n▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n▸ ${prefix}npm\n▸ ${prefix}iplookup`, footer: 'Search the web instantly', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) }] }
+                    { url: './database/menucards/search.png', body: `🔍 *SEARCH*\n\n▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n▸ ${prefix}npm\n▸ ${prefix}iplookup`, footer: 'Search the web instantly', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) }] },
+                    { url: './database/menucards/sports.png', body: `⚽ *SPORTS*\n\n▸ ${prefix}leagues\n▸ ${prefix}fixtures <league>\n▸ ${prefix}live\n▸ ${prefix}standings <league>\n▸ ${prefix}team <id>\n▸ ${prefix}player <id>\n▸ ${prefix}h2h <id1>-<id2>\n▸ ${prefix}odds <sport>\n▸ ${prefix}espn`, footer: 'Live scores, stats & betting', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚽ Sports Menu', id: `${prefix}sportsmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔥 Live', id: `${prefix}live` }) }] },
+                    { url: './database/menucards/casino.png', body: `🎰 *CASINO*\n\n▸ ${prefix}slot\n▸ ${prefix}roulette <bet> <choice>\n▸ ${prefix}crash <bet> <mult>\n▸ ${prefix}dice <bet> over/under <num>\n▸ ${prefix}coin <bet> heads/tails\n▸ ${prefix}rps rock/paper/scissors`, footer: 'Bet & win virtual coins', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎰 Casino Menu', id: `${prefix}casinomenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎲 Roulette', id: `${prefix}roulette ` }) }] },
+                    { url: './database/menucards/rpg.png', body: `🧙 *RPG*\n\n▸ ${prefix}rpg – View stats\n▸ ${prefix}rpg fight – Attack\n▸ ${prefix}rpg heal – Heal (10 gold)\n▸ ${prefix}rpg spawn – New enemy`, footer: 'Adventure & level up', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧙 RPG Menu', id: `${prefix}rpgmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚔️ Fight', id: `${prefix}rpg fight` }) }] },
+                    { url: './database/menucards/master.png', body: `📊 *MASTER*\n\n▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`, footer: 'Advanced features & tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }] }
                 ];
                 const carouselBody = `╔══════════════════════╗
 ║  *🦊 Maureonix*  ║
