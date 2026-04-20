@@ -1,6 +1,9 @@
 // nima_commands.js – ALL COMMAND CASES (FULLY FIXED & COMPLETE)
 // ═══════════════════════════════════════════════════════════════════════════
 
+const { getBuffer } = require('./lib/function');
+const { writeExif } = require('./lib/exif');
+
 module.exports = async (nimesha, m, ctx) => {
     const {
         isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
