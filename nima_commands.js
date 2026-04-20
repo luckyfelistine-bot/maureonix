@@ -34,7 +34,7 @@ module.exports = async (nimesha, m, ctx) => {
         APISports, OddsAPI, ESPN,
         ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload,
         toAudio, toPTT, toVideo, generateMenuImage,
-        runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
+        runtime, clockString, sleep, isUrl, generateProfilePicture,
         pickRandom, similarity, almost, cases
     } = ctx;
 
