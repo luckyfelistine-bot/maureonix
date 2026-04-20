@@ -410,17 +410,15 @@ async function startnimaBot() {
         }
 
         // ✅ Restore Sets after loading from JSON
-        if (global.store.messages) {
+        if (global.store && global.store.messages) {
             for (const jid in global.store.messages) {
                 const entry = global.store.messages[jid];
-                // Convert keyId to Set if it's a plain object
                 if (entry.keyId && !(entry.keyId instanceof Set)) {
                     const oldKeys = entry.keyId;
                     entry.keyId = new Set(Object.keys(oldKeys));
                 } else if (!entry.keyId) {
                     entry.keyId = new Set();
                 }
-                // Ensure array exists
                 if (!entry.array) entry.array = [];
             }
         }
