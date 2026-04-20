@@ -124,6 +124,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
     if (!global.db.database) global.db.database = {};
     
     const botNumber = nimesha.decodeJid(nimesha.user.id);
+
+    // Common reply messages
+    const mess = {
+        wait: '⏳ Please wait...',
+        owner: '❌ This command is only for the bot owner!',
+        group: '❌ This command can only be used in a group!',
+        admin: '❌ You must be a group admin to use this command!',
+        botAdmin: '❌ The bot must be a group admin to perform this action!',
+        private: '❌ This command can only be used in private chat!',
+        premium: '❌ This feature is for premium users only!',
+        limit: '❌ You have reached your daily limit!',
+        banned: '❌ You are banned from using the bot!',
+        nsfw: '❌ NSFW commands are disabled in this group!',
+        error: '❌ An error occurred. Please try again later.',
+    };
     
     // Read Database
     const sewa = db.sewa;
@@ -1026,9 +1041,17 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ═══════════════════════════════════════════════════════════════
         const handleCommand = require('./nima_commands');
         await handleCommand(nimesha, m, {
+            mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,
             suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
+            checkStatus,
+            getExpired,
+            formatDate,
+            listv,   // <-- ADD THIS
+            fake,    // <-- ADD THIS
+            my,        // <-- ADD THIS
+            tempatDB,  // <-- ADD THIS
             tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
             tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
             tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,

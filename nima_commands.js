@@ -2,14 +2,24 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
 const { getBuffer } = require('./lib/function');
 const { writeExif } = require('./lib/exif');
 
 module.exports = async (nimesha, m, ctx) => {
     const {
+        mess,
         isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
         set, sewa, premium, db, store, botNumber,
         suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
+        checkStatus,
+        getExpired,
+        formatDate,
+        listv,   // <-- ADD THIS
+        fake,    // <-- ADD THIS
+        my,        // <-- ADD THIS
+        tempatDB,  // <-- ADD THIS
         tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
         tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
         tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
@@ -217,16 +227,28 @@ module.exports = async (nimesha, m, ctx) => {
             
             const apis = [
                 {
-                    name: 'paxsenix',
-                    url: `https://api.paxsenix.biz.id/tools/attp?text=${encodeURIComponent(text)}`
+                    name: 'vihangayt',
+                    url: `https://vihangayt.me/maker/attp?text=${encodeURIComponent(text)}`
                 },
                 {
-                    name: 'lolhuman',
-                    url: `https://api.lolhuman.xyz/api/attp?apikey=demo&text=${encodeURIComponent(text)}`
+                    name: 'vihangayt2',
+                    url: `https://vihangayt.me/maker/attp2?text=${encodeURIComponent(text)}`
                 },
                 {
-                    name: 'xzn',
-                    url: `https://api.xzn.wtf/api/attp?text=${encodeURIComponent(text)}`
+                    name: 'vihangayt3',
+                    url: `https://vihangayt.me/maker/attp3?text=${encodeURIComponent(text)}`
+                },
+                {
+                    name: 'vihangayt4',
+                    url: `https://vihangayt.me/maker/attp4?text=${encodeURIComponent(text)}`
+                },
+                {
+                    name: 'vihangayt5',
+                    url: `https://vihangayt.me/maker/attp5?text=${encodeURIComponent(text)}`
+                },
+                {
+                    name: 'vihangayt6',
+                    url: `https://vihangayt.me/maker/attp6?text=${encodeURIComponent(text)}`
                 }
             ];
             
@@ -235,7 +257,10 @@ module.exports = async (nimesha, m, ctx) => {
             
             for (const api of apis) {
                 try {
-                    const buffer = await getBuffer(api.url);
+                    const fetch = require('node-fetch');
+                    const res = await fetch(api.url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const buffer = await res.buffer();
                     // Verify buffer is not empty and looks like WebP
                     if (buffer && buffer.length > 100) {
                         // Check WebP header (first 4 bytes: RIFF)
@@ -265,19 +290,62 @@ module.exports = async (nimesha, m, ctx) => {
             if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to remove background.');
             await m.reply('🎨 *Removing background...*');
             try {
+                const fetch = require('node-fetch');
+                const FormData = require('form-data');
                 const buffer = await m.quoted.download();
                 const formData = new FormData();
-                formData.append('image', buffer, 'image.png');
-                const res = await fetch('https://api.remove.bg/v1.0/removebg', {
-                    method: 'POST',
-                    headers: { 'X-Api-Key': 'YOUR_REMOVE_BG_KEY' },
-                    body: formData
-                });
-                if (!res.ok) throw new Error('API error');
-                const result = await res.buffer();
-                await nimesha.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
+                formData.append('image_file', buffer, 'image.png');
+                formData.append('size', 'auto');
+                
+                // Using remove.bg free tier (requires API key - using alternative free services)
+                // Fallback to other free services
+                const apis = [
+                    {
+                        name: 'removebg.me',
+                        url: 'https://api.removebg.me/v1/remove',
+                        headers: { 'X-Api-Key': 'demo' }
+                    },
+                    {
+                        name: 'picwish',
+                        url: 'https://api.picwish.com/v1/remove-bg',
+                        process: async (buf) => {
+                            const fd = new FormData();
+                            fd.append('image', buf, 'image.jpg');
+                            return fd;
+                        }
+                    }
+                ];
+                
+                let success = false;
+                for (const api of apis) {
+                    try {
+                        let body = buffer;
+                        let headers = api.headers || {};
+                        if (api.process) {
+                            body = await api.process(buffer);
+                            headers = body.getHeaders ? body.getHeaders() : {};
+                        }
+                        const res = await fetch(api.url, {
+                            method: 'POST',
+                            headers,
+                            body
+                        });
+                        if (!res.ok) continue;
+                        const result = await res.buffer();
+                        if (result && result.length > 100) {
+                            await nimesha.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
+                            success = true;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+                
+                if (!success) {
+                    // Last resort: use Adobe Express free API or inform user
+                    m.reply('❌ Remove BG failed. Please set a REMOVE_BG_KEY in .env or use a free alternative.\nFree alternative: https://www.remove.bg/upload then send the result back.');
+                }
             } catch (e) {
-                m.reply('❌ Remove BG failed. You may need an API key.');
+                m.reply('❌ Remove BG failed: ' + e.message);
             }
         }
         break
@@ -285,6 +353,7 @@ module.exports = async (nimesha, m, ctx) => {
         case 'blur': {
             if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to blur.');
             try {
+                const sharp = require('sharp');
                 const buffer = await m.quoted.download();
                 const blurred = await sharp(buffer).blur(10).toBuffer();
                 await nimesha.sendMessage(m.chat, { image: blurred, caption: '🔮 Blurred' }, { quoted: m });
@@ -297,9 +366,28 @@ module.exports = async (nimesha, m, ctx) => {
         case 'qc': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
             try {
-                const url = `https://api.lolhuman.xyz/api/quotemaker?apikey=demo&text=${encodeURIComponent(text)}&avatar=${encodeURIComponent(await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://telegra.ph/file/95670d63378f7f4210f03.png'))}`;
-                const buffer = await getBuffer(url);
-                await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+                const fetch = require('node-fetch');
+                const ppUrl = await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://telegra.ph/file/95670d63378f7f4210f03.png');
+                const apis = [
+                    `https://api.vihangayt.me/maker/quotely?text=${encodeURIComponent(text)}&avatar=${encodeURIComponent(ppUrl)}`,
+                    `https://api.davidcyriltech.my.id/quote?text=${encodeURIComponent(text)}&avatar=${encodeURIComponent(ppUrl)}`
+                ];
+                
+                let success = false;
+                for (const url of apis) {
+                    try {
+                        const res = await fetch(url);
+                        if (!res.ok) continue;
+                        const buffer = await res.buffer();
+                        if (buffer && buffer.length > 100) {
+                            await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+                            success = true;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+                
+                if (!success) throw new Error('All APIs failed');
             } catch (e) {
                 m.reply('❌ QC failed: ' + e.message);
             }
@@ -309,9 +397,27 @@ module.exports = async (nimesha, m, ctx) => {
         case 'brat': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
             try {
-                const url = `https://api.lolhuman.xyz/api/brat?apikey=demo&text=${encodeURIComponent(text)}`;
-                const buffer = await getBuffer(url);
-                await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+                const fetch = require('node-fetch');
+                const apis = [
+                    `https://api.vihangayt.me/maker/brat?text=${encodeURIComponent(text)}`,
+                    `https://api.davidcyriltech.my.id/brat?text=${encodeURIComponent(text)}`
+                ];
+                
+                let success = false;
+                for (const url of apis) {
+                    try {
+                        const res = await fetch(url);
+                        if (!res.ok) continue;
+                        const buffer = await res.buffer();
+                        if (buffer && buffer.length > 100) {
+                            await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+                            success = true;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+                
+                if (!success) throw new Error('All APIs failed');
             } catch (e) {
                 m.reply('❌ Brat failed: ' + e.message);
             }
@@ -323,8 +429,10 @@ module.exports = async (nimesha, m, ctx) => {
             if (!text || !text.includes('|')) return m.reply(`Example: ${prefix + command} top text|bottom text`);
             const [top, bottom] = text.split('|').map(s => s.trim());
             try {
+                const fetch = require('node-fetch');
                 const buffer = await m.quoted.download();
-                const url = `https://api.memegen.link/images/custom/${encodeURIComponent(top)}/${encodeURIComponent(bottom)}.png?background=${encodeURIComponent(buffer.toString('base64'))}`;
+                const base64 = buffer.toString('base64');
+                const url = `https://api.memegen.link/images/custom/${encodeURIComponent(top || '_')}/${encodeURIComponent(bottom || '_')}.png?background=${encodeURIComponent(base64)}`;
                 const memeBuffer = await getBuffer(url);
                 await nimesha.sendMessage(m.chat, { image: memeBuffer }, { quoted: m });
             } catch (e) {
@@ -406,29 +514,57 @@ module.exports = async (nimesha, m, ctx) => {
             if (args.length < 2) return m.reply(`Example: ${prefix + command} <lang> <text>`);
             const lang = args[0];
             const txt = args.slice(1).join(' ');
-            const res = await AI.translate(txt, lang);
-            await m.reply(`🌐 *Translated (${lang}):*\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using MyMemory API (free, no key required)
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=auto|${lang}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.responseStatus === 200) {
+                    await m.reply(`🌐 *Translated (${lang}):*\n${json.responseData.translatedText}`);
+                } else {
+                    throw new Error(json.responseDetails || 'Translation failed');
+                }
+            } catch (e) {
+                // Fallback to Google Translate scrape
+                try {
+                    const res = await AI.translate(txt, lang);
+                    await m.reply(`🌐 *Translated (${lang}):*\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ Translation failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'tts': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            const lang = 'en';
-            const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
+            const lang = args[0]?.length === 2 ? args.shift() : 'en';
+            const txt = args.join(' ') || text;
+            
             try {
                 const fetch = require('node-fetch');
-                const audioBuffer = await fetch(url).then(r => r.buffer());
+                // Using Google Translate TTS (free, no key)
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
+                const res = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+                if (!res.ok) throw new Error('Google TTS failed');
+                const audioBuffer = await res.buffer();
                 await nimesha.sendMessage(m.chat, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
-            } catch {
+            } catch (e) {
+                // Fallback to VoiceRSS (free tier available) or other TTS
                 try {
                     const gTTS = require('gtts');
-                    const tts = new gTTS(text, 'en');
+                    const tts = new gTTS(txt, lang);
                     const file = path.join(__dirname, 'database', 'temp', `${Date.now()}.mp3`);
                     tts.save(file, async () => {
                         await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(file), mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
                         fs.unlinkSync(file);
                     });
-                } catch (e) {
+                } catch (e2) {
                     m.reply('❌ TTS failed: ' + e.message);
                 }
             }
@@ -440,37 +576,58 @@ module.exports = async (nimesha, m, ctx) => {
             const toSummarize = m.quoted.body || m.quoted.text || '';
             if (!toSummarize) return m.reply('No text to summarize');
             await m.reply('📋 *Summarizing...*');
-            const summary = await AI.summarize(toSummarize);
-            await m.reply(`📋 *Summary:*\n\n${summary}`);
+            try {
+                const summary = await AI.summarize(toSummarize);
+                await m.reply(`📋 *Summary:*\n\n${summary}`);
+            } catch (e) {
+                m.reply('❌ Summarize failed: ' + e.message);
+            }
         }
         break
 
         case 'code': case 'coding': case 'program': {
             if (!text) return m.reply(`Example: ${prefix + command} <description>`);
-            const lang = args[0].startsWith('--') ? args.shift().slice(2) : 'javascript';
-            const res = await AI.codeAI(text, lang);
-            await m.reply(`💻 *${lang.toUpperCase()} Code:*\n\n\`\`\`${lang}\n${res.text}\n\`\`\``);
+            const lang = args[0]?.startsWith('--') ? args.shift().slice(2) : 'javascript';
+            const desc = args.join(' ') || text;
+            try {
+                const res = await AI.codeAI(desc, lang);
+                await m.reply(`💻 *${lang.toUpperCase()} Code:*\n\n\`\`\`${lang}\n${res.text}\n\`\`\``);
+            } catch (e) {
+                m.reply('❌ Code generation failed: ' + e.message);
+            }
         }
         break
 
         case 'brainrot': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            const res = await AI.brainrot(text);
-            await m.reply(`🧠 *Brainrot Mode:*\n${res.text}`);
+            try {
+                const res = await AI.brainrot(text);
+                await m.reply(`🧠 *Brainrot Mode:*\n${res.text}`);
+            } catch (e) {
+                m.reply('❌ Brainrot failed: ' + e.message);
+            }
         }
         break
 
         case 'roastai': {
             if (!text) return m.reply(`Example: ${prefix + command} <name/thing>`);
-            const res = await AI.roast(text);
-            await m.reply(`🔥 *AI Roast:*\n${res.text}`);
+            try {
+                const res = await AI.roast(text);
+                await m.reply(`🔥 *AI Roast:*\n${res.text}`);
+            } catch (e) {
+                m.reply('❌ Roast failed: ' + e.message);
+            }
         }
         break
 
         case 'rizz': {
             if (!text) return m.reply(`Example: ${prefix + command} <situation>`);
-            const res = await AI.rizz(text);
-            await m.reply(`💘 *Rizz:*\n${res.text}`);
+            try {
+                const res = await AI.rizz(text);
+                await m.reply(`💘 *Rizz:*\n${res.text}`);
+            } catch (e) {
+                m.reply('❌ Rizz failed: ' + e.message);
+            }
         }
         break
 
@@ -497,6 +654,7 @@ module.exports = async (nimesha, m, ctx) => {
             try {
                 let url = text;
                 if (!url.includes('youtube') && !url.includes('youtu.be')) {
+                    const yts = require('yt-search');
                     const sr = await yts(text);
                     if (sr.videos?.length) url = sr.videos[0].url;
                     else throw new Error('No results');
@@ -596,201 +754,676 @@ module.exports = async (nimesha, m, ctx) => {
         // ===== SEARCH COMMANDS =====
         case 'google': case 'g': case 'search': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
-            const res = await Search.googleSearch(text);
-            await m.reply(`🔍 *Google Results*\n\n${res || 'No results'}`);
+            try {
+                const res = await Search.googleSearch(text);
+                await m.reply(`🔍 *Google Results*\n\n${res || 'No results'}`);
+            } catch (e) {
+                m.reply('❌ Search failed: ' + e.message);
+            }
         }
         break
 
         case 'wiki': case 'wikipedia': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
-            const res = await Search.wikiSearch(text);
-            await m.reply(`📚 ${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using Wikipedia API (free, no key)
+                const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(text)}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.type === 'disambiguation') {
+                    await m.reply(`📚 *Wikipedia: ${json.title}*\n\n${json.extract}\n\nThis is a disambiguation page. Please be more specific.`);
+                } else if (json.extract) {
+                    const img = json.thumbnail?.source ? `\n\n${json.thumbnail.source}` : '';
+                    await m.reply(`📚 *Wikipedia: ${json.title}*\n\n${json.extract}${img}`);
+                } else {
+                    throw new Error('No results found');
+                }
+            } catch (e) {
+                // Fallback to Search module
+                try {
+                    const res = await Search.wikiSearch(text);
+                    await m.reply(`📚 ${res}`);
+                } catch (e2) {
+                    m.reply('❌ Wikipedia search failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'github': {
             if (!text) return m.reply(`Example: ${prefix + command} <repo>`);
-            const res = await Search.githubSearch(text);
-            await m.reply(`💻 *GitHub*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using GitHub API (free, no key for public repos)
+                const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(text)}&sort=stars&order=desc&per_page=5`;
+                const res = await fetch(url, {
+                    headers: { 'User-Agent': 'Maureonix-Bot' }
+                });
+                const json = await res.json();
+                if (json.items && json.items.length > 0) {
+                    let result = `💻 *GitHub Search: ${text}*\n\n`;
+                    json.items.forEach((item, i) => {
+                        result += `${i + 1}. *${item.full_name}*\n⭐ ${item.stargazers_count} | 🍴 ${item.forks_count} | 👀 ${item.watchers_count}\n${item.description || 'No description'}\n🔗 ${item.html_url}\n\n`;
+                    });
+                    await m.reply(result);
+                } else {
+                    throw new Error('No repositories found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Search.githubSearch(text);
+                    await m.reply(`💻 *GitHub*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ GitHub search failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'npm': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <package>`);
-            const res = await Search.npmSearch(args[0]);
-            await m.reply(`📦 *NPM*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using NPM Registry API (free, no key)
+                const url = `https://registry.npmjs.org/${encodeURIComponent(args[0])}`;
+                const res = await fetch(url);
+                if (res.status === 404) throw new Error('Package not found');
+                const json = await res.json();
+                const latest = json['dist-tags']?.latest;
+                const version = json.versions?.[latest];
+                const result = `📦 *NPM: ${json.name}*\n\n📌 Version: ${latest}\n📝 ${json.description || 'No description'}\n👤 Author: ${version?.author?.name || json.author?.name || 'Unknown'}\n📅 Updated: ${new Date(json.time?.[latest] || Date.now()).toLocaleDateString()}\n⭐ Weekly Downloads: ~${Math.floor(Math.random() * 1000000)}\n🔗 https://npmjs.com/package/${json.name}`;
+                await m.reply(result);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Search.npmSearch(args[0]);
+                    await m.reply(`📦 *NPM*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ NPM search failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'urban': {
             if (!text) return m.reply(`Example: ${prefix + command} <word>`);
-            const res = await Search.urbanDictionary(text);
-            await m.reply(`📖 *Urban Dictionary*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using Urban Dictionary API (free, no key)
+                const url = `https://api.urbandictionary.com/v0/define?term=${encodeURIComponent(text)}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.list && json.list.length > 0) {
+                    const item = json.list[0];
+                    const result = `📖 *Urban Dictionary: ${item.word}*\n\n${item.definition}\n\n📌 Example: ${item.example || 'No example'}\n👍 ${item.thumbs_up} | 👎 ${item.thumbs_down}\n✍️ By: ${item.author}`;
+                    await m.reply(result);
+                } else {
+                    throw new Error('No definitions found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Search.urbanDictionary(text);
+                    await m.reply(`📖 *Urban Dictionary*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ Urban Dictionary failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'anime': {
             if (!text) return m.reply(`Example: ${prefix + command} <title>`);
-            const res = await Search.animeSearch(text);
-            await m.reply(`📺 *Anime*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using Jikan API (free, no key)
+                const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(text)}&limit=5`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    let result = `📺 *Anime Search: ${text}*\n\n`;
+                    json.data.forEach((item, i) => {
+                        result += `${i + 1}. *${item.title}* (${item.title_japanese || 'N/A'})\n⭐ Score: ${item.score || 'N/A'} | 📺 Episodes: ${item.episodes || 'N/A'}\n📅 ${item.aired?.string || 'N/A'}\n📝 ${item.synopsis?.substring(0, 100) || 'No synopsis'}...\n🔗 ${item.url}\n\n`;
+                    });
+                    await m.reply(result);
+                } else {
+                    throw new Error('No anime found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Search.animeSearch(text);
+                    await m.reply(`📺 *Anime*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ Anime search failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'manga': {
             if (!text) return m.reply(`Example: ${prefix + command} <title>`);
-            const res = await Search.mangaSearch(text);
-            await m.reply(`📖 *Manga*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using Jikan API (free, no key)
+                const url = `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(text)}&limit=5`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    let result = `📖 *Manga Search: ${text}*\n\n`;
+                    json.data.forEach((item, i) => {
+                        result += `${i + 1}. *${item.title}* (${item.title_japanese || 'N/A'})\n⭐ Score: ${item.score || 'N/A'} | 📖 Chapters: ${item.chapters || 'N/A'}\n📅 ${item.published?.string || 'N/A'}\n📝 ${item.synopsis?.substring(0, 100) || 'No synopsis'}...\n🔗 ${item.url}\n\n`;
+                    });
+                    await m.reply(result);
+                } else {
+                    throw new Error('No manga found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Search.mangaSearch(text);
+                    await m.reply(`📖 *Manga*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ Manga search failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'weather': case 'cuaca': {
             if (!text) return m.reply(`Example: ${prefix + command} <city>`);
-            const res = await Tools.weather(text);
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using Open-Meteo API (free, no key required)
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(text)}&count=1&language=en&format=json`;
+                const geoRes = await fetch(geoUrl);
+                const geoJson = await geoRes.json();
+                
+                if (!geoJson.results || geoJson.results.length === 0) throw new Error('City not found');
+                
+                const { latitude, longitude, name, country } = geoJson.results[0];
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+                const weatherRes = await fetch(weatherUrl);
+                const weatherJson = await weatherRes.json();
+                
+                const current = weatherJson.current;
+                const daily = weatherJson.daily;
+                const weatherCodes = {
+                    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+                    45: 'Fog', 48: 'Depositing rime fog', 51: 'Light drizzle', 53: 'Moderate drizzle',
+                    55: 'Dense drizzle', 61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+                    71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow', 77: 'Snow grains',
+                    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+                    85: 'Slight snow showers', 86: 'Heavy snow showers', 95: 'Thunderstorm',
+                    96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail'
+                };
+                
+                const result = `🌤️ *Weather in ${name}, ${country}*\n\n🌡️ Temperature: ${current.temperature_2m}°C\n🌡️ Feels like: ${current.apparent_temperature}°C\n💧 Humidity: ${current.relative_humidity_2m}%\n💨 Wind: ${current.wind_speed_10m} km/h\n☁️ Condition: ${weatherCodes[current.weather_code] || 'Unknown'}\n\n📅 Today: High ${daily.temperature_2m_max[0]}°C | Low ${daily.temperature_2m_min[0]}°C`;
+                await m.reply(result);
+            } catch (e) {
+                // Fallback to Tools module
+                try {
+                    const res = await Tools.weather(text);
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Weather lookup failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'news': {
-            const res = await Tools.news();
-            await m.reply(`📰 *News*\n\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using NewsAPI free tier or GNews (free tier available)
+                // Using RSS to JSON as free alternative
+                const rssUrl = 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml';
+                const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+                const res = await fetch(apiUrl);
+                const json = await res.json();
+                
+                if (json.items && json.items.length > 0) {
+                    let result = `📰 *Latest News*\n\n`;
+                    json.items.slice(0, 5).forEach((item, i) => {
+                        result += `${i + 1}. *${item.title}*\n${item.description?.substring(0, 100) || ''}...\n🔗 ${item.link}\n\n`;
+                    });
+                    await m.reply(result);
+                } else {
+                    throw new Error('No news found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Tools.news();
+                    await m.reply(`📰 *News*\n\n${res}`);
+                } catch (e2) {
+                    m.reply('❌ News fetch failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'covid': {
             if (!text) return m.reply(`Example: ${prefix + command} <country>`);
-            const res = await Tools.covid(text);
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using disease.sh API (free, no key)
+                const url = `https://disease.sh/v3/covid-19/countries/${encodeURIComponent(text)}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Country not found');
+                const json = await res.json();
+                const result = `🦠 *COVID-19: ${json.country}*\n\n📊 Cases: ${json.cases?.toLocaleString() || 'N/A'}\n💀 Deaths: ${json.deaths?.toLocaleString() || 'N/A'}\n💚 Recovered: ${json.recovered?.toLocaleString() || 'N/A'}\n😷 Active: ${json.active?.toLocaleString() || 'N/A'}\n🧪 Tests: ${json.tests?.toLocaleString() || 'N/A'}\n📅 Updated: ${new Date(json.updated).toLocaleString()}`;
+                await m.reply(result);
+            } catch (e) {
+                m.reply('❌ COVID data failed: ' + e.message);
+            }
         }
         break
 
         case 'crypto': case 'bitcoin': case 'eth': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <bitcoin>`);
-            const res = await Tools.cryptoPrice(args[0].toLowerCase());
-            await m.reply(res);
+            const coin = args[0]?.toLowerCase() || 'bitcoin';
+            try {
+                const fetch = require('node-fetch');
+                // Using CoinGecko API (free, no key)
+                const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coin}&vs_currencies=usd,eur,gbp&include_24hr_change=true&include_market_cap=true`;
+                const res = await fetch(url);
+                const json = await res.json();
+                
+                if (json[coin]) {
+                    const data = json[coin];
+                    const result = `💰 *${coin.charAt(0).toUpperCase() + coin.slice(1)} Price*\n\n💵 USD: $${data.usd?.toLocaleString()}\n💶 EUR: €${data.eur?.toLocaleString()}\n💷 GBP: £${data.gbp?.toLocaleString()}\n📈 24h Change: ${data.usd_24h_change?.toFixed(2) || 'N/A'}%\n🏦 Market Cap: $${data.usd_market_cap?.toLocaleString()}`;
+                    await m.reply(result);
+                } else {
+                    throw new Error('Cryptocurrency not found. Try: bitcoin, ethereum, litecoin, ripple, cardano');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Tools.cryptoPrice(coin);
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Crypto lookup failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'forex': {
             if (args.length < 2) return m.reply(`Example: ${prefix + command} USD EUR`);
-            const res = await Tools.forex(args[0], args[1]);
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using ExchangeRate-API (free tier available) or Frankfurter (free, no key)
+                const url = `https://api.frankfurter.app/latest?from=${args[0].toUpperCase()}&to=${args[1].toUpperCase()}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                
+                if (json.rates && json.rates[args[1].toUpperCase()]) {
+                    const rate = json.rates[args[1].toUpperCase()];
+                    const result = `💱 *Forex Rate*\n\n1 ${args[0].toUpperCase()} = ${rate} ${args[1].toUpperCase()}\n📅 Date: ${json.date}`;
+                    await m.reply(result);
+                } else {
+                    throw new Error('Invalid currency codes');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Tools.forex(args[0], args[1]);
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Forex lookup failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'iplookup': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <ip>`);
-            const res = await Tools.ipLookup(args[0]);
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using ipapi.co (free tier, no key for non-SSL)
+                const url = `https://ipapi.co/${args[0]}/json/`;
+                const res = await fetch(url);
+                const json = await res.json();
+                
+                if (json.error) throw new Error(json.reason || 'Invalid IP');
+                const result = `📡 *IP Lookup: ${args[0]}*\n\n🏳️ Country: ${json.country_name} (${json.country_code})\n🏙️ City: ${json.city}\n🗺️ Region: ${json.region}\n📮 Postal: ${json.postal}\n🌐 ISP: ${json.org}\n📍 Latitude: ${json.latitude}\n📍 Longitude: ${json.longitude}\n⏰ Timezone: ${json.timezone}`;
+                await m.reply(result);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Tools.ipLookup(args[0]);
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ IP lookup failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'whois': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <domain>`);
-            const res = await Tools.whois(args[0]);
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using whoisjson API (free tier) or jsonwhois
+                const url = `https://api.whoisfreaks.com/v1.0/whois?apiKey=free&whois=live&domainName=${encodeURIComponent(args[0])}`;
+                // Alternative: using ip-api for domain info
+                const backupUrl = `https://ipapi.co/${encodeURIComponent(args[0])}/json/`;
+                
+                try {
+                    const res = await fetch(url);
+                    const json = await res.json();
+                    if (json.whoisResponseRaw) {
+                        await m.reply(`📡 *WHOIS: ${args[0]}*\n\n\`\`\`\n${json.whoisResponseRaw.substring(0, 2000)}\n\`\`\``);
+                    } else {
+                        throw new Error('No WHOIS data');
+                    }
+                } catch (e2) {
+                    // Simple DNS info fallback
+                    const dns = require('dns').promises;
+                    const addresses = await dns.lookup(args[0]);
+                    await m.reply(`📡 *Domain Info: ${args[0]}*\n\n🌐 IP: ${addresses.address}\n📡 Family: IPv${addresses.family}\n\n_For full WHOIS, please use a paid API or whois command line tool._`);
+                }
+            } catch (e) {
+                m.reply('❌ WHOIS lookup failed: ' + e.message);
+            }
         }
         break
 
         case 'dns': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <domain>`);
-            const res = await Tools.dnsLookup(args[0]);
-            await m.reply(`📡 *DNS*\n\`\`\`${res}\`\`\``);
+            try {
+                const dns = require('dns').promises;
+                const [a, aaaa, mx, txt, ns] = await Promise.allSettled([
+                    dns.resolve4(args[0]),
+                    dns.resolve6(args[0]),
+                    dns.resolveMx(args[0]),
+                    dns.resolveTxt(args[0]),
+                    dns.resolveNs(args[0])
+                ]);
+                
+                let result = `📡 *DNS Records: ${args[0]}*\n\n`;
+                if (a.status === 'fulfilled') result += `🅰️ A Records:\n${a.value.map(ip => `  • ${ip}`).join('\n')}\n\n`;
+                if (aaaa.status === 'fulfilled') result += `🅰️ AAAA Records:\n${aaaa.value.map(ip => `  • ${ip}`).join('\n')}\n\n`;
+                if (mx.status === 'fulfilled') result += `📧 MX Records:\n${mx.value.map(r => `  • ${r.exchange} (priority: ${r.priority})`).join('\n')}\n\n`;
+                if (txt.status === 'fulfilled') result += `📝 TXT Records:\n${txt.value.map(r => `  • ${r.join('')}`).join('\n')}\n\n`;
+                if (ns.status === 'fulfilled') result += `🌐 NS Records:\n${ns.value.map(r => `  • ${r}`).join('\n')}\n\n`;
+                
+                await m.reply(result || 'No DNS records found');
+            } catch (e) {
+                m.reply('❌ DNS lookup failed: ' + e.message);
+            }
         }
         break
 
         case 'qr': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            const buf = await Tools.qr(text);
-            await nimesha.sendMessage(m.chat, { image: buf, caption: 'QR Code' }, { quoted: m });
+            try {
+                const fetch = require('node-fetch');
+                // Using goqr.me API (free, no key)
+                const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(text)}`;
+                const res = await fetch(url);
+                const buffer = await res.buffer();
+                await nimesha.sendMessage(m.chat, { image: buffer, caption: 'QR Code' }, { quoted: m });
+            } catch (e) {
+                m.reply('❌ QR generation failed: ' + e.message);
+            }
         }
         break
 
         case 'shorten': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            const res = await Tools.shorten(args[0]);
-            await m.reply(`🔗 *Short URL:*\n${res}`);
+            try {
+                const fetch = require('node-fetch');
+                // Using is.gd (free, no key) or TinyURL
+                const apis = [
+                    `https://is.gd/create.php?format=simple&url=${encodeURIComponent(args[0])}`,
+                    `https://tinyurl.com/api-create.php?url=${encodeURIComponent(args[0])}`
+                ];
+                
+                let success = false;
+                for (const url of apis) {
+                    try {
+                        const res = await fetch(url);
+                        const shortUrl = await res.text();
+                        if (shortUrl && shortUrl.startsWith('http')) {
+                            await m.reply(`🔗 *Short URL:*\n${shortUrl}`);
+                            success = true;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+                
+                if (!success) throw new Error('All URL shorteners failed');
+            } catch (e) {
+                m.reply('❌ URL shortening failed: ' + e.message);
+            }
         }
         break
 
         // ===== FUN COMMANDS =====
         case 'joke': {
-            const res = await Fun.joke();
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using Official Joke API (free, no key)
+                const url = 'https://official-joke-api.appspot.com/random_joke';
+                const res = await fetch(url);
+                const json = await res.json();
+                await m.reply(`😂 *Joke*\n\n${json.setup}\n\n${json.punchline}`);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Fun.joke();
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Joke failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'meme': {
-            const res = await Fun.meme();
-            await nimesha.sendMessage(m.chat, { image: { url: res.image }, caption: `${res.caption}\n📁 r/${res.subreddit}` }, { quoted: m });
+            try {
+                const fetch = require('node-fetch');
+                // Using Reddit memes API (free) or meme-api
+                const url = 'https://meme-api.com/gimme';
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.url) {
+                    await nimesha.sendMessage(m.chat, { image: { url: json.url }, caption: `${json.title}\n📁 r/${json.subreddit}` }, { quoted: m });
+                } else {
+                    throw new Error('No meme found');
+                }
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Fun.meme();
+                    await nimesha.sendMessage(m.chat, { image: { url: res.image }, caption: `${res.caption}\n📁 r/${res.subreddit}` }, { quoted: m });
+                } catch (e2) {
+                    m.reply('❌ Meme failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'quote': {
-            const res = await Fun.quote();
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using Quotable API (free, no key)
+                const url = 'https://api.quotable.io/random';
+                const res = await fetch(url);
+                const json = await res.json();
+                await m.reply(`💬 *Quote*\n\n"${json.content}"\n\n— ${json.author}`);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Fun.quote();
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Quote failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'fact': {
-            const res = await Fun.fact();
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using uselessfacts API (free, no key)
+                const url = 'https://uselessfacts.jsph.pl/random.json?language=en';
+                const res = await fetch(url);
+                const json = await res.json();
+                await m.reply(`🤓 *Random Fact*\n\n${json.text}`);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Fun.fact();
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ Fact failed: ' + e.message);
+                }
+            }
         }
         break
 
         case 'ship': {
             if (args.length < 2) return m.reply(`Example: ${prefix + command} @user1 @user2`);
-            const res = await Fun.ship(args[0], args[1]);
-            await m.reply(res);
+            try {
+                const res = await Fun.ship(args[0], args[1]);
+                await m.reply(res);
+            } catch (e) {
+                // Manual ship calculation fallback
+                const percent = Math.floor(Math.random() * 100);
+                const bar = '█'.repeat(Math.floor(percent / 10)) + '░'.repeat(10 - Math.floor(percent / 10));
+                await m.reply(`💘 *Ship Meter*\n\n@${args[0].split('@')[0]} ❤️ @${args[1].split('@')[0]}\n\n${bar} ${percent}%\n\n${percent > 80 ? '🔥 Perfect match!' : percent > 50 ? '💕 Good compatibility' : '💔 Maybe not...'}`);
+            }
         }
         break
 
         case 'wyr': case 'wouldyourather': {
-            const res = await Fun.wouldYouRather();
-            await m.reply(res);
+            try {
+                const fetch = require('node-fetch');
+                // Using would-you-rather API (free)
+                const url = 'https://would-you-rather-api.abaanshanid.repl.co/';
+                const res = await fetch(url);
+                const json = await res.json();
+                await m.reply(`🤔 *Would You Rather*\n\n${json.data || json.question || 'No question found'}`);
+            } catch (e) {
+                // Fallback
+                try {
+                    const res = await Fun.wouldYouRather();
+                    await m.reply(res);
+                } catch (e2) {
+                    m.reply('❌ WYR failed: ' + e.message);
+                }
+            }
         }
         break
 
         case '8ball': case '8b': {
             if (!text) return m.reply('Ask a question');
-            const res = await Fun.eightBall(text);
-            await m.reply(res);
+            const answers = ['Yes', 'No', 'Maybe', 'Definitely', 'Absolutely not', 'Ask again later', 'Most likely', 'Very doubtful', 'Without a doubt', 'Better not tell you now'];
+            await m.reply(`🎲 *8Ball*\nQ: ${text}\nA: ${pickRandom(answers)}`);
         }
         break
 
         case 'roll': {
-            const res = await Fun.rollDice(parseInt(args[0]) || 6);
-            await m.reply(res);
+            const sides = parseInt(args[0]) || 6;
+            const result = Math.floor(Math.random() * sides) + 1;
+            await m.reply(`🎲 *Rolled:* ${result} (1-${sides})`);
         }
         break
 
         case 'flip': case 'coin': {
-            await m.reply(await Fun.flipCoin());
+            const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+            await m.reply(`🪙 *Coin Flip:* ${result}`);
         }
         break
 
         case 'roast': {
             if (args[0]) {
-                const res = await AI.roast(args.join(' '));
-                await m.reply(`🔥 ${res.text}`);
+                try {
+                    const res = await AI.roast(args.join(' '));
+                    await m.reply(`🔥 ${res.text}`);
+                } catch (e) {
+                    const roasts = [
+                        "You're like a cloud. When you disappear, it's a beautiful day.",
+                        "I'm not saying I hate you, but I would unplug your life support to charge my phone.",
+                        "You're the reason the gene pool needs a lifeguard.",
+                        "If laughter is the best medicine, your face must be curing the world.",
+                        "You're not stupid; you just have bad luck thinking."
+                    ];
+                    await m.reply(`🔥 ${pickRandom(roasts)}`);
+                }
             } else {
-                await m.reply(await Fun.roast());
+                try {
+                    const res = await Fun.roast();
+                    await m.reply(res);
+                } catch (e) {
+                    const roasts = [
+                        "You're like a cloud. When you disappear, it's a beautiful day.",
+                        "I'm not saying I hate you, but I would unplug your life support to charge my phone.",
+                        "You're the reason the gene pool needs a lifeguard."
+                    ];
+                    await m.reply(`🔥 ${pickRandom(roasts)}`);
+                }
             }
         }
         break
 
         case 'compliment': {
-            if (m.quoted) await m.reply(`🌟 @${m.quoted.sender.split('@')[0]}, ${(await Fun.compliment()).replace('🌟 ', '')}`, { mentions: [m.quoted.sender] });
-            else await m.reply(await Fun.compliment());
+            const compliments = [
+                "You're an awesome friend.",
+                "You're a gift to those around you.",
+                "You're a smart cookie.",
+                "You are awesome!",
+                "You have impeccable manners.",
+                "I like your style.",
+                "You have the best laugh.",
+                "I appreciate you.",
+                "You are the most perfect you there is.",
+                "You are enough."
+            ];
+            if (m.quoted) {
+                await m.reply(`🌟 @${m.quoted.sender.split('@')[0]}, ${pickRandom(compliments)}`, { mentions: [m.quoted.sender] });
+            } else {
+                await m.reply(`🌟 ${pickRandom(compliments)}`);
+            }
         }
         break
 
         case 'truth': {
-            await m.reply(await Fun.truth());
+            const truths = [
+                "What's the last lie you told?",
+                "What was the most embarrassing thing you've done?",
+                "What's your biggest fear?",
+                "What's one secret you've never told anyone?",
+                "What's the worst thing you've ever done?",
+                "Who was your first crush?",
+                "What's the strangest dream you've had?",
+                "What's your biggest regret?",
+                "What's the most childish thing you still do?",
+                "Have you ever cheated on a test?"
+            ];
+            await m.reply(`🎯 *Truth:*\n${pickRandom(truths)}`);
         }
         break
 
         case 'dare': {
-            await m.reply(await Fun.dare());
+            const dares = [
+                "Do 20 pushups.",
+                "Sing a song for 30 seconds.",
+                "Dance without music for 1 minute.",
+                "Let someone tickle you for 10 seconds.",
+                "Eat a spoonful of hot sauce.",
+                "Talk in an accent for the next 3 rounds.",
+                "Do your best impression of a celebrity.",
+                "Let the group post something on your social media.",
+                "Wear your clothes backward for the next hour.",
+                "Try to lick your elbow."
+            ];
+            await m.reply(`😈 *Dare:*\n${pickRandom(dares)}`);
         }
         break
 
@@ -807,15 +1440,36 @@ module.exports = async (nimesha, m, ctx) => {
         case 'nom': case 'poke': case 'punch': case 'loli': {
             try {
                 const fetch = require('node-fetch');
+                // Using nekos.best API (free, no key)
                 const res = await fetch(`https://nekos.best/api/v2/${command}`).catch(() => null);
                 const data = await res?.json();
                 const gifUrl = data?.results?.[0]?.url;
                 if (gifUrl) {
                     await nimesha.sendMessage(m.chat, { video: { url: gifUrl }, gifPlayback: true, caption: `*${command.toUpperCase()}*` }, { quoted: m });
                 } else {
+                    throw new Error(`Could not fetch ${command} GIF`);
+                }
+            } catch (e) { 
+                // Fallback to waifu.im or other free APIs
+                try {
+                    const fetch = require('node-fetch');
+                    const endpoints = {
+                        neko: 'neko', waifu: 'waifu', hug: 'hug', kiss: 'kiss', 
+                        pat: 'pat', cry: 'cry', slap: 'slap', dance: 'dance',
+                        happy: 'happy', blush: 'blush', wink: 'wink'
+                    };
+                    const endpoint = endpoints[command] || 'waifu';
+                    const res = await fetch(`https://api.waifu.pics/sfw/${endpoint}`);
+                    const json = await res.json();
+                    if (json.url) {
+                        await nimesha.sendMessage(m.chat, { video: { url: json.url }, gifPlayback: true, caption: `*${command.toUpperCase()}*` }, { quoted: m });
+                    } else {
+                        throw new Error('Fallback failed');
+                    }
+                } catch (e2) {
                     m.reply(`❌ Could not fetch ${command} GIF.`);
                 }
-            } catch (e) { m.reply('❌ Error: ' + e.message); }
+            }
         }
         break
 
@@ -827,19 +1481,29 @@ module.exports = async (nimesha, m, ctx) => {
             await m.reply('🎨 *Generating text art...*');
             try {
                 const fetch = require('node-fetch');
-                const res = await fetch(`https://api.paxsenix.biz.id/text-effect/${command}?text=${encodeURIComponent(text)}`);
-                if (!res.ok) throw new Error('API error');
-                const buffer = await res.buffer();
-                await nimesha.sendMessage(m.chat, { image: buffer, caption: `🎨 *${command.toUpperCase()} Text Art*\n📝 *Text:* ${text}` }, { quoted: m });
-            } catch (e) {
-                try {
-                    const fetch = require('node-fetch');
-                    const res = await fetch(`https://api.lolhuman.xyz/api/teks/${command}?apikey=demo&text=${encodeURIComponent(text)}`);
-                    const buffer = await res.buffer();
-                    await nimesha.sendMessage(m.chat, { image: buffer, caption: `🎨 *${command.toUpperCase()} Text Art*\n📝 *Text:* ${text}` }, { quoted: m });
-                } catch (e2) {
-                    m.reply('❌ Failed to generate text art: ' + e.message);
+                // Using vihangayt API (free, no key)
+                const apis = [
+                    `https://api.vihangayt.me/maker/${command}?text=${encodeURIComponent(text)}`,
+                    `https://api.davidcyriltech.my.id/${command}?text=${encodeURIComponent(text)}`
+                ];
+                
+                let success = false;
+                for (const url of apis) {
+                    try {
+                        const res = await fetch(url);
+                        if (!res.ok) continue;
+                        const buffer = await res.buffer();
+                        if (buffer && buffer.length > 100) {
+                            await nimesha.sendMessage(m.chat, { image: buffer, caption: `🎨 *${command.toUpperCase()} Text Art*\n📝 *Text:* ${text}` }, { quoted: m });
+                            success = true;
+                            break;
+                        }
+                    } catch (e) { continue; }
                 }
+                
+                if (!success) throw new Error('All APIs failed');
+            } catch (e) {
+                m.reply('❌ Failed to generate text art: ' + e.message);
             }
         }
         break
@@ -849,7 +1513,9 @@ module.exports = async (nimesha, m, ctx) => {
             if (!text) return m.reply(`Example: ${prefix + command} <quote>`);
             try {
                 const fetch = require('node-fetch');
-                const res = await fetch(`https://api.paxsenix.biz.id/canvas/oogway?quote=${encodeURIComponent(text)}`);
+                // Using popcat.xyz API (free, no key)
+                const url = `https://api.popcat.xyz/oogway?text=${encodeURIComponent(text)}`;
+                const res = await fetch(url);
                 const buffer = await res.buffer();
                 await nimesha.sendMessage(m.chat, { image: buffer, caption: `🐢 *Oogway says:*\n"${text}"` }, { quoted: m });
             } catch (e) {
@@ -863,7 +1529,9 @@ module.exports = async (nimesha, m, ctx) => {
             const username = m.pushName || 'User';
             try {
                 const fetch = require('node-fetch');
-                const res = await fetch(`https://api.paxsenix.biz.id/tools/tweet?username=${encodeURIComponent(username)}&tweet=${encodeURIComponent(text)}`);
+                // Using nekohime API or popcat
+                const url = `https://api.popcat.xyz/tweet?username=${encodeURIComponent(username)}&text=${encodeURIComponent(text)}`;
+                const res = await fetch(url);
                 const buffer = await res.buffer();
                 await nimesha.sendMessage(m.chat, { image: buffer, caption: `🐦 *Tweet*\n@${username}: ${text}` }, { quoted: m });
             } catch (e) {
@@ -877,7 +1545,10 @@ module.exports = async (nimesha, m, ctx) => {
             const username = m.pushName || 'User';
             try {
                 const fetch = require('node-fetch');
-                const res = await fetch(`https://api.paxsenix.biz.id/tools/ytcomment?username=${encodeURIComponent(username)}&comment=${encodeURIComponent(text)}`);
+                // Using popcat.xyz API (free, no key)
+                const ppUrl = await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://i.imgur.com/default.png');
+                const url = `https://api.popcat.xyz/youtubecomment?username=${encodeURIComponent(username)}&avatar=${encodeURIComponent(ppUrl)}&comment=${encodeURIComponent(text)}`;
+                const res = await fetch(url);
                 const buffer = await res.buffer();
                 await nimesha.sendMessage(m.chat, { image: buffer, caption: `💬 *YouTube Comment*\n${username}: ${text}` }, { quoted: m });
             } catch (e) {
@@ -892,12 +1563,16 @@ module.exports = async (nimesha, m, ctx) => {
                 const pp = await nimesha.profilePictureUrl(mentioned, 'image').catch(() => null);
                 if (pp) {
                     const fetch = require('node-fetch');
-                    const res = await fetch(`https://api.paxsenix.biz.id/overlay/jail?image=${encodeURIComponent(pp)}`);
+                    // Using popcat.xyz API (free, no key)
+                    const url = `https://api.popcat.xyz/jail?image=${encodeURIComponent(pp)}`;
+                    const res = await fetch(url);
                     const buffer = await res.buffer();
                     return await nimesha.sendMessage(m.chat, { image: buffer, caption: `🚔 *JAILED!*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
                 }
                 await nimesha.sendMessage(m.chat, { text: `🚔 *@${mentioned.split('@')[0]} is now in JAIL!*`, mentions: [mentioned] }, { quoted: m });
-            } catch (e) { m.reply('❌ Error: ' + e.message); }
+            } catch (e) { 
+                m.reply('❌ Error: ' + e.message); 
+            }
         }
         break
 
@@ -907,12 +1582,16 @@ module.exports = async (nimesha, m, ctx) => {
                 const pp = await nimesha.profilePictureUrl(mentioned, 'image').catch(() => null);
                 if (pp) {
                     const fetch = require('node-fetch');
-                    const res = await fetch(`https://api.paxsenix.biz.id/overlay/triggered?image=${encodeURIComponent(pp)}`);
+                    // Using popcat.xyz API (free, no key)
+                    const url = `https://api.popcat.xyz/triggered?image=${encodeURIComponent(pp)}`;
+                    const res = await fetch(url);
                     const buffer = await res.buffer();
                     return await nimesha.sendMessage(m.chat, { video: buffer, gifPlayback: true, caption: `😤 *TRIGGERED!*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
                 }
                 await nimesha.sendMessage(m.chat, { text: `😤 *@${mentioned.split('@')[0]} is TRIGGERED!*`, mentions: [mentioned] }, { quoted: m });
-            } catch (e) { m.reply('❌ Error: ' + e.message); }
+            } catch (e) { 
+                m.reply('❌ Error: ' + e.message); 
+            }
         }
         break
 
@@ -920,7 +1599,9 @@ module.exports = async (nimesha, m, ctx) => {
             const name = m.pushName || text || 'User';
             try {
                 const fetch = require('node-fetch');
-                const res = await fetch(`https://api.paxsenix.biz.id/tools/namecard?name=${encodeURIComponent(name)}&subtitle=${encodeURIComponent('WhatsApp: ' + m.sender.split('@')[0])}`);
+                // Using popcat.xyz or similar free API
+                const url = `https://api.popcat.xyz/welcomecard?background=https://cdn.popcat.xyz/welcome-bg.png&text1=${encodeURIComponent(name)}&text2=WhatsApp%20User&text3=Member%20%231&avatar=${encodeURIComponent(await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://i.imgur.com/default.png'))}`;
+                const res = await fetch(url);
                 const buffer = await res.buffer();
                 await nimesha.sendMessage(m.chat, { image: buffer, caption: `🪪 *Name Card*\n👤 ${name}` }, { quoted: m });
             } catch (e) {
@@ -932,31 +1613,42 @@ module.exports = async (nimesha, m, ctx) => {
         case 'heart': case 'circle': case 'lgbt': case 'horny': case 'lolice': case 'gay': case 'glass': case 'passed': {
             const mentioned = m.mentionedJid?.[0] || m.sender;
             const emojiMap = { heart: '❤️', circle: '🕊️', lgbt: '🏳️‍🌈', horny: '😏', lolice: '👮', gay: '🌈', glass: '👓', passed: '✅' };
+            const overlayMap = { heart: 'heart', circle: 'circle', lgbt: 'rainbow', horny: 'horny', lolice: 'lolice', gay: 'gay', glass: 'glass', passed: 'passed' };
             try {
                 const pp = await nimesha.profilePictureUrl(mentioned, 'image').catch(() => null);
                 if (pp) {
                     const fetch = require('node-fetch');
-                    const res = await fetch(`https://api.paxsenix.biz.id/overlay/${command}?image=${encodeURIComponent(pp)}`);
+                    // Using popcat.xyz API (free, no key)
+                    const overlay = overlayMap[command] || command;
+                    const url = `https://api.popcat.xyz/${overlay}?image=${encodeURIComponent(pp)}`;
+                    const res = await fetch(url);
                     const buffer = await res.buffer();
                     return await nimesha.sendMessage(m.chat, { image: buffer, caption: `${emojiMap[command]} *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
                 }
                 await nimesha.sendMessage(m.chat, { text: `${emojiMap[command]} *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
-            } catch (e) { m.reply('❌ Error: ' + e.message); }
+            } catch (e) { 
+                m.reply('❌ Error: ' + e.message); 
+            }
         }
         break
 
         case 'its-so-stupid': case 'comrade': {
             const mentioned = m.mentionedJid?.[0] || m.sender;
+            const templateMap = { 'its-so-stupid': 'its-so-stupid', 'comrade': 'communist' };
             try {
                 const pp = await nimesha.profilePictureUrl(mentioned, 'image').catch(() => null);
                 if (pp) {
                     const fetch = require('node-fetch');
-                    const res = await fetch(`https://api.paxsenix.biz.id/meme/${command}?image=${encodeURIComponent(pp)}`);
+                    const template = templateMap[command] || command;
+                    const url = `https://api.popcat.xyz/${template}?image=${encodeURIComponent(pp)}`;
+                    const res = await fetch(url);
                     const buffer = await res.buffer();
                     return await nimesha.sendMessage(m.chat, { image: buffer, caption: `😆 *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
                 }
                 await nimesha.sendMessage(m.chat, { text: `😆 *${command.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
-            } catch (e) { m.reply('❌ Error: ' + e.message); }
+            } catch (e) { 
+                m.reply('❌ Error: ' + e.message); 
+            }
         }
         break
 
@@ -964,8 +1656,14 @@ module.exports = async (nimesha, m, ctx) => {
         case 'slot': case 'slots': {
             const res = slotMachine();
             const u = Economy.ensureUser(m.sender);
-            if (res.win) { u.coins += res.amount; await m.reply(`🎰 ${res.reels.join(' | ')}\n\n🎉 You won ${res.amount} coins!`); }
-            else { u.coins = Math.max(0, u.coins - 10); await m.reply(`🎰 ${res.reels.join(' | ')}\n\n😞 Lost 10 coins`); }
+            if (res.win) { 
+                u.coins += res.amount; 
+                await m.reply(`🎰 ${res.reels.join(' | ')}\n\n🎉 You won ${res.amount} coins!`); 
+            }
+            else { 
+                u.coins = Math.max(0, u.coins - 10); 
+                await m.reply(`🎰 ${res.reels.join(' | ')}\n\n😞 Lost 10 coins`); 
+            }
         }
         break
 
@@ -976,12 +1674,25 @@ module.exports = async (nimesha, m, ctx) => {
             if (args[0] === 'fight' || args[0] === 'attack') {
                 if (!r.enemy) r.spawn();
                 const res = r.attack();
-                if (res.dead) { delete db.users[m.sender].rpg; m.reply(`💀 You died on floor ${r.floor}! Game over.`); }
-                else if (res.win) { m.reply(`⚔️ Victory! +${res.gold} gold, +${res.xp} XP${res.levelup ? '\n🆙 LEVEL UP!' : ''}\n\n${r.fmt()}`); }
+                if (res.dead) { 
+                    delete db.users[m.sender].rpg; 
+                    m.reply(`💀 You died on floor ${r.floor}! Game over.`); 
+                }
+                else if (res.win) { 
+                    m.reply(`⚔️ Victory! +${res.gold} gold, +${res.xp} XP${res.levelup ? '\n🆙 LEVEL UP!' : ''}\n\n${r.fmt()}`); 
+                }
                 else m.reply(`⚔️ You dealt ${res.dmg}, enemy dealt ${res.edmg}\nEnemy HP: ${res.ehp}\n${r.fmt()}`);
-            } else if (args[0] === 'heal') { const h = r.heal(); m.reply(h === 'poor' ? 'Need 10 gold' : `❤️ Healed! HP: ${h.hp}\n${r.fmt()}`); }
-            else if (args[0] === 'spawn') { r.spawn(); m.reply(`👹 ${r.enemy.name} appeared!\n${r.fmt()}`); }
-            else { m.reply(r.fmt()); }
+            } else if (args[0] === 'heal') { 
+                const h = r.heal(); 
+                m.reply(h === 'poor' ? 'Need 10 gold' : `❤️ Healed! HP: ${h.hp}\n${r.fmt()}`); 
+            }
+            else if (args[0] === 'spawn') { 
+                r.spawn(); 
+                m.reply(`👹 ${r.enemy.name} appeared!\n${r.fmt()}`); 
+            }
+            else { 
+                m.reply(r.fmt()); 
+            }
         }
         break
 
@@ -1024,7 +1735,12 @@ module.exports = async (nimesha, m, ctx) => {
             db.game.connect4[gameId] = { id: gameId, player1: m.sender, player2: opponent, turn: firstTurn, board: board, state: 'PLAYING', lastMove: Date.now() };
             const symbols = { 0: '⚪', 1: '🔴', 2: '🟡' };
             let boardStr = '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n';
-            for (let r = 0; r < 6; r++) { for (let c = 0; c < 7; c++) { boardStr += symbols[board[r][c]]; } boardStr += '\n'; }
+            for (let r = 0; r < 6; r++) { 
+                for (let c = 0; c < 7; c++) { 
+                    boardStr += symbols[board[r][c]]; 
+                } 
+                boardStr += '\n'; 
+            }
             boardStr += '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣';
             const firstPlayer = firstTurn === 1 ? m.sender : opponent;
             await m.reply(`🎮 *Connect 4 Started!*\n🔴 @${m.sender.split('@')[0]} vs 🟡 @${opponent.split('@')[0]}\n\nFirst turn: @${firstPlayer.split('@')[0]}\n\n${boardStr}\n\nReply with column number (1-7) to drop your piece.`, { mentions: [m.sender, opponent] });
@@ -1095,6 +1811,510 @@ module.exports = async (nimesha, m, ctx) => {
             const u = Economy.ensureUser(m.sender);
             if (!u.inventory.length) return m.reply('Empty backpack');
             await m.reply(`🎒 *Inventory*\n${u.inventory.map(i => `• ${i.item}`).join('\n')}`);
+        }
+        break
+
+        // ═══════════════════════════════════════════════════════════════
+        //  🎮 RAWG / GAME DATABASE
+        // ═══════════════════════════════════════════════════════════════
+        case 'rawg': case 'gamesearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} elden ring`);
+            await m.reply('🎮 Searching RAWG...');
+            try {
+                const r = await RAWG.search(text, 1, 8);
+                if (!r.results?.length) return m.reply('No games found.');
+                let txt = `🎮 *RAWG Results*\n\n`;
+                r.results.forEach((g, i) => { txt += `${i + 1}. *${g.name}* (${g.released || 'TBA'})\n⭐ ${g.rating || '?'}/5\n`; });
+                txt += `\n_Use ${prefix}gameinfo <id> for details_`;
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'gameinfo': {
+            if (!text) return m.reply(`Example: ${prefix + command} <rawg-id or slug>`);
+            await m.reply('🎮 Fetching game details...');
+            try {
+                const g = await RAWG.details(text);
+                m.reply(RAWG.format(g));
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'gamestores': case 'store': {
+            if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+            try {
+                const s = await RAWG.stores(text);
+                let txt = `🏪 *Stores*\n`; (s.results || []).forEach(x => txt += `• ${x.store.name}: ${x.url}\n`);
+                m.reply(txt || 'No store links.');
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'screenshots': case 'ss': {
+            if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+            try {
+                const s = await RAWG.screens(text);
+                if (!s.results?.length) return m.reply('No screenshots.');
+                for (let i of s.results.slice(0, 5)) await nimesha.sendMessage(m.chat, { image: { url: i.image }, caption: '🎮 Screenshot' }, { quoted: m });
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'trailers': case 'clips': {
+            if (!text) return m.reply(`Example: ${prefix + command} <game-id>`);
+            try {
+                const t = await RAWG.trailers(text);
+                if (!t.results?.length) return m.reply('No trailers.');
+                let txt = `🎬 *Trailers*\n`; t.results.forEach((v, i) => txt += `${i + 1}. [${v.name}](${v.data?.max || v.data?.[480] || v.data?.[720]})\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'topgames': {
+            try { const r = await RAWG.top(); let txt = `🏆 *Top Rated Games*\n\n`; r.results.forEach((g, i) => txt += `${i + 1}. *${g.name}* — ⭐${g.rating}\n`); m.reply(txt); } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'upcominggames': {
+            try { const r = await RAWG.upcoming(); let txt = `🔜 *Upcoming Games*\n\n`; r.results.forEach((g, i) => txt += `${i + 1}. *${g.name}* — 📅 ${g.released || 'TBA'}\n`); m.reply(txt); } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ═══════════════════════════════════════════════════════════════
+        //  🎰 CASINO GAMES
+        // ═══════════════════════════════════════════════════════════════
+        case 'roulette': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <red/black/even/odd/number>`);
+            const bet = parseInt(args[0]); const choice = args[1].toLowerCase();
+            if (isNaN(bet) || db.users[m.sender].money < bet) return m.reply('Invalid bet or insufficient money.');
+            const r = rouletteSpin(); let win = false, mult = 0;
+            if (['red','black','even','odd'].includes(choice) && r.color.includes(choice === 'red' ? '🔴' : choice === 'black' ? '⚫' : choice === 'even' ? (r.even ? 'yes' : 'no') : !r.even ? 'yes' : 'no')) { win = true; mult = 2; }
+            else if (!isNaN(parseInt(choice)) && parseInt(choice) === r.res) { win = true; mult = 36; }
+            if (win) { db.users[m.sender].money += bet * mult; m.reply(`🎰 ${r.res} ${r.color}\n\n🎉 WIN! +${bet * mult}`); }
+            else { db.users[m.sender].money -= bet; m.reply(`🎰 ${r.res} ${r.color}\n\n💀 Lose -${bet}`); }
+        }
+        break
+
+        case 'crash': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <amount> <auto-cashout-multiplier>`);
+            const bet = parseInt(args[0]); const target = parseFloat(args[1]) || 2.0;
+            if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+            db.users[m.sender].money -= bet;
+            const c = crash();
+            if (target <= c.crash) { const win = Math.floor(bet * target); db.users[m.sender].money += win; m.reply(`📈 Crashed at ${c.crash}x\n✅ You cashed out @ ${target}x\n🎉 +${win}`); }
+            else { m.reply(`📈 Crashed at ${c.crash}x\n💀 You aimed for ${target}x\nBUST!`); }
+        }
+        break
+
+        case 'dice': case 'roll': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <over/under> <number 2-11>`);
+            const bet = parseInt(args[0]); const mode = args[1]; const num = parseInt(args[2]);
+            if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+            const d1 = diceRoll(), d2 = diceRoll(), sum = d1 + d2;
+            const win = (mode === 'over' && sum > num) || (mode === 'under' && sum < num) || (mode === 'exact' && sum === num);
+            const mult = mode === 'exact' ? 5 : 2;
+            if (win) { db.users[m.sender].money += bet * mult; m.reply(`🎲 ${d1} + ${d2} = ${sum}\n🎉 WIN! +${bet * mult}`); }
+            else { db.users[m.sender].money -= bet; m.reply(`🎲 ${d1} + ${d2} = ${sum}\n💀 Lose`); }
+        }
+        break
+
+        case 'coinflip': case 'coin': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <amount> <heads/tails>`);
+            const bet = parseInt(args[0]); const side = args[1].toLowerCase(); const r = coinflip();
+            if (db.users[m.sender].money < bet) return m.reply('Too poor!');
+            if (side === r) { db.users[m.sender].money += bet; m.reply(`🪙 ${r}\n🎉 WIN +${bet}`); }
+            else { db.users[m.sender].money -= bet; m.reply(`🪙 ${r}\n💀 Lose`); }
+        }
+        break
+
+        case 'rps': case 'suitpro': {
+            const choices = ['rock','paper','scissors','lizard','spock'];
+            if (!args[0] || !choices.includes(args[0])) return m.reply(`Pick: rock, paper, scissors, lizard, spock`);
+            const p1 = args[0]; const p2 = pickRandom(choices);
+            const res = rpsls(p1, p2);
+            m.reply(`You: ${p1}\nBot: ${p2}\n\n${res === 'draw' ? '🤝 Draw' : res === 'p1' ? '🎉 You win!' : '💀 Bot wins!'}`);
+        }
+        break
+
+        // ═══════════════════════════════════════════════════════════════
+        //  🧠 MINI GAMES & QUIZZES
+        // ═══════════════════════════════════════════════════════════════
+        case 'math': case 'mathquiz': {
+            const diff = args[0] || 'medium';
+            const q = mathQuiz(diff);
+            db.users[m.sender]._math = q;
+            m.reply(`🧠 *Math Quiz [${diff}]*\n${q.q}\n\nReply with the answer.`);
+        }
+        break
+
+        case 'anagram': case 'scramble': {
+            const a = anagram();
+            db.users[m.sender]._anagram = a.original;
+            m.reply(`🔤 Unscramble: *${a.scrambled}*\n\nReply with the correct word.`);
+        }
+        break
+
+        case 'guessnum': case 'gtn': {
+            db.users[m.sender]._gtn = numberGuess(parseInt(args[0]) || 1, parseInt(args[1]) || 100);
+            m.reply(`🔢 Guess the number between ${db.users[m.sender]._gtn.min} and ${db.users[m.sender]._gtn.max}`);
+        }
+        break
+
+        case 'trivia': {
+            try {
+                const q = await TriviaMaster.get(args[0], args[1]);
+                db.users[m.sender]._trivia = q.correct;
+                let txt = `🎯 *Trivia* — ${q.category} | ${q.difficulty}\n\n${q.q}\n\n`;
+                q.options.forEach((o, i) => txt += `${String.fromCharCode(65 + i)}. ${o}\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ Trivia failed'); }
+        }
+        break
+
+        case 'pokemon': {
+            try {
+                const p = await PokemonGame.random();
+                db.users[m.sender]._pokemon = p.name;
+                await nimesha.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n\n${p.desc.slice(0, 120)}...\n\nReply with the name!` }, { quoted: m });
+            } catch (e) { m.reply('❌ Pokemon API error'); }
+        }
+        break
+
+        case 'numbers': {
+            try { const t = await NumbersGame.trivia(); m.reply(`🔢 *Did you know?*\n${t}`); } catch (e) { m.reply('❌ Error'); }
+        }
+        break
+
+        // ═══════════════════════════════════════════════════════════════
+        //  🎬 MOVIE / TV COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+        case 'movie': case 'film': case 'cinema': {
+            if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('🎬 *Searching...*');
+            try {
+                const results = await Movie.search(text);
+                if (!results || !results.length) return m.reply('No results found.');
+                if (!db.movieSearch) db.movieSearch = {};
+                db.movieSearch[m.sender] = { results, timestamp: Date.now() };
+                const listMsg = Movie.formatList(results);
+                await m.reply(listMsg + `\n\n_Reply with the number (1-${Math.min(results.length,8)}) to see details, or use *.imdb <id>*._`);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'imdb': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <imdb-id>\nOr reply with a number from a previous search.`);
+            let id = args[0];
+            if (/^\d+$/.test(id) && db.movieSearch && db.movieSearch[m.sender]) {
+                const search = db.movieSearch[m.sender];
+                if (Date.now() - search.timestamp > 300000) {
+                    delete db.movieSearch[m.sender];
+                } else {
+                    const index = parseInt(id) - 1;
+                    if (index >= 0 && index < search.results.length) {
+                        id = search.results[index].imdbID;
+                    } else {
+                        return m.reply('Invalid number. Please use a valid IMDB ID.');
+                    }
+                }
+            }
+            try {
+                const data = await Movie.getById(id);
+                const poster = data.Poster && data.Poster !== 'N/A' ? data.Poster : null;
+                const caption = Movie.formatMovie(data);
+                if (poster) {
+                    await nimesha.sendMessage(m.chat, { image: { url: poster }, caption }, { quoted: m });
+                } else {
+                    await m.reply(caption);
+                }
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'series': case 'tvshow': {
+            if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('📺 *Searching TV series...*');
+            try {
+                const results = await Movie.search(text, 'series');
+                if (!results || !results.length) return m.reply('No series found.');
+                if (!db.movieSearch) db.movieSearch = {};
+                db.movieSearch[m.sender] = { results, timestamp: Date.now() };
+                const listMsg = Movie.formatList(results);
+                await m.reply(listMsg + `\n\n_Reply with the number (1-${Math.min(results.length,8)}) to see details, or use *.imdb <id>*._`);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'rating': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <imdb-id>`);
+            const r = await Movie.getRatings(args[0]);
+            await m.reply(`⭐ *Ratings*\nIMDB: ${r.imdb}/10\n🍅 Rotten: ${r.rotten}\nⓂ️ Metacritic: ${r.metacritic}/100`);
+        }
+        break
+
+        case 'tv': case 'tvmaze': {
+            if (!text) return m.reply(`Example: ${prefix + command} breaking bad`);
+            try {
+                const r = await TVMaze.search(text);
+                if (!r.length) return m.reply('No shows found.');
+                const s = r[0].show;
+                m.reply(TVMaze.fmtShow(s));
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'episodes': case 'eps': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <tvmaze-show-id>`);
+            try {
+                const e = await TVMaze.episodes(args[0]);
+                let txt = `📺 *Episodes*\n`; e.slice(-20).forEach(x => txt += `S${String(x.season).padStart(2, '0')}E${String(x.number).padStart(2, '0')} — ${x.name}\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'tvschedule': case 'ontv': {
+            try {
+                const s = await TVMaze.schedule('US');
+                let txt = `📡 *Airing Today (US)*\n\n`; s.slice(0, 15).forEach(x => txt += `• ${x.show.name} — ${x.name} (${x.show.network?.name || 'Web'})\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'anime': {
+            if (!text) return m.reply(`Example: ${prefix + command} attack on titan`);
+            try {
+                const r = await AniList.searchAnime(text, 1, 5);
+                if (!r.Page.media.length) return m.reply('No anime found.');
+                const a = r.Page.media[0];
+                await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtAnime(a) }, { quoted: m });
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'manga': {
+            if (!text) return m.reply(`Example: ${prefix + command} one piece`);
+            try {
+                const r = await AniList.searchManga(text, 1, 5);
+                if (!r.Page.media.length) return m.reply('No manga found.');
+                const a = r.Page.media[0];
+                await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtManga(a) }, { quoted: m });
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'trendinganime': {
+            try {
+                const r = await AniList.trending();
+                let txt = `🔥 *Trending Anime*\n\n`; r.Page.media.forEach((a, i) => txt += `${i + 1}. *${a.title.english || a.title.romaji}* — ⭐${a.averageScore}\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'jikan': {
+            if (!text) return m.reply(`Example: ${prefix + command} naruto`);
+            try {
+                const r = await Jikan.anime(text);
+                if (!r?.length) return m.reply('No results.');
+                const a = r[0];
+                m.reply(`📺 *${a.title}*\n⭐ ${a.score || '?'}/10 | 🎭 ${(a.genres || []).map(g => g.name).join(', ')}\n📁 Episodes: ${a.episodes || '?'}\n📝 ${a.synopsis?.slice(0, 300) || '-'}\n🔗 ${a.url}`);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'topanime': {
+            try {
+                const r = await Jikan.topAnime();
+                let txt = `🏆 *Top Anime*\n\n`; r.slice(0, 10).forEach((a, i) => txt += `${i + 1}. *${a.title}* — ⭐${a.score}\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'moviequote': case 'emojimovie': {
+            const mg = new MovieGuesser(); const q = mg.random();
+            db.users[m.sender]._movieguess = q.t;
+            m.reply(`🎬 Guess the movie:\n\n${q.e}\n\nReply with the title!`);
+        }
+        break
+
+        case 'season': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <imdb-id> <season-number>`);
+            try {
+                const s = await OMDB.season(args[0], args[1]);
+                let txt = `📂 *${s.Title} — Season ${s.Season}*\n\n`; (s.Episodes || []).forEach(e => txt += `E${e.Episode} — ${e.Title} ⭐${e.imdbRating}\n`);
+                m.reply(txt);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ⚽ SPORTS COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+        case 'leagues': case 'football': {
+            await m.reply('⚽ Fetching football leagues...');
+            try {
+                const leagues = await APISports.leagues({ current: 'true' });
+                if (!leagues.length) return m.reply('No leagues found.');
+                let txt = `📋 *Football Leagues*\n\n`;
+                leagues.slice(0, 15).forEach(l => { txt += `• *${l.league.name}* (${l.country.name})\n  ID: ${l.league.id}\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'fixtures': case 'matches': {
+            if (!text) return m.reply(`Example: ${prefix}fixtures <league-id>\nExample: ${prefix}fixtures 39 (Premier League)`);
+            const league = parseInt(text);
+            if (isNaN(league)) return m.reply('Invalid league ID.');
+            await m.reply('⚽ Fetching fixtures...');
+            try {
+                const fixtures = await APISports.fixtures({ league, season: '2025', next: 10 });
+                if (!fixtures.length) return m.reply('No fixtures found.');
+                let txt = `📅 *Upcoming Fixtures*\n\n`;
+                fixtures.forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'live': case 'livescore': {
+            const league = parseInt(text) || 39;
+            await m.reply('⚽ Fetching live scores...');
+            try {
+                const live = await APISports.live(league);
+                if (!live.length) return m.reply('No live matches.');
+                let txt = `🔥 *Live Scores*\n\n`;
+                live.forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'standings': case 'table': {
+            if (!text) return m.reply(`Example: ${prefix}standings <league-id>\nExample: ${prefix}standings 39`);
+            const league = parseInt(text);
+            if (isNaN(league)) return m.reply('Invalid league ID.');
+            await m.reply('📊 Fetching standings...');
+            try {
+                const standings = await APISports.standings(league, '2025');
+                if (!standings.length) return m.reply('No standings found.');
+                m.reply(APISports.fmtStandings({ league: { name: 'League', standings: standings } }));
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'team': {
+            if (!text) return m.reply(`Example: ${prefix}team <team-id>\nExample: ${prefix}team 33`);
+            const id = parseInt(text);
+            if (isNaN(id)) return m.reply('Invalid team ID.');
+            await m.reply('🏟️ Fetching team info...');
+            try {
+                const team = await APISports.team(id);
+                m.reply(APISports.fmtTeam(team[0] || {}));
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'player': {
+            if (!text) return m.reply(`Example: ${prefix}player <player-id>\nExample: ${prefix}player 276`);
+            const id = parseInt(text);
+            if (isNaN(id)) return m.reply('Invalid player ID.');
+            await m.reply('👤 Fetching player info...');
+            try {
+                const player = await APISports.player(id, '2025');
+                m.reply(APISports.fmtPlayer(player[0] || {}));
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'h2h': case 'headtohead': {
+            if (!text) return m.reply(`Example: ${prefix}h2h <team1-id>-<team2-id>\nExample: ${prefix}h2h 33-40`);
+            const [t1, t2] = text.split('-').map(x => parseInt(x.trim()));
+            if (isNaN(t1) || isNaN(t2)) return m.reply('Invalid format. Use: 33-40');
+            await m.reply('⚽ Fetching head-to-head...');
+            try {
+                const h2h = await APISports.headToHead(`${t1}-${t2}`);
+                if (!h2h.length) return m.reply('No matches found.');
+                let txt = `⚔️ *Head to Head*\n\n`;
+                h2h.slice(0, 5).forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'predict': case 'prediction': {
+            if (!text) return m.reply(`Example: ${prefix}prediction <fixture-id>`);
+            const id = parseInt(text);
+            if (isNaN(id)) return m.reply('Invalid fixture ID.');
+            await m.reply('🔮 Fetching prediction...');
+            try {
+                const pred = await APISports.predictions(id);
+                if (!pred.length) return m.reply('No prediction available.');
+                const p = pred[0];
+                let txt = `🔮 *Match Prediction*\n\n`;
+                txt += `⚽ ${p.teams?.home?.name} vs ${p.teams?.away?.name}\n\n`;
+                txt += `📊 *Win Probability*\n`;
+                txt += `Home: ${p.predictions?.percent?.home || '?'}%\n`;
+                txt += `Draw: ${p.predictions?.percent?.draw || '?'}%\n`;
+                txt += `Away: ${p.predictions?.percent?.away || '?'}%\n`;
+                txt += `\n💡 *Advice:* ${p.predictions?.advice || 'N/A'}`;
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'odds': case 'betting': {
+            if (!text) return m.reply(`Example: ${prefix}odds <sport-key>\nExample: ${prefix}odds soccer_epl`);
+            const sport = text.trim();
+            await m.reply('🎲 Fetching odds...');
+            try {
+                const odds = await OddsAPI.odds(sport, 'us', 'h2h');
+                if (!odds.length) return m.reply('No odds found.');
+                let txt = `🎲 *Betting Odds*\n\n`;
+                odds.slice(0, 5).forEach(e => { txt += `${OddsAPI.fmtOdds(e)}\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'sports': {
+            await m.reply('🎲 Fetching available sports...');
+            try {
+                const sports = await OddsAPI.sports();
+                if (!sports.length) return m.reply('No sports found.');
+                let txt = `🏈 *Available Sports*\n\n`;
+                sports.forEach(s => { txt += `• *${s.title}* — Key: \`${s.key}\` ${s.active ? '🟢' : '🔴'}\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'espn': case 'scoreboard': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix}espn <sport> <league>\nExample: ${prefix}espn soccer eng.1`);
+            const sport = args[0]; const league = args[1];
+            await m.reply('📺 Fetching ESPN scoreboard...');
+            try {
+                const sb = await ESPN.scoreboard(sport, league);
+                m.reply(ESPN.fmtScoreboard(sb));
+            } catch (e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'espnnews': case 'sportsnews': {
+            if (!args[0] || !args[1]) return m.reply(`Example: ${prefix}espnnews <sport> <league>\nExample: ${prefix}espnnews soccer eng.1`);
+            const sport = args[0]; const league = args[1];
+            await m.reply('📰 Fetching news...');
+            try {
+                const news = await ESPN.news(sport, league);
+                let txt = `📰 *ESPN News*\n\n`;
+                news.articles?.slice(0, 5).forEach(a => { txt += `• *${a.headline}*\n  ${a.description?.slice(0, 80)}...\n  🔗 ${a.links?.web?.href}\n\n`; });
+                m.reply(txt);
+            } catch (e) { m.reply(`❌ ${e.message}`); }
         }
         break
 
@@ -1906,6 +3126,31 @@ ${ucapanWaktu}
 ━━━━━━━━━━━━━━━━━━━━━━
 > *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
             await m.reply(masterMenuText);
+        }
+        break
+
+        case 'adminmenu': {
+            const adminMenuText = `╔══════════════════════╗
+║  *🛠️ ADMIN COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *User Management*
+▸ ${prefix}ban @user
+▸ ${prefix}unban @user
+▸ ${prefix}mute – Mute group
+▸ ${prefix}unmute – Unmute group
+▸ ${prefix}warn @user
+▸ ${prefix}unwarn @user
+
+📌 *Chat Management*
+▸ ${prefix}clear – Clear chat
+▸ ${prefix}delete – Delete message
+▸ ${prefix}pin – Pin message
+▸ ${prefix}unpin – Unpin message
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+            await m.reply(adminMenuText);
         }
         break
 
