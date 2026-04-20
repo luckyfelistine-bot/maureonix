@@ -213,12 +213,50 @@ module.exports = async (nimesha, m, ctx) => {
 
         case 'attp': {
             if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-            try {
-                const url = `https://api.lolhuman.xyz/api/attp?apikey=demo&text=${encodeURIComponent(text)}`;
-                const buffer = await getBuffer(url);
-                await nimesha.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
-            } catch (e) {
-                m.reply('❌ Failed to create attp: ' + e.message);
+            await m.reply('🎬 *Creating animated sticker...*');
+            
+            const apis = [
+                {
+                    name: 'paxsenix',
+                    url: `https://api.paxsenix.biz.id/tools/attp?text=${encodeURIComponent(text)}`
+                },
+                {
+                    name: 'lolhuman',
+                    url: `https://api.lolhuman.xyz/api/attp?apikey=demo&text=${encodeURIComponent(text)}`
+                },
+                {
+                    name: 'xzn',
+                    url: `https://api.xzn.wtf/api/attp?text=${encodeURIComponent(text)}`
+                }
+            ];
+            
+            let success = false;
+            let lastError = '';
+            
+            for (const api of apis) {
+                try {
+                    const buffer = await getBuffer(api.url);
+                    // Verify buffer is not empty and looks like WebP
+                    if (buffer && buffer.length > 100) {
+                        // Check WebP header (first 4 bytes: RIFF)
+                        const header = buffer.slice(0, 4).toString('ascii');
+                        if (header === 'RIFF') {
+                            await nimesha.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
+                            success = true;
+                            break;
+                        } else {
+                            lastError = `${api.name}: invalid WebP header`;
+                        }
+                    } else {
+                        lastError = `${api.name}: empty response`;
+                    }
+                } catch (e) {
+                    lastError = `${api.name}: ${e.message}`;
+                }
+            }
+            
+            if (!success) {
+                m.reply(`❌ Failed to create attp. All APIs failed.\nLast error: ${lastError}`);
             }
         }
         break
