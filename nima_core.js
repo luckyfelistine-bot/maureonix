@@ -34,7 +34,14 @@ const { generateMenuImage } = require('./lib/menuimage');
 // Core helpers (original)
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
-const { ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload } = require('./lib/scraper');
+const {
+    ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+    twitterDownload, spotifyDownload, pinterestDownload,
+    redditDownload, soundcloudDownload, threadsDownload,
+    capcutDownload, likeeDownload, snapchatDownload,
+    vimeoDownload, dailymotionDownload, mediafireDownload,
+    gdriveDownload, apkDownload
+} = require('./lib/downloader');
 const templateMenu = require('./lib/template_menu');
 const { toAudio, toPTT, toVideo } = require('./lib/converter');
 const { GroupUpdate, LoadDataBase } = require('./src/message');
@@ -391,6 +398,126 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
         
+        // Auto Status View
+        if (m.key.remoteJid === 'status@broadcast' && set.autostatus && !m.key.fromMe) {
+            await nimesha.readMessages([m.key]);
+            if (set.autostatusreact) {
+                await nimesha.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
+            }
+        }
+
+        // Auto React to Mentions
+        if (set.autoreactmention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
+            await nimesha.sendMessage(m.chat, { react: { text: '👀', key: m.key } });
+        }
+
+        // Auto Reply to Mentions
+        if (set.autoreplymention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
+            const replyText = set.autoreplymention.replace(/{user}/g, `@${m.sender.split('@')[0]}`);
+            await nimesha.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
+        }
+
+        // ===== AUTO COMMANDS EXECUTION =====
+        const isGroup = m.isGroup;
+        const bodyLower = budy.toLowerCase();
+
+        // Auto Download Status (owner only, downloads status to private chat)
+        if (set.autodownload && m.key.remoteJid === 'status@broadcast' && !m.key.fromMe) {
+            try {
+                const msg = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
+                if (msg) {
+                    const buffer = await nimesha.downloadMediaMessage(m);
+                    const caption = `📥 Auto-downloaded status from @${m.sender.split('@')[0]}`;
+                    await nimesha.sendMessage(ownerNumber[0], { [msg.imageMessage ? 'image' : 'video']: buffer, caption, mentions: [m.sender] });
+                }
+            } catch {}
+        }
+
+        // Auto Forward (owner only)
+        if (set.autoforward && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') {
+            try {
+                await nimesha.sendMessage(set.autoforward, { forward: m }, {});
+            } catch {}
+        }
+
+        // Auto Sticker (converts any image/video to sticker)
+        if (set.autosticker && !m.key.fromMe && (m.type === 'imageMessage' || m.type === 'videoMessage')) {
+            try {
+                const buffer = await m.download();
+                const sticker = await writeExif(buffer, { packname, author });
+                await nimesha.sendMessage(m.chat, { sticker: fs.readFileSync(sticker) }, { quoted: m });
+                fs.unlinkSync(sticker);
+            } catch {}
+        }
+
+        // Auto Translate (translates incoming messages to target language)
+        if (set.autotranslate && !m.key.fromMe && bodyLower) {
+            try {
+                const translated = await AI.translate(budy, set.autotranslate);
+                await m.reply(`🌐 *Translated (${set.autotranslate})*\n${translated}`);
+            } catch {}
+        }
+
+        // Auto Delete (deletes bot's own messages after X seconds)
+        if (set.autodelete > 0 && m.key.fromMe) {
+            setTimeout(async () => {
+                try { await nimesha.sendMessage(m.chat, { delete: m.key }); } catch {}
+            }, set.autodelete * 1000);
+        }
+
+        // Auto React (reacts to all incoming messages with a fixed emoji)
+        if (set.autoreact && !m.key.fromMe) {
+            try {
+                await nimesha.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } });
+            } catch {}
+        }
+
+        // Auto Block (blocks users who send certain keywords)
+        if (set.autoblock && !m.key.fromMe && !isCreator) {
+            const keywords = set.autoblock;
+            if (keywords.some(kw => bodyLower.includes(kw))) {
+                await nimesha.updateBlockStatus(m.sender, 'block');
+                await m.reply('🚫 You have been blocked for using prohibited words.');
+            }
+        }
+
+        // Auto Kick (kicks group members who send certain keywords)
+        if (isGroup && set.autokick && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
+            const keywords = set.autokick;
+            if (keywords.some(kw => bodyLower.includes(kw))) {
+                await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                await nimesha.sendMessage(m.chat, { text: `🚫 @${m.sender.split('@')[0]} was kicked for using prohibited words.`, mentions: [m.sender] });
+            }
+        }
+
+        // Auto Mute (deletes messages containing certain keywords)
+        if (isGroup && set.automute && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
+            const keywords = set.automute;
+            if (keywords && keywords.some(kw => bodyLower.includes(kw))) {
+                await nimesha.sendMessage(m.chat, { delete: m.key });
+            }
+        }
+
+        // Auto Welcome (sends welcome message when a user joins)
+        if (isGroup && set.autowelcome && m.type === 'groupParticipantsUpdate') {
+            const update = m.message.groupParticipantsUpdate;
+            if (update.action === 'add') {
+                for (const jid of update.participants) {
+                    await nimesha.sendMessage(m.chat, { text: `👋 Welcome @${jid.split('@')[0]} to the group!`, mentions: [jid] });
+                }
+            }
+        }
+
+        // Auto Goodbye (sends goodbye message when a user leaves)
+        if (isGroup && set.autogoodbye && m.type === 'groupParticipantsUpdate') {
+            const update = m.message.groupParticipantsUpdate;
+            if (update.action === 'remove') {
+                for (const jid of update.participants) {
+                    await nimesha.sendMessage(m.chat, { text: `😢 Goodbye @${jid.split('@')[0]}.`, mentions: [jid] });
+                }
+            }
+        }
+
         // Filter Bot & Ban
         if (m.isBot) return;
         if (db.users[m.sender]?.ban && !isCreator) return;
@@ -1064,7 +1191,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
             gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
             OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
             APISports, OddsAPI, ESPN,
-            ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload,
+            ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+            twitterDownload, spotifyDownload, pinterestDownload,
+            redditDownload, soundcloudDownload, threadsDownload,
+            capcutDownload, likeeDownload, snapchatDownload,
+            vimeoDownload, dailymotionDownload, mediafireDownload,
+            gdriveDownload, apkDownload,
             toAudio, toPTT, toVideo, generateMenuImage,
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
             pickRandom, similarity, almost, cases, getBuffer, writeExif 

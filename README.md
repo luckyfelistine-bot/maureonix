@@ -24,15 +24,21 @@
 
 | Category | Description |
 |----------|-------------|
-| 🤖 Bot | Auto-reply, pairing code, QR login |
-| 👥 Group | Admin tools, anti-spam, welcome messages |
-| 🔍 Search | Google, Wikipedia, weather, and more |
-| 📥 Download | **YouTube MP3/MP4** (16MB limit), TikTok, Instagram |
-| 🛠️ Tools | Sticker maker, image editor, QR generator |
-| 🧠 AI | ChatGPT, image generation |
-| 🎮 Games | TicTacToe, Chess, Quiz, and more |
-| 😄 Fun | Memes, jokes, random content |
-| 👑 Owner | Full bot control commands |
+| 🤖 Bot | Auto-reply, pairing code, QR login, 50+ automation toggles |
+| 👥 Group | Admin tools, anti-spam, welcome/goodbye messages, anti-link, anti-delete |
+| 🔍 Search | Google, Wikipedia, GitHub, NPM, Urban Dictionary, weather, news |
+| 📥 Download | YouTube MP3/MP4, TikTok, Instagram, Facebook, Twitter, Spotify, MediaFire, APK |
+| 🎨 Sticker | Sticker maker, animated text (ATTP), remove.bg, blur, QC, brat |
+| 🧠 AI | ChatGPT, Gemini, Llama, DeepSeek, image generation, translate, TTS, summarize |
+| 🎮 Games | Connect 4, Blackjack, RPG Adventure, Slot, Roulette, Crash, Dice, Trivia, Pokémon |
+| 🎬 Movies & TV | IMDB, TMDB, TVMaze, AniList, series info, ratings, trailers |
+| ⚽ Sports | Live scores, fixtures, standings, team/player stats, predictions, odds |
+| 💰 Economy | Daily rewards, work, rob, bank, shop, inventory, leaderboard |
+| 📊 Master Tools | Health calculators (BMI, BMR), finance (stocks, crypto), travel, food recipes, dev utilities |
+| 🔔 Reminders | Persistent reminders with heartbeat, notes, to-do lists, habits |
+| 😄 Fun | Memes, jokes, quotes, facts, 8ball, roast, compliment, ship, truth/dare |
+| 👑 Owner | Full bot control, block/unblock, backup, set PP, clear chat, join/leave groups |
+| 🔐 Privacy | View-once revealer, auto-delete, auto-block keywords |
 
 ---
 
@@ -45,6 +51,25 @@
 | **yt-dlp** | Latest (for YouTube downloads) |
 | **ffmpeg** | Any version |
 | **Python 3** | Required for yt-dlp |
+
+---
+
+## 🆕 v5.0.0 Upgrades
+
+| Feature | Description |
+|---------|-------------|
+| **50+ Automation Toggles** | Auto-view status, auto-react, auto-reply mentions, auto-translate, auto-sticker, auto-forward, auto-delete, auto-block/kick/mute keywords, and more. |
+| **Multi-User (JadiBot)** | Users can pair their own WhatsApp number and run a personal bot instance. |
+| **Heartbeat System** | Persistent reminders, auto-backup, and health checks keep the bot alive and reliable. |
+| **RAWG Game Database** | Search 800,000+ games, get details, screenshots, trailers, store links. |
+| **Casino Games** | Roulette, Crash, Dice, Coinflip, RPS with betting. |
+| **RPG Adventure** | Level up, fight enemies, heal, earn gold and XP. |
+| **Live Sports** | Football scores, standings, H2H, predictions via API Sports and ESPN. |
+| **Movie & TV APIs** | IMDB, TMDB, TVMaze, AniList, Jikan for comprehensive media info. |
+| **Master Command Suite** | Health, finance, social, developer, travel, and food tools. |
+| **Enhanced AI** | Groq-powered models (GPT, Gemini, Llama, DeepSeek) with memory. |
+| **Remove.bg Integration** | One-click background removal with your own API key. |
+| **Voice RSS TTS** | High-quality text-to-speech with multi-language support. |
 
 ---
 
@@ -108,6 +133,17 @@ global.listprefix = ['!', '.', '+']
 // Pairing code (true = pairing code, false = QR code)
 global.pairing_code = true
 
+### 🔑 New API Keys (v5.0.0)
+
+Add these to `config.js`:
+
+| Key | Purpose | How to Get |
+|-----|---------|------------|
+| `removeBgApiKey` | Background removal | [remove.bg](https://www.remove.bg/api) |
+| `voiceRssApiKey` | Text-to-speech | [Voice RSS](https://www.voicerss.org/) |
+| `geminiApiKey` | Gemini AI | [Google AI Studio](https://aistudio.google.com/) |
+| `groqApiKey` | GPT/Llama/DeepSeek | [Groq](https://console.groq.com/) |
+
 Changes apply automatically without restart.
 
 ▶️ Running the Bot
@@ -121,14 +157,90 @@ After start, scan the QR code or use the pairing code.
 🗂️ Project Structure
 
 maureonix/
-├── index.js          # WhatsApp connection & event handler
-├── nima.js           # All commands (main bot logic)
-├── config.js         # Plain-text configuration
-├── settings.js       # Additional settings
-├── start.js          # Entry point
-├── lib/              # Helper libraries
-├── src/              # Core modules
-└── database/         # Temporary files and data
+│
+├── 📄 README.md                     # Main documentation 
+│
+├── 📁 docs/                         # Full documentation
+│   ├── INSTALL.md
+│   ├── CONFIG.md
+│   ├── COMMANDS.md
+│   ├── ARCHITECTURE.md
+│   ├── API.md
+│   ├── FEATURES.md
+│   ├── HEARTBEAT.md
+│   ├── SECURITY.md
+│   ├── USAGE.md
+│   ├── CHANGELOG.md
+│   ├── CONTRIBUTING.md
+│   └── ROADMAP.md
+│
+├── 📁 core/                         # Maureonix core brain
+│   ├── nima.js
+│   ├── nima_core.js
+│   ├── nima_commands.js
+│   ├── nmd_axis.js
+│   ├── shasikala.js
+│   └── protection.js
+│
+├── 📁 src/                          # Runtime engine
+│   ├── index.js                     # REAL ENTRY POINT
+│   ├── start.js
+│   ├── server.js
+│   └── message.js
+│
+├── 📁 commands/                     # Modular commands (future split)
+│   ├── ai/
+│   ├── admin/
+│   ├── owner/
+│   ├── group/
+│   ├── games/
+│   ├── movies/
+│   ├── search/
+│   ├── download/
+│   ├── tools/
+│   └── fun/
+│
+├── 📁 lib/                          # Helpers / utilities
+│   ├── scraper.js
+│   ├── uploader.js
+│   ├── formatter.js
+│   └── logger.js
+│
+├── 📁 database/
+│   ├── jadibot/
+│   ├── menucards/
+│   ├── temp/
+│   └── cache/
+│
+├── 📁 media/
+│   ├── logos/
+│   ├── backgrounds/
+│   ├── fonts/
+│   └── generated/
+│
+├── 📁 config/
+│   ├── config.js
+│   └── settings.js
+│
+├── 📁 scripts/
+│   ├── install.sh
+│   ├── build.sh
+│   └── cleanup.sh
+│
+├── 📁 deployment/
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── railway.json
+│   ├── heroku.yml
+│   ├── Procfile
+│   └── ecosystem.config.js
+│
+├── speed.py
+├── package.json
+├── package-lock.json
+├── yarn.lock
+├── .gitignore
+└── .railwayignore
 
 🧩 Adding a New Command
 Inside nima.js, under switch (command):

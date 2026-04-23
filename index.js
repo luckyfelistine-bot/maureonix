@@ -407,7 +407,7 @@ async function startnimaBot() {
             await database.write(global.db);
         } else {
             global.db = loadData;
-        }
+        }   // ✅ Close the else block
 
         // ✅ Restore Sets after loading from JSON
         if (global.store && global.store.messages) {
@@ -433,6 +433,9 @@ async function startnimaBot() {
         global.db.cmd = global.db.cmd || {};
         global.db.game = global.db.game || {};
         global.db.store = global.db.store || {};
+
+        // ✅ Initialize jadibot tracking
+        global.db.jadibot = global.db.jadibot || { sessions: {}, requests: {} };
 
         if (!storeLoadData || Object.keys(storeLoadData).length === 0) {
             global.store = {
@@ -465,10 +468,14 @@ async function startnimaBot() {
         setTimeout(() => startnimaBot(), 30000);
         return;
     }
-    
-    const level = pino({ level: 'silent' });
-    const { version } = await fetchLatestWaWebVersion();
-    const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+        // ✅ Load documentation into memory (non‑blocking)
+        const { loadDocs } = require('./lib/docs');
+        loadDocs();
+        
+        const level = pino({ level: 'silent' });
+        const { version } = await fetchLatestWaWebVersion();
+        const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+
     const getMessage = async (key) => {
         if (global.store) {
             const msg = await global.loadMessage(key.remoteJid, key.id);

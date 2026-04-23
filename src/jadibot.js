@@ -4,44 +4,52 @@ const pino = require('pino');
 const path = require('path');
 const { Boom } = require('@hapi/boom');
 const NodeCache = require('node-cache');
-const { exec, spawn, execSync } = require('child_process');
-const { parsePhoneNumber } = require('awesome-phonenumber');
-const { default: WAConnection, useMultiFileAuthState, Browsers, DisconnectReason, makeInMemoryStore, jidNormalizedUser, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, proto, getAggregateVotesInPollMessage } = require('baileys');
+const { exec } = require('child_process');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, jidNormalizedUser, makeCacheableSignalKeyStore, fetchLatestWaWebVersion } = require('baileys');
 
-const { GroupCacheUpdate, GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./message');
+const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./message');
 
-global.client = {};
-
+// Store active bot instances
+global.client = global.client || {};
 const msgRetryCounterCache = new NodeCache();
 
 async function JadiBot(conn, from, m, store) {
+    // Ensure global database is accessible
+    if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [] };
+    if (!global.db.set) global.db.set = {};
+
     async function startJadiBot() {
         try {
-            const { state, saveCreds } = await useMultiFileAuthState(`./database/jadibot/${from}`);
+            const authFolder = path.join(process.cwd(), 'jadibot_sessions', from.split('@')[0]);
+            if (!fs.existsSync(authFolder)) fs.mkdirSync(authFolder, { recursive: true });
+
+            const { state, saveCreds } = await useMultiFileAuthState(authFolder);
+            const { version } = await fetchLatestWaWebVersion();
             const level = pino({ level: 'silent' });
-            
+
             const getMessage = async (key) => {
                 if (store) {
                     const msg = await store.loadMessage(key.remoteJid, key.id);
                     return msg?.message || '';
                 }
-                return {
-                    conversation: 'Hello, I am Maureonix'
-                };
+                return { conversation: 'Hello, I am Maureonix' };
             };
-            
-            client[from] = WAConnection({
+
+            global.client[from] = makeWASocket({
+                version,
                 logger: level,
                 getMessage,
                 syncFullHistory: false,
                 maxMsgRetryCount: 15,
                 msgRetryCounterCache,
-                retryRequestDelayMs: 10,
-                defaultQueryTimeoutMs: 0,
-                browser: Browsers.ubuntu('Chrome'),
+                retryRequestDelayMs: 250,
+                defaultQueryTimeoutMs: 60000,
+                connectTimeoutMs: 60000,
+                keepAliveIntervalMs: 25000,
+                browser: ['Ubuntu', 'Chrome', '20.0.0'],
                 transactionOpts: {
                     maxCommitRetries: 10,
-                    delayBetweenTriesMs: 10,
+                    delayBetweenTriesMs: 250,
                 },
                 appStateMacVerification: {
                     patch: true,
@@ -52,62 +60,122 @@ async function JadiBot(conn, from, m, store) {
                     keys: makeCacheableSignalKeyStore(state.keys, level),
                 },
             });
-            
-            await Solving(client[from], store);
-            
-            client[from].pairingStarted = false;
-            
-            client[from].ev.on('creds.update', saveCreds);
-            
-            client[from].ev.on('connection.update', async (update) => {
-                const { connection, lastDisconnect, receivedPendingNotifications } = update;
-                if (connection === 'connecting' && !client[from].authState.creds.registered && !client[from].pairingStarted) {
-                    setTimeout(async () => {
-                        client[from].pairingStarted = true;
-                        exec('rm -rf ./database/jadibot/' + from + '/*');
-                        let code = await client[from].requestPairingCode(from.replace(/[^0-9]/g, ''));
-                        m.reply(`Your Pairing Code is: ${code?.match(/.{1,4}/g)?.join('-') || code}`);
-                    }, 3000);
-                }
-                if (connection === 'close') {
-                    const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                    console.log(reason);
-                    if ([DisconnectReason.connectionLost, DisconnectReason.connectionClosed, DisconnectReason.restartRequired, DisconnectReason.timedOut, DisconnectReason.badSession, DisconnectReason.connectionReplaced].includes(reason)) {
-                        JadiBot(conn, from, m, store);
-                    } else if (reason === DisconnectReason.loggedOut) {
-                        m.reply('Please scan again to restart...');
-                        StopJadiBot(conn, from, m);
-                    } else if (reason === DisconnectReason.Multidevicemismatch) {
-                        m.reply('Please scan again...');
-                        StopJadiBot(conn, from, m);
-                    } else {
-                        m.reply('You are no longer acting as a bot!');
-                    }
-                }
-                if (connection == 'open') {
-                    let botNumber = await client[from].decodeJid(client[from].user.id);
-                    if (db.set[botNumber] && !db.set[botNumber]?.join) {
-                        db.set[botNumber].original = false;
-                        if (my.ch.length > 0 && my.ch.includes('@newsletter')) {
-                            if (my.ch) await client[from].newsletterMsg(my.ch, { type: 'follow' }).catch(e => {});
-                            db.set[botNumber].join = true;
-                        }
-                    }
-                }
-                if (receivedPendingNotifications == 'true') {
-                    client[from].ev.flush();
+
+            await Solving(global.client[from], store);
+            // Forward unhandled errors to main bot owner
+            global.client[from].ev.on('unhandledRejection', async (reason, promise) => {
+                console.error(`[JadiBot ${from}] Unhandled Rejection:`, reason);
+                const ownerJid = global.owner?.[0] + '@s.whatsapp.net';
+                if (ownerJid) {
+                    await conn.sendMessage(ownerJid, {
+                        text: `⚠️ *JadiBot Error*\n👤 User: @${from.split('@')[0]}\n❌ ${String(reason).slice(0, 500)}`,
+                        mentions: [from]
+                    }).catch(() => {});
                 }
             });
-            
-            client[from].ev.on('contacts.update', (update) => {
+
+            global.client[from].ev.on('uncaughtException', async (err) => {
+                console.error(`[JadiBot ${from}] Uncaught Exception:`, err);
+                const ownerJid = global.owner?.[0] + '@s.whatsapp.net';
+                if (ownerJid) {
+                    await conn.sendMessage(ownerJid, {
+                        text: `🔥 *JadiBot Crash*\n👤 User: @${from.split('@')[0]}\n❌ ${err.message}`,
+                        mentions: [from]
+                    }).catch(() => {});
+                }
+            });
+
+            let pairingStarted = false;
+
+            global.client[from].ev.on('creds.update', saveCreds);
+
+            global.client[from].ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, receivedPendingNotifications } = update;
+
+                // Request pairing code if not registered
+                if (connection === 'connecting' && !global.client[from].authState.creds.registered && !pairingStarted) {
+                    pairingStarted = true;
+                    setTimeout(async () => {
+                        try {
+                            const phoneNumber = from.split('@')[0].replace(/[^0-9]/g, '');
+                            const code = await global.client[from].requestPairingCode(phoneNumber);
+                            const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
+                            await m.reply(`📲 *Your Pairing Code:* ${formatted}\n\n_Enter this in WhatsApp > Linked Devices > Link with phone number._`);
+                        } catch (e) {
+                            await m.reply(`❌ Failed to get pairing code: ${e.message}`);
+                        }
+                    }, 3000);
+                }
+
+                if (connection === 'close') {
+                    const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+                    console.log(`[JadiBot ${from}] Disconnected: ${reason}`);
+                    // Notify owner of unexpected disconnections
+                    if (reason !== DisconnectReason.connectionClosed && reason !== DisconnectReason.connectionLost) {
+                        const ownerJid = global.owner?.[0] + '@s.whatsapp.net';
+                        if (ownerJid) {
+                            await conn.sendMessage(ownerJid, {
+                                text: `🔌 *JadiBot Disconnected*\n👤 @${from.split('@')[0]}\n⚠️ Reason: ${reason}`,
+                                mentions: [from]
+                            }).catch(() => {});
+                        }
+                    }
+                    // ... existing reconnect logic
+
+                    if ([DisconnectReason.connectionLost, DisconnectReason.connectionClosed, DisconnectReason.restartRequired, DisconnectReason.timedOut, DisconnectReason.badSession, DisconnectReason.connectionReplaced].includes(reason)) {
+                        // Reconnect
+                        setTimeout(() => JadiBot(conn, from, m, store), 5000);
+                    } else if (reason === DisconnectReason.loggedOut) {
+                        await m.reply('❌ Session logged out. Please pair again with .pair');
+                        StopJadiBot(conn, from, m);
+                    } else if (reason === DisconnectReason.multideviceMismatch) {
+                        await m.reply('❌ Multi-device mismatch. Please pair again.');
+                        StopJadiBot(conn, from, m);
+                    } else {
+                        await m.reply('❌ Bot disconnected.');
+                        StopJadiBot(conn, from, m);
+                    }
+                }
+
+                if (connection === 'open') {
+                    const botNumber = await global.client[from].decodeJid(global.client[from].user.id);
+                    console.log(`[JadiBot ${from}] Connected as ${botNumber}`);
+
+                    // Initialize settings for this bot number if not exists
+                    if (!global.db.set[botNumber]) {
+                        global.db.set[botNumber] = {
+                            public: true,
+                            autostatus: false,
+                            autoread: true,
+                            autotyping: true,
+                            owner: [from] // The user is the owner of their own bot
+                        };
+                    }
+
+                    // Auto-join channel if configured
+                    if (global.my?.ch && global.my.ch.includes('@newsletter')) {
+                        await global.client[from].newsletterMsg(global.my.ch, { type: 'follow' }).catch(() => {});
+                    }
+
+                    await global.client[from].sendMessage(from, { text: '✅ *Your personal bot is now active!*\n\nType .help for commands.\nType .stopjadibot to stop.' });
+                }
+
+                if (receivedPendingNotifications == 'true') {
+                    global.client[from].ev.flush();
+                }
+            });
+
+            global.client[from].ev.on('contacts.update', (update) => {
                 for (let contact of update) {
+                    if (!contact.id) continue;
                     let trueJid;
-                    if (!trueJid) continue;
                     if (contact.id.endsWith('@lid')) {
-                        trueJid = client[from].findJidByLid(contact.id, store);
+                        trueJid = global.client[from].findJidByLid?.(contact.id, store);
                     } else {
                         trueJid = jidNormalizedUser(contact.id);
                     }
+                    if (!trueJid) continue;
+                    if (!store.contacts) store.contacts = {};
                     store.contacts[trueJid] = {
                         ...store.contacts[trueJid],
                         id: trueJid,
@@ -118,65 +186,86 @@ async function JadiBot(conn, from, m, store) {
                     }
                 }
             });
-            
-            client[from].ev.on('call', async (call) => {
-                let botNumber = await client[from].decodeJid(client[from].user.id);
-                if (db.set[botNumber].anticall) {
+
+            global.client[from].ev.on('call', async (call) => {
+                const botNumber = await global.client[from].decodeJid(global.client[from].user.id);
+                if (global.db.set[botNumber]?.anticall) {
                     for (let id of call) {
                         if (id.status === 'offer') {
-                            let msg = await client[from].sendMessage(id.from, { text: `We cannot receive ${id.isVideo ? 'video' : 'voice'} calls right now.\n@${id.from.split('@')[0]} If you need help, please contact the owner.`, mentions: [id.from] });
-                            await client[from].sendContact(id.from, global.owner, msg);
-                            await client[from].rejectCall(id.id, id.from);
+                            await global.client[from].sendMessage(id.from, {
+                                text: `📵 Cannot receive ${id.isVideo ? 'video' : 'voice'} calls.\n@${id.from.split('@')[0]} Contact owner for help.`,
+                                mentions: [id.from]
+                            });
+                            await global.client[from].rejectCall(id.id, id.from);
                         }
                     }
                 }
             });
-            
-            client[from].ev.on('groups.update', (update) => {
+
+            global.client[from].ev.on('groups.update', (update) => {
                 for (let n of update) {
+                    if (!store.groupMetadata) store.groupMetadata = {};
                     if (store.groupMetadata[n.id]) {
                         Object.assign(store.groupMetadata[n.id], n);
-                    } else store.groupMetadata[n.id] = n;
+                    } else {
+                        store.groupMetadata[n.id] = n;
+                    }
                 }
             });
-            
-            client[from].ev.on('group-participants.update', async (update) => {
-                await GroupParticipantsUpdate(client[from], update, store);
+
+            global.client[from].ev.on('group-participants.update', async (update) => {
+                await GroupParticipantsUpdate(global.client[from], update, store);
             });
-            
-            client[from].ev.on('messages.upsert', async (message) => {
-                await MessagesUpsert(client[from], message, store);
+
+            global.client[from].ev.on('messages.upsert', async (message) => {
+                await MessagesUpsert(global.client[from], message, store);
             });
-        
-            return client[from];
+
+            return global.client[from];
         } catch (e) {
-            console.log('Error in jadibot: ', e);
+            console.error('[JadiBot Error]', e);
+            await m.reply(`❌ Failed to start bot: ${e.message}`);
+            throw e;
         }
     }
+
     return startJadiBot();
 }
 
 async function StopJadiBot(conn, from, m) {
-    if (!Object.keys(client).includes(from)) {
-        return conn.sendMessage(m.chat, { text: 'You are not currently using Jadibot!' }, { quoted: m });
+    if (!global.client[from]) {
+        return m?.reply ? m.reply('❌ No active bot session found.') : null;
     }
     try {
-        client[from].end('Stop');
-        client[from].ev.removeAllListeners();
+        global.client[from].ws?.close();
+        global.client[from].ev.removeAllListeners();
     } catch (e) {
-        console.log('Error in stopjadibot: ', e);
+        console.error('[StopJadiBot Error]', e);
     }
-    delete client[from];
-    exec(`rm -rf ./database/jadibot/${from}`);
-    return m.reply('Successfully left the Jadibot service.');
+    delete global.client[from];
+
+    // Clean up auth folder
+    const authFolder = path.join(process.cwd(), 'jadibot_sessions', from.split('@')[0]);
+    try {
+        const { rmSync } = require('fs');
+        rmSync(authFolder, { recursive: true, force: true });
+    } catch {}
+
+    if (m?.reply) await m.reply('🛑 Bot stopped. Session cleared.');
+    return true;
 }
 
 async function ListJadiBot(conn, m) {
-    let teks = 'List of active bots (Jadi Bot):\n\n';
-    for (let jadibot of Object.values(client)) {
-        teks += (jadibot.user?.id ? `- @${conn.decodeJid(jadibot.user.id).split('@')[0]}\n` : '');
+    const active = Object.keys(global.client).filter(k => global.client[k]?.user);
+    if (active.length === 0) {
+        return m.reply('📭 No active Jadibot sessions.');
     }
-    return m.reply(teks);
+    let teks = '🤖 *Active Jadibot Sessions*\n\n';
+    for (let jid of active) {
+        const user = global.client[jid].user;
+        teks += `• @${jid.split('@')[0]} (${user?.name || user?.id || 'Unknown'})\n`;
+    }
+    await m.reply(teks, { mentions: active });
 }
 
-module.exports = { JadiBot, StopJadiBot, ListJadiBot };
+module.exports = { JadiBot, StopJadiBot, ListJadiBot, activeBots: global.client };

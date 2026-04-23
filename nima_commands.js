@@ -29,7 +29,7 @@ module.exports = async (nimesha, m, ctx) => {
         AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
         RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
         slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,Blackjack, BlackjackCasino, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
         OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
         APISports, OddsAPI, ESPN,
         ytMp4, ytMp3, tiktokDownload, igDownload, fbDownload, spotifyDownload, pinterestDownload, redditDownload, mediafireDownload, apkDownload,
@@ -478,15 +478,19 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        case 'ai': case 'ask': case 'brain': {
+        case 'ai': case 'askai': {
             if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-            await m.reply('🌐 *Ultimate AI thinking...*');
-            try {
-                const res = await AI.ultimateAI(text, m.sender);
-                await m.reply(`🎯 *${res.provider}*\n\n${res.text}`);
-            } catch (e) {
-                await m.reply(`❌ AI error: ${e.message}`);
+
+            const { buildContext } = require('./lib/docs');
+            const context = buildContext(text, 2);
+
+            let prompt = text;
+            if (context) {
+                prompt = `You are Maureonix. Use the documentation below if relevant to answer.\n\n${context}\n\nUser: ${text}`;
             }
+
+            const res = await AI.ultimateAI(prompt, m.sender);
+            await m.reply(`🤖 *AI*\n\n${res.text}`);
         }
         break
 
@@ -603,22 +607,22 @@ module.exports = async (nimesha, m, ctx) => {
 
         case 'tts': {
             if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
-            // Let user specify full language code (e.g., 'en-us', 'si', 'ja')
-            const lang = args[0]?.length >= 2 ? args.shift() : 'en-us';
+            const lang = args[0]?.length >= 2 ? args.shift() : 'en';
             const txt = args.join(' ') || text;
             await m.reply('🔊 *Generating voice...*');
 
             const fetch = require('node-fetch');
+            const { exec } = require('child_process');
             let audioBuffer = null;
 
             const isValidAudio = (buf) => {
                 if (!buf || buf.length < 100) return false;
-                if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true; // MP3
-                if (buf.slice(0, 4).toString() === 'OggS') return true;        // OPUS
+                if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true;
+                if (buf.slice(0, 4).toString() === 'OggS') return true;
                 return false;
             };
 
-            // 1. Google Translate TTS (free)
+            // 1. Google Translate TTS via Node fetch
             try {
                 const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
                 const res = await fetch(url, {
@@ -629,10 +633,29 @@ module.exports = async (nimesha, m, ctx) => {
                     if (isValidAudio(buf)) audioBuffer = buf;
                 }
             } catch (e) {
-                console.log('Google TTS failed:', e.message);
+                console.log('Google TTS (fetch) failed:', e.message);
             }
 
-            // 2. VoiceRSS (uses your key)
+            // 2. Google Translate TTS via curl (fallback)
+            if (!audioBuffer) {
+                try {
+                    const tmpFile = path.join(require('os').tmpdir(), `tts_curl_${Date.now()}.mp3`);
+                    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
+                    await new Promise((resolve, reject) => {
+                        exec(`curl -L -A "Mozilla/5.0" "${url}" --output "${tmpFile}"`, (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        });
+                    });
+                    const buf = fs.readFileSync(tmpFile);
+                    fs.unlinkSync(tmpFile);
+                    if (isValidAudio(buf)) audioBuffer = buf;
+                } catch (e) {
+                    console.log('Google TTS (curl) failed:', e.message);
+                }
+            }
+
+            // 3. VoiceRSS (your key)
             if (!audioBuffer && global.voiceRssKey) {
                 try {
                     const url = `https://api.voicerss.org/?key=${global.voiceRssKey}&hl=${lang}&src=${encodeURIComponent(txt)}&c=MP3&f=44khz_16bit_stereo`;
@@ -646,7 +669,7 @@ module.exports = async (nimesha, m, ctx) => {
                 }
             }
 
-            // 3. gTTS (local)
+            // 4. gTTS
             if (!audioBuffer) {
                 try {
                     const gTTS = require('gtts');
@@ -666,20 +689,6 @@ module.exports = async (nimesha, m, ctx) => {
                 }
             }
 
-            // 4. Free public API fallback
-            if (!audioBuffer) {
-                try {
-                    const url = `https://api.paxsenix.biz.id/tools/tts?text=${encodeURIComponent(txt)}&lang=${lang}`;
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const buf = await res.buffer();
-                        if (isValidAudio(buf)) audioBuffer = buf;
-                    }
-                } catch (e) {
-                    console.log('Paxsenix TTS failed:', e.message);
-                }
-            }
-
             if (audioBuffer) {
                 await nimesha.sendMessage(m.chat, {
                     audio: audioBuffer,
@@ -688,7 +697,34 @@ module.exports = async (nimesha, m, ctx) => {
                 }, { quoted: m });
                 m.reply('✅ Voice generated!');
             } else {
-                m.reply('❌ TTS failed. All services are unavailable.');
+                m.reply('❌ TTS failed. All services unavailable.');
+            }
+        }
+        break
+        case 'vv': case 'ok': case 'wow': {
+            const quoted = m.quoted;
+            if (!quoted) return m.reply(`⚠️ Reply to a view once message!`);
+            try {
+                const msg = quoted.message?.viewOnceMessage?.message || 
+                            quoted.message?.viewOnceMessageV2?.message || 
+                            quoted.message;
+                if (msg?.imageMessage) {
+                    const buffer = await nimesha.downloadMediaMessage(quoted);
+                    await nimesha.sendMessage(m.chat, { 
+                        image: buffer, 
+                        caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` 
+                    }, { quoted: m });
+                } else if (msg?.videoMessage) {
+                    const buffer = await nimesha.downloadMediaMessage(quoted);
+                    await nimesha.sendMessage(m.chat, { 
+                        video: buffer, 
+                        caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` 
+                    }, { quoted: m });
+                } else {
+                    m.reply('❌ Not a view‑once message or unsupported type.');
+                }
+            } catch (e) { 
+                m.reply(`❌ Error: ${e.message}`); 
             }
         }
         break
@@ -768,7 +804,7 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        // ===== DOWNLOADERS =====
+// ===== DOWNLOADERS =====
         case 'song': case 'mp3': case 'ytmp3': case 'play': {
             if (!text) return m.reply(`Example: ${prefix + command} <query/url>`);
             await m.reply('🎵 *Downloading audio...*');
@@ -838,7 +874,7 @@ module.exports = async (nimesha, m, ctx) => {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
             await m.reply('🐦 *Downloading X...*');
             try {
-                const tw = await (require('./lib/scraper').twitterDownload(args[0]));
+                const tw = await twitterDownload(args[0]);
                 await nimesha.sendMessage(m.chat, { video: { url: tw.url } }, { quoted: m });
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
@@ -854,20 +890,158 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        case 'mediafire': {
+        case 'pinterest': case 'pin': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('📌 *Downloading Pinterest...*');
             try {
-                const mf = await mediafireDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { document: { url: mf.url }, mimetype: 'application/octet-stream' }, { quoted: m });
+                const pin = await pinterestDownload(args[0]);
+                if (pin.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: pin.url }, caption: pin.title || 'Pinterest' }, { quoted: m });
+                else await nimesha.sendMessage(m.chat, { image: { url: pin.url }, caption: pin.title || 'Pinterest' }, { quoted: m });
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
 
-        case 'apk': {
+        case 'reddit': case 'rd': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('🔴 *Fetching Reddit...*');
+            try {
+                const rd = await redditDownload(args[0]);
+                if (rd.isVideo) await nimesha.sendMessage(m.chat, { video: { url: rd.url }, caption: rd.title }, { quoted: m });
+                else await nimesha.sendMessage(m.chat, { image: { url: rd.url }, caption: rd.title }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'soundcloud': case 'sc': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('☁️ *Downloading SoundCloud...*');
+            try {
+                const sc = await soundcloudDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { audio: { url: sc.url }, mimetype: 'audio/mpeg', fileName: `${sc.title}.mp3` }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'threads': case 'th': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('🧵 *Downloading Threads...*');
+            try {
+                const th = await threadsDownload(args[0]);
+                if (th.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: th.url }, caption: th.title || 'Threads' }, { quoted: m });
+                else await nimesha.sendMessage(m.chat, { image: { url: th.url }, caption: th.title || 'Threads' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'capcut': case 'cc': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('✂️ *Downloading CapCut...*');
+            try {
+                const cc = await capcutDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { video: { url: cc.url }, caption: cc.title || 'CapCut' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'likee': case 'le': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('⭐ *Downloading Likee...*');
+            try {
+                const le = await likeeDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { video: { url: le.url }, caption: le.title || 'Likee' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'snapchat': case 'snap': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('👻 *Downloading Snapchat...*');
+            try {
+                const snap = await snapchatDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { video: { url: snap.url }, caption: snap.title || 'Snapchat' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'vimeo': case 'vm': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('▶️ *Downloading Vimeo...*');
+            try {
+                const vm = await vimeoDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { video: { url: vm.url }, caption: vm.title || 'Vimeo' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'dailymotion': case 'dm': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('📺 *Downloading Dailymotion...*');
+            try {
+                const dm = await dailymotionDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { video: { url: dm.url }, caption: dm.title || 'Dailymotion' }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'mediafire': case 'mf': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('📦 *Downloading MediaFire...*');
+            try {
+                const mf = await mediafireDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { document: { url: mf.url }, mimetype: mf.mimetype, fileName: mf.filename }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'gdrive': case 'drive': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
+            await m.reply('☁️ *Downloading Google Drive...*');
+            try {
+                const gd = await gdriveDownload(args[0]);
+                await nimesha.sendMessage(m.chat, { document: { url: gd.url }, mimetype: gd.mimetype, fileName: gd.filename }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'apk': case 'app': {
             if (!text) return m.reply(`Example: ${prefix + command} <app name>`);
+            await m.reply('📲 *Searching APK...*');
             try {
                 const apk = await apkDownload(text);
-                await nimesha.sendMessage(m.chat, { document: apk.buffer, fileName: `${text}.apk`, mimetype: 'application/vnd.android.package-archive' }, { quoted: m });
+                await nimesha.sendMessage(m.chat, { document: { url: apk.url }, mimetype: 'application/vnd.android.package-archive', fileName: `${apk.name}.apk`, caption: apk.name }, { quoted: m });
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'ytsearch': case 'yts': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🔍 *Searching YouTube...*');
+            try {
+                const yts = require('yt-search');
+                const res = await yts(text);
+                let txt = '*🎬 YouTube Search Results*\n\n';
+                res.videos.slice(0, 10).forEach((v, i) => {
+                    txt += `${i + 1}. *${v.title}*\n👤 ${v.author.name} | ⏱️ ${v.timestamp} | 👁️ ${v.views}\n🔗 ${v.url}\n\n`;
+                });
+                await m.reply(txt);
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
+
+        case 'play2': case 'yplay': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎵 *Searching & Downloading...*');
+            try {
+                const yts = require('yt-search');
+                const sr = await yts(text);
+                if (!sr.videos?.length) throw new Error('No results');
+                const video = sr.videos[0];
+                const audio = await ytMp3(video.url);
+                await nimesha.sendMessage(m.chat, {
+                    audio: { url: audio.url }, mimetype: 'audio/mpeg',
+                    fileName: `${audio.title}.mp3`, ptt: false,
+                    contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } }
+                }, { quoted: m });
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
@@ -1050,6 +1224,18 @@ module.exports = async (nimesha, m, ctx) => {
                     m.reply('❌ Manga search failed: ' + e.message);
                 }
             }
+        }
+        break
+
+        case 'remindme': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <minutes> <text>`);
+            const mins = parseInt(args[0]);
+            const msgText = args.slice(1).join(' ');
+            if (isNaN(mins) || mins <= 0) return m.reply('Invalid minutes.');
+            const due = Date.now() + mins * 60000;
+            if (!db.reminders) db.reminders = [];
+            db.reminders.push({ user: m.sender, text: msgText, due });
+            await m.reply(`⏰ Reminder set for ${mins} minute(s).\n📝 ${msgText}`);
         }
         break
 
@@ -2439,6 +2625,478 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
+        // ===== ECONOMY COMMANDS =====
+        case 'daily': case 'claim': {
+            const res = Economy.daily(m.sender);
+            if (res.success) await m.reply(`✅ Claimed ${res.amount} coins & ${res.gems} gems!\n🔥 Streak: ${res.streak}`);
+            else await m.reply(`⏳ Come back in ${res.wait} hours`);
+        }
+        break
+
+        case 'work': {
+            const res = Economy.work(m.sender);
+            if (res.success) await m.reply(`💼 You worked as ${db.users[m.sender].job} and earned ${res.amount} coins`);
+            else await m.reply(`⏳ Wait ${res.wait} minutes`);
+        }
+        break
+
+        case 'rob': {
+            const target = m.mentionedJid?.[0];
+            if (!target) return m.reply('Tag someone to rob');
+            const res = Economy.rob(m.sender, target);
+            if (res.success) await m.reply(`💰 Robbed ${res.amount} coins!`);
+            else if (res.reason) await m.reply(res.reason);
+            else await m.reply(`🚔 Caught! Lost ${res.penalty} coins`);
+        }
+        break
+
+        case 'balance': case 'bal': case 'money': {
+            const u = Economy.ensureUser(m.sender);
+            await m.reply(`💰 *Balance*\n👛 Wallet: ${u.coins}\n🏦 Bank: ${u.bank}\n💎 Gems: ${u.gems}\n📊 Level: ${u.level}\n⭐ XP: ${u.xp}`);
+        }
+        break
+
+        case 'deposit': case 'dep': {
+            if (!args[0] || isNaN(args[0])) return m.reply(`Example: ${prefix + command} <amount>`);
+            if (Economy.deposit(m.sender, parseInt(args[0]))) await m.reply('✅ Deposited');
+            else await m.reply('❌ Insufficient funds');
+        }
+        break
+
+        case 'withdraw': case 'with': {
+            if (!args[0] || isNaN(args[0])) return m.reply(`Example: ${prefix + command} <amount>`);
+            if (Economy.withdraw(m.sender, parseInt(args[0]))) await m.reply('✅ Withdrawn');
+            else await m.reply('❌ Insufficient funds');
+        }
+        break
+
+        case 'transfer': case 'pay': {
+            if (m.mentionedJid.length < 1 || !args[1] || isNaN(args[1])) return m.reply(`Example: ${prefix + command} @user <amount>`);
+            if (Economy.transfer(m.sender, m.mentionedJid[0], parseInt(args[1]))) await m.reply('💸 Transfer complete');
+            else await m.reply('❌ Insufficient funds');
+        }
+        break
+
+        case 'lb': case 'leaderboard': case 'top': {
+            const lb = Economy.leaderboard();
+            let txt = '🏆 *Global Leaderboard*\n\n';
+            lb.forEach((u,i) => { txt += `${i+1}. @${u.id.split('@')[0]} — Lv.${u.level} | ${u.coins}🪙\n`; });
+            await nimesha.sendMessage(m.chat, { text: txt, mentions: lb.map(u => u.id) }, { quoted: m });
+        }
+        break
+
+        case 'buy': {
+            const shop = { 'phone': 1000, 'laptop': 5000, 'car': 50000, 'house': 200000, 'jet': 1000000 };
+            if (!shop[args[0]]) return m.reply(`Shop: ${Object.entries(shop).map(([k,v]) => `${k}: ${v}🪙`).join(', ')}`);
+            if (Economy.buyItem(m.sender, args[0], shop[args[0]])) await m.reply(`🛒 Bought ${args[0]}`);
+            else await m.reply('❌ Broke');
+        }
+        break
+
+        case 'inventory': case 'inv': {
+            const u = Economy.ensureUser(m.sender);
+            if (!u.inventory.length) return m.reply('Empty backpack');
+            await m.reply(`🎒 *Inventory*\n${u.inventory.map(i => `• ${i.item}`).join('\n')}`);
+        }
+        break
+
+        // ===== HEALTH COMMANDS =====
+        case 'bmi': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <kg> <cm>`);
+            const res = Health.bmi(parseFloat(args[0]), parseFloat(args[1]));
+            await m.reply(`⚖️ *BMI Result*\nValue: ${res.val}\nCategory: ${res.cat}\nIdeal weight: ${res.ideal[0]}-${res.ideal[1]}kg`);
+        }
+        break
+
+        case 'bmr': {
+            if (args.length < 4) return m.reply(`Example: ${prefix + command} <kg> <cm> <age> <male/female>`);
+            const val = Health.bmr(parseFloat(args[0]), parseFloat(args[1]), parseInt(args[2]), args[3]);
+            await m.reply(`🔥 *BMR:* ${val} calories/day`);
+        }
+        break
+
+        case 'tdee': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <bmr> <sedentary/light/moderate/active/athlete>`);
+            const val = Health.tdee(parseInt(args[0]), args[1]);
+            await m.reply(`⚡ *TDEE:* ${val} calories/day`);
+        }
+        break
+
+        case 'macros': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <calories> [lose/maintain/gain]`);
+            const res = Health.macros(parseInt(args[0]), args[1]);
+            await m.reply(`🥗 *Macros for ${args[0]} cal*\n🥩 Protein: ${res.protein}g\n🥑 Fat: ${res.fat}g\n🍚 Carbs: ${res.carbs}g`);
+        }
+        break
+
+        case 'watercalc': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <kg>`);
+            await m.reply(`💧 Drink ~${Health.water(parseFloat(args[0]))}ml daily`);
+        }
+        break
+
+        case 'sleep': {
+            const cycles = Health.sleepWakeUp();
+            await m.reply(`😴 *If you sleep now, wake up at:*\n${cycles.map((t,i) => `${i+1} cycle${i+1>1?'s':''}: ${t}`).join('\n')}\n\n💡 90min = 1 sleep cycle`);
+        }
+        break
+
+        case 'heartrate': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <age>`);
+            const z = Health.hrZones(parseInt(args[0]));
+            await m.reply(`❤️ *HR Zones (Max: ${z.max})*\n🔥 Fat Burn: ${z.fatburn}\n🏃 Cardio: ${z.cardio}\n⚡ Peak: ${z.peak}`);
+        }
+        break
+
+        case 'onerm': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <weight> <reps>`);
+            const rm = Health.oneRm(parseFloat(args[0]), parseInt(args[1]));
+            await m.reply(`🏋️ Estimated 1RM: ${rm}kg`);
+        }
+        break
+
+        case 'bodyfat': {
+            if (args.length < 4) return m.reply(`Example: ${prefix + command} <male/female> <waist(cm)> <neck(cm)> <height(cm)> [hip(cm)]`);
+            const res = Health.bodyFat(args[0], parseFloat(args[1]), parseFloat(args[2]), parseFloat(args[3]), parseFloat(args[4]||0));
+            await m.reply(`📊 Estimated body fat: ${res}%`);
+        }
+        break
+
+        case 'workout': case 'gym': {
+            const type = args[0] || 'fullbody';
+            const plan = Health.workout(type);
+            await m.reply(`💪 *${type.toUpperCase()} Workout*\n${plan.map((x,i) => `${i+1}. ${x}`).join('\n')}`);
+        }
+        break
+
+        case 'yoga': {
+            const p = Health.yoga(args[0]);
+            await m.reply(`🧘 *${p.name}*\n⏱️ Hold: ${p.time}\n✨ Benefit: ${p.benefit}`);
+        }
+        break
+
+        // ===== FINANCE COMMANDS =====
+        case 'stock': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <AAPL>`);
+            try {
+                const s = await Finance.stock(args[0]);
+                await m.reply(`📈 *${args[0].toUpperCase()}*\nPrice: $${s.price}\nChange: ${s.change}%\nPrev: $${s.prev}`);
+            } catch(e) { m.reply('❌ Market data limit'); }
+        }
+        break
+
+        case 'crypto': case 'bitcoin': case 'eth': {
+            const coin = args[0]?.toLowerCase() || 'bitcoin';
+            try {
+                const s = await Finance.crypto(coin);
+                await m.reply(`💰 *${coin.toUpperCase()}*\nPrice: $${s.price}\n24h Change: ${s.change24h}%\nMarket Cap: $${s.marketCap}`);
+            } catch(e) { m.reply('❌ Crypto data limit'); }
+        }
+        break
+
+        case 'portfolio': {
+            const p = Finance.getPortfolio(m.sender);
+            if (!p.length) return m.reply('No portfolio. Use .addstock/.addcrypto');
+            let txt = `📊 *Your Portfolio*\n`;
+            p.forEach((x,i) => { txt += `${i+1}. ${x.type} ${x.sym} x${x.qty} @ $${x.buy}\n`; });
+            await m.reply(txt);
+        }
+        break
+
+        case 'addstock': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <SYM> <qty> <buyPrice>`);
+            Finance.addPortfolio(m.sender, 'stock', args[0], args[1], args[2]);
+            await m.reply('✅ Added to portfolio');
+        }
+        break
+
+        case 'addcrypto': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <BTC> <qty> <buyPrice>`);
+            Finance.addPortfolio(m.sender, 'crypto', args[0], args[1], args[2]);
+            await m.reply('✅ Added to portfolio');
+        }
+        break
+
+        case 'tip': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <amount> <percent> [people]`);
+            const res = Finance.tip(parseFloat(args[0]), parseInt(args[1]), parseInt(args[2]||1));
+            await m.reply(`💰 *Tip Calculator*\nSubtotal: $${res.subtotal}\nTip (${args[1]}%): $${res.tip}\nTotal: $${res.total}\nPer person: $${res.each}`);
+        }
+        break
+
+        case 'loan': case 'emi': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <principal> <rate%> <months>`);
+            const res = Finance.emi(parseFloat(args[0]), parseFloat(args[1]), parseInt(args[2]));
+            await m.reply(`🏦 *Loan EMI*\nEMI: $${res.emi}/month\nTotal: $${res.total}\nInterest: $${res.interest}`);
+        }
+        break
+
+        case 'savings': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <goalAmount> <monthlySaving> [rate%]`);
+            const res = Finance.savings(parseFloat(args[0]), parseFloat(args[1]), parseFloat(args[2]||5));
+            await m.reply(`🏦 Reach $${args[0]} in ~${res.years} years (${res.months} months)`);
+        }
+        break
+
+        // ===== DAILY / PRODUCTIVITY =====
+        case 'remindme': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <minutes> <text>`);
+            const mins = parseInt(args[0]);
+            const msgText = args.slice(1).join(' ');
+            if (isNaN(mins) || mins <= 0) return m.reply('Invalid minutes.');
+            const due = Date.now() + mins * 60000;
+            if (!db.reminders) db.reminders = [];
+            db.reminders.push({ user: m.sender, text: msgText, due });
+            await m.reply(`⏰ Reminder set for ${mins} minute(s).\n📝 ${msgText}`);
+        }
+        break
+
+        case 'reminders': {
+            if (!db.reminders) return m.reply('No active reminders.');
+            const userReminders = db.reminders.filter(r => r.user === m.sender);
+            if (!userReminders.length) return m.reply('No active reminders.');
+            let txt = `⏰ *Your Reminders*\n`;
+            userReminders.forEach((r, i) => {
+                const timeLeft = Math.floor((r.due - Date.now()) / 60000);
+                txt += `${i+1}. ${r.text} — in ${timeLeft} min\n`;
+            });
+            await m.reply(txt);
+        }
+        break
+
+        case 'clearreminders': case 'clearme': {
+            if (!db.reminders) return m.reply('No reminders to clear.');
+            db.reminders = db.reminders.filter(r => r.user !== m.sender);
+            await m.reply('🧹 All your reminders cleared.');
+        }
+        break
+
+        case 'note': case 'addnote': {
+            const [title, ...body] = text.split('|');
+            if (!title || !body.length) return m.reply(`Example: ${prefix + command} Title | Content`);
+            if (!db.notes) db.notes = {};
+            if (!db.notes[m.sender]) db.notes[m.sender] = [];
+            db.notes[m.sender].push({ title: title.trim(), content: body.join('|').trim(), date: Date.now() });
+            await m.reply(`📝 Note saved: *${title.trim()}*`);
+        }
+        break
+
+        case 'mynotes': {
+            if (!db.notes?.[m.sender]?.length) return m.reply('No notes.');
+            let txt = `📚 *Your Notes*\n`;
+            db.notes[m.sender].forEach((n, i) => {
+                txt += `${i+1}. *${n.title}* — ${new Date(n.date).toLocaleDateString()}\n`;
+            });
+            await m.reply(txt);
+        }
+        break
+
+        case 'delnote': {
+            const idx = parseInt(args[0]) - 1;
+            if (!db.notes?.[m.sender] || idx < 0 || idx >= db.notes[m.sender].length) return m.reply('Invalid note number.');
+            db.notes[m.sender].splice(idx, 1);
+            await m.reply('🗑️ Note deleted');
+        }
+        break
+
+        case 'todo': case 'addtodo': {
+            if (!text) return m.reply(`Example: ${prefix + command} <task> | priority (high/medium/low)`);
+            const [task, priority] = text.split('|').map(s => s.trim());
+            if (!db.todos) db.todos = {};
+            if (!db.todos[m.sender]) db.todos[m.sender] = [];
+            db.todos[m.sender].push({ task, priority: priority || 'medium', done: false, date: Date.now() });
+            await m.reply(`✅ Task added! (${db.todos[m.sender].filter(t => !t.done).length} pending)`);
+        }
+        break
+
+        case 'todos': {
+            if (!db.todos?.[m.sender]?.length) return m.reply('No tasks.');
+            const pending = db.todos[m.sender].filter(t => !t.done);
+            const done = db.todos[m.sender].filter(t => t.done);
+            let txt = `📋 *Todo List*\n\n*Pending:*\n`;
+            pending.forEach((t, i) => { txt += `${i+1}. [${t.priority.toUpperCase()}] ${t.task}\n`; });
+            txt += `\n*Done:* ${done.length}`;
+            await m.reply(txt);
+        }
+        break
+
+        case 'done': case 'check': {
+            const idx = parseInt(args[0]) - 1;
+            if (!db.todos?.[m.sender] || idx < 0 || idx >= db.todos[m.sender].length) return m.reply('Invalid task number.');
+            db.todos[m.sender][idx].done = true;
+            await m.reply('🎉 Task completed!');
+        }
+        break
+
+        case 'cleartodo': {
+            if (!db.todos?.[m.sender]) return m.reply('No tasks.');
+            db.todos[m.sender] = db.todos[m.sender].filter(t => !t.done);
+            await m.reply('🧹 Completed tasks cleared');
+        }
+        break
+
+        // ===== SOCIAL COMMANDS =====
+        case 'bio': {
+            const niche = args[0] || 'creator';
+            await m.reply(`✍️ *Bio Idea*\n${Social.bios(niche)}`);
+        }
+        break
+
+        case 'hashtag': case 'tags': {
+            const topic = args[0] || 'love';
+            await m.reply(`#️⃣ *Hashtags*\n${Social.hashtags(topic)}`);
+        }
+        break
+
+        case 'caption': {
+            const mood = args[0] || 'happy';
+            await m.reply(`📝 *Caption*\n${Social.captions(mood)}`);
+        }
+        break
+
+        case 'username': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <name> [clean/dev/cool]`);
+            await m.reply(`👤 Suggested: ${Social.username(args[0], args[1])}`);
+        }
+        break
+
+        case 'slogan': {
+            await m.reply(`💡 *Slogan:*\n"${Social.slogan(args[0] || 'business')}"`);
+        }
+        break
+
+        // ===== DEVELOPER COMMANDS =====
+        case 'uuid': { await m.reply(`🔑 ${Dev.uuid()}`); } break
+
+        case 'password': {
+            const len = parseInt(args[0]) || 16;
+            const p = Dev.password(len);
+            await m.reply(`🔐 *Password*\n\`\`\`\n${p.pass}\n\`\`\`\nEntropy: ${p.entropy}`);
+        } break
+
+        case 'json': {
+            if (!text) return m.reply(`Example: ${prefix + command} <json string>`);
+            const r = Dev.json(text);
+            if (r.valid) await m.reply(`✅ Valid (${r.keys} keys)\n\`\`\`json\n${r.pretty.slice(0,2000)}\n\`\`\``);
+            else await m.reply(`❌ ${r.error}`);
+        } break
+
+        case 'encode': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <base64/url/html> <text>`);
+            await m.reply(Dev.encode(args[0], args.slice(1).join(' ')));
+        } break
+
+        case 'decode': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <base64/url/html> <text>`);
+            await m.reply(Dev.decode(args[0], args.slice(1).join(' ')));
+        } break
+
+        case 'lorem': {
+            await m.reply(Dev.lorem(parseInt(args[0]) || 50));
+        } break
+
+        case 'palette': {
+            const c = Dev.palette();
+            await m.reply(`🎨 *Color Palette*\n${c.map(x => `■ ${x}`).join('\n')}`);
+        } break
+
+        case 'qrvcard': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <name> <phone> <email>`);
+            const data = Dev.qrData('vcard', { name: args[0], phone: args[1], email: args[2] });
+            const buf = await Tools.qr(data);
+            await nimesha.sendMessage(m.chat, { image: buf, caption: `📇 vCard QR for ${args[0]}` }, { quoted: m });
+        } break
+
+        case 'qrwifi': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <SSID> <password>`);
+            const data = Dev.qrData('wifi', { ssid: args[0], pass: args[1] });
+            const buf = await Tools.qr(data);
+            await nimesha.sendMessage(m.chat, { image: buf, caption: `📶 WiFi: ${args[0]}` }, { quoted: m });
+        } break
+
+        case 'checksum': {
+            if (!m.quoted || !m.quoted.isMedia) return m.reply('Reply to a file');
+            const buf = await m.quoted.download();
+            const sha = Dev.checksum(buf, 'sha256');
+            const md5 = Dev.checksum(buf, 'md5');
+            await m.reply(`📁 Checksums\nSHA256: ${sha}\nMD5: ${md5}`);
+        } break
+
+        // ===== TRAVEL COMMANDS =====
+        case 'packing': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <destination> <days> <hot/cold/rain>`);
+            const list = Travel.packing(args[0], parseInt(args[1]), args[2]);
+            await m.reply(`🎒 *Packing List for ${args[0]}*\n${list.map((x,i) => `${i+1}. ${x}`).join('\n')}`);
+        } break
+
+        case 'worldclock': case 'time': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <city>`);
+            const t = Travel.timezone(args[0]);
+            await m.reply(`🌍 *${t.city}*\n🕐 ${t.time}\n📅 ${t.date}\n${t.offset}`);
+        } break
+
+        case 'phrasebook': case 'phrases': {
+            const lang = args[0] || 'spanish';
+            const p = Travel.phrases(lang);
+            await m.reply(`🗣️ *${lang.toUpperCase()} Phrases*\n${Object.entries(p).map(([k,v]) => `*${k}:* ${v}`).join('\n')}`);
+        } break
+
+        case 'itinerary': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <city> <days>`);
+            const plan = Travel.itinerary(args[0], parseInt(args[1]));
+            await m.reply(`🗺️ *${args[0]} ${args[1]}-Day Plan*\n${plan.map((x,i) => `Day ${i+1}: ${x}`).join('\n')}`);
+        } break
+
+        case 'convert': case 'unit': {
+            if (args.length < 3) return m.reply(`Example: ${prefix + command} <value> <from> <to>\nUnits: km, mi, kg, lb, c, f, l, gal`);
+            const val = parseFloat(args[0]);
+            const f = args[1].toLowerCase(); const t = args[2].toLowerCase();
+            const rates = { km_mi:0.621371, mi_km:1.60934, kg_lb:2.20462, lb_kg:0.453592, l_gal:0.264172, gal_l:3.78541 };
+            const key = `${f}_${t}`;
+            let res;
+            if (key === 'c_f') res = (val * 9/5) + 32;
+            else if (key === 'f_c') res = (val - 32) * 5/9;
+            else if (rates[key]) res = val * rates[key];
+            else return m.reply('Unsupported conversion');
+            await m.reply(`🔄 ${val}${f} = ${res.toFixed(2)}${t}`);
+        } break
+
+        case 'detectlang': {
+            if (!text) return m.reply(`Example: ${prefix + command} <text>`);
+            const res = await AI.ultimateAI(`Detect language: "${text}". Reply only language name.`, m.sender, 'deepseek');
+            await m.reply(`🌐 Detected: ${res.text}`);
+        } break
+
+        case 'readtime': {
+            const words = text.split(/\s+/).length;
+            const mins = Math.ceil(words / 200);
+            await m.reply(`📖 ${words} words ≈ ${mins} min read`);
+        } break
+
+        // ===== FOOD COMMANDS =====
+        case 'recipe': {
+            if (!text) return m.reply(`Example: ${prefix + command} <dish>`);
+            const r = await Food.recipe(text);
+            if (!r) return m.reply('Recipe not found');
+            await nimesha.sendMessage(m.chat, { image: { url: r.thumb }, caption: `🍽️ *${r.name}*\n📍 ${r.area} | ${r.category}\n\n*Ingredients:*\n${r.ingredients.join('\n')}\n\n*Instructions:*\n${r.instructions.slice(0,800)}...` }, { quoted: m });
+        } break
+
+        case 'cocktail': {
+            const c = await Food.cocktail(text || 'margarita');
+            if (!c) return m.reply('Drink not found');
+            await nimesha.sendMessage(m.chat, { image: { url: c.thumb }, caption: `🍸 *${c.name}*\n🥃 Glass: ${c.glass}\n\n*Ingredients:*\n${c.ingredients.join(', ')}\n\n*How to make:*\n${c.instructions}` }, { quoted: m });
+        } break
+
+        case 'substitute': {
+            if (!args[0]) return m.reply(`Example: ${prefix + command} <ingredient>`);
+            await m.reply(`🔄 *Substitute for ${args[0]}*\n${Food.substitute(args[0])}`);
+        } break
+
+        case 'mealprep': {
+            const plan = Food.mealPrep(args[0] || 'balanced');
+            await m.reply(`🥗 *${(args[0]||'balanced').toUpperCase()} Meal Plan*\n${plan.map((x,i) => `${i+1}. ${x}`).join('\n')}`);
+        } break
+
         // ===== GROUP COMMANDS =====
         case 'add': {
             if (!m.isGroup) return m.reply(mess.group);
@@ -2716,6 +3374,138 @@ module.exports = async (nimesha, m, ctx) => {
             } else m.reply(`Reply, tag, or provide a number.`);
         }
         break
+        // ===== JADIBOT (MULTI-USER) COMMANDS =====
+        case 'pair': {
+            if (!text) return m.reply(`Example: ${prefix}pair 254712345678`);
+            const targetNumber = text.replace(/[^0-9]/g, '');
+            if (targetNumber.length < 9) return m.reply('Invalid phone number. Include country code.');
+
+            // Check if already paired
+            if (db.jadibot && db.jadibot.sessions && db.jadibot.sessions[m.sender]?.active) {
+                return m.reply('✅ You already have an active bot session! Use .stopjadibot first if you want to re-pair.');
+            }
+
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+            const path = require('path');
+
+            // Clean up any old temp auth for this user
+            const tempAuthFolder = path.join(process.cwd(), 'jadibot_sessions', `temp_${m.sender.split('@')[0]}`);
+            try { fs.rmSync(tempAuthFolder, { recursive: true, force: true }); } catch {}
+
+            // Create a temporary socket to request pairing code
+            const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
+            const pino = require('pino');
+            const { state, saveCreds } = await useMultiFileAuthState(tempAuthFolder);
+            const { version } = await fetchLatestWaWebVersion();
+
+            const tempSocket = makeWASocket({
+                version,
+                logger: pino({ level: 'silent' }),
+                auth: state,
+                printQRInTerminal: false,
+                browser: ['Ubuntu', 'Chrome', '20.0.0']
+            });
+
+            let pairingCode;
+            try {
+                pairingCode = await tempSocket.requestPairingCode(targetNumber);
+            } catch (e) {
+                tempSocket.ws?.close();
+                try { fs.rmSync(tempAuthFolder, { recursive: true, force: true }); } catch {}
+                return m.reply(`❌ Failed to get pairing code: ${e.message}`);
+            }
+
+            // Store the request in database
+            if (!db.jadibot) db.jadibot = { sessions: {}, requests: {} };
+            if (!db.jadibot.requests) db.jadibot.requests = {};
+            db.jadibot.requests[m.sender] = {
+                code: pairingCode,
+                number: targetNumber,
+                authFolder: path.join(process.cwd(), 'jadibot_sessions', m.sender.split('@')[0]),
+                timestamp: Date.now()
+            };
+
+            // Close temp socket but keep auth folder – user will use it when they start
+            tempSocket.ws?.close();
+
+            const formattedCode = pairingCode?.match(/.{1,4}/g)?.join('-') || pairingCode;
+            await m.reply(`📲 *WhatsApp Pairing Code*\n\n🔑 *Your code:* ${formattedCode}\n\n⏰ _Expires in 60 seconds_\n\n1. Open WhatsApp on your phone\n2. Go to *Settings* → *Linked Devices*\n3. Tap *Link a Device*\n4. Enter the code above\n\n_After linking, use ${prefix}startjadibot to activate your bot_`);
+
+            // Notify owner
+            const ownerMsg = `🔐 *New Pairing Request*\n👤 @${m.sender.split('@')[0]}\n📱 +${targetNumber}\n🔑 ${formattedCode}`;
+            await nimesha.sendMessage(ownerNumber[0], { text: ownerMsg, mentions: [m.sender] });
+        }
+        break
+
+        case 'startjadibot': {
+            if (!db.jadibot?.requests?.[m.sender]) {
+                return m.reply('❌ No pairing request found. Use .pair <number> first.');
+            }
+
+            const req = db.jadibot.requests[m.sender];
+            if (db.jadibot.sessions?.[m.sender]?.active) {
+                return m.reply('✅ Your bot is already running! Use .stopjadibot to stop.');
+            }
+
+            await m.reply('⏳ *Starting your bot instance...*');
+
+            const { JadiBot } = require('./src/jadibot');
+            try {
+                const userClient = await JadiBot(nimesha, m.sender, m, store);
+                if (!db.jadibot.sessions) db.jadibot.sessions = {};
+                db.jadibot.sessions[m.sender] = {
+                    active: true,
+                    number: req.number,
+                    startedAt: Date.now(),
+                    authFolder: req.authFolder
+                };
+                delete db.jadibot.requests[m.sender];
+                await m.reply(`✅ *Your bot is now active!*\n\n📱 Number: +${req.number}\n\n_Use .help to see commands_\n_Use .stopjadibot to stop_`);
+            } catch (e) {
+                m.reply(`❌ Failed to start bot: ${e.message}`);
+            }
+        }
+        break
+
+        case 'stopjadibot': {
+            if (!db.jadibot?.sessions?.[m.sender]?.active) {
+                return m.reply('❌ You don\'t have an active bot session.');
+            }
+
+            const { StopJadiBot } = require('./src/jadibot');
+            await StopJadiBot(nimesha, m.sender, m);
+            if (db.jadibot.sessions[m.sender]) {
+                db.jadibot.sessions[m.sender].active = false;
+            }
+            await m.reply('🛑 *Your bot has been stopped.*');
+        }
+        break
+
+        case 'listjadibot': {
+            if (!isCreator) return m.reply(mess.owner);
+            const { ListJadiBot } = require('./src/jadibot');
+            await ListJadiBot(nimesha, m);
+        }
+        break
+        case 'stopuserjadibot': case 'forcestop': {
+            if (!isCreator) return m.reply(mess.owner);
+            const target = m.mentionedJid?.[0];
+            if (!target) return m.reply(`Mention the user whose bot you want to stop.\nExample: ${prefix}stopuserjadibot @user`);
+
+            const { StopJadiBot } = require('./src/jadibot');
+            const stopped = await StopJadiBot(nimesha, target, m);
+            if (stopped) {
+                // Update database
+                if (db.jadibot?.sessions?.[target]) {
+                    db.jadibot.sessions[target].active = false;
+                }
+                await m.reply(`🛑 Force‑stopped bot for @${target.split('@')[0]}`, { mentions: [target] });
+            } else {
+                await m.reply(`❌ No active bot session found for @${target.split('@')[0]}.`, { mentions: [target] });
+            }
+        }
+        break
 
         case 'unblock': case 'unblokir': {
             if (!isCreator) return m.reply(mess.owner);
@@ -2817,6 +3607,312 @@ module.exports = async (nimesha, m, ctx) => {
             m.reply('✅ Profile picture removed');
         }
         break
+        // ===== AUTO COMMANDS (Owner Toggles) =====
+        case 'autodownload': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autodownload on/off\nCurrent: ${set.autodownload ? 'ON' : 'OFF'}`);
+            set.autodownload = status;
+            m.reply(`✅ Auto-download ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autoviewstatus': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autoviewstatus on/off\nCurrent: ${set.autostatus ? 'ON' : 'OFF'}`);
+            set.autostatus = status;
+            m.reply(`✅ Auto-view status ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autolikestatus': case 'autoreactstatus': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autostatusreact ? 'ON' : 'OFF'}`);
+            set.autostatusreact = status;
+            m.reply(`✅ Auto-react to status ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autoreactmention': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autoreactmention on/off\nCurrent: ${set.autoreactmention ? 'ON' : 'OFF'}`);
+            set.autoreactmention = status;
+            m.reply(`✅ Auto-react to mentions ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autoreplymention': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoreplymention <message> (use {user} for mention) or off\nCurrent: ${set.autoreplymention || 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autoreplymention = '';
+                m.reply('✅ Auto-reply to mentions disabled.');
+            } else {
+                set.autoreplymention = text;
+                m.reply(`✅ Auto-reply set to:\n${text}`);
+            }
+        }
+        break
+
+        case 'autoforward': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoforward <target JID> or off\nCurrent: ${set.autoforward || 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autoforward = '';
+                m.reply('✅ Auto-forward disabled.');
+            } else {
+                set.autoforward = text;
+                m.reply(`✅ Auto-forward set to ${text}`);
+            }
+        }
+        break
+
+        case 'autosticker': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autosticker on/off\nCurrent: ${set.autosticker ? 'ON' : 'OFF'}`);
+            set.autosticker = status;
+            m.reply(`✅ Auto-sticker ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autotranslate': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autotranslate <target language code> or off\nExample: ${prefix}autotranslate si\nCurrent: ${set.autotranslate || 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autotranslate = '';
+                m.reply('✅ Auto-translate disabled.');
+            } else {
+                set.autotranslate = text;
+                m.reply(`✅ Auto-translate set to ${text}`);
+            }
+        }
+        break
+
+        case 'autodelete': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autodelete <seconds> or off\nExample: ${prefix}autodelete 10\nCurrent: ${set.autodelete || 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autodelete = 0;
+                m.reply('✅ Auto-delete disabled.');
+            } else {
+                const sec = parseInt(args[0]);
+                if (isNaN(sec)) return m.reply('Invalid seconds.');
+                set.autodelete = sec;
+                m.reply(`✅ Auto-delete set to ${sec} seconds.`);
+            }
+        }
+        break
+
+        case 'autoreact': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoreact <emoji> or off\nExample: ${prefix}autoreact 👍\nCurrent: ${set.autoreact || 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autoreact = '';
+                m.reply('✅ Auto-react disabled.');
+            } else {
+                set.autoreact = text;
+                m.reply(`✅ Auto-react set to ${text}`);
+            }
+        }
+        break
+
+        case 'autoblock': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoblock <keyword1,keyword2> or off\nExample: ${prefix}autoblock spam,scam\nCurrent: ${set.autoblock ? set.autoblock.join(', ') : 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autoblock = [];
+                m.reply('✅ Auto-block disabled.');
+            } else {
+                set.autoblock = text.split(',').map(s => s.trim().toLowerCase());
+                m.reply(`✅ Auto-block keywords set: ${set.autoblock.join(', ')}`);
+            }
+        }
+        break
+
+        case 'autokick': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autokick <keyword1,keyword2> or off\nExample: ${prefix}autokick spam,link\nCurrent: ${set.autokick ? set.autokick.join(', ') : 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.autokick = [];
+                m.reply('✅ Auto-kick disabled.');
+            } else {
+                set.autokick = text.split(',').map(s => s.trim().toLowerCase());
+                m.reply(`✅ Auto-kick keywords set: ${set.autokick.join(', ')}`);
+            }
+        }
+        break
+
+        case 'automute': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}automute <keyword1,keyword2> or off\nExample: ${prefix}automute spam,link\nCurrent: ${set.automute ? set.automute.join(', ') : 'OFF'}`);
+            if (args[0]?.toLowerCase() === 'off') {
+                set.automute = [];
+                m.reply('✅ Auto-mute disabled.');
+            } else {
+                set.automute = text.split(',').map(s => s.trim().toLowerCase());
+                m.reply(`✅ Auto-mute keywords set: ${set.automute.join(', ')}`);
+            }
+        }
+        break
+
+        case 'autowelcome': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autowelcome on/off\nCurrent: ${set.autowelcome ? 'ON' : 'OFF'}`);
+            set.autowelcome = status;
+            m.reply(`✅ Auto-welcome ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'autogoodbye': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix}autogoodbye on/off\nCurrent: ${set.autogoodbye ? 'ON' : 'OFF'}`);
+            set.autogoodbye = status;
+            m.reply(`✅ Auto-goodbye ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+
+        case 'automation': case 'autosettings': {
+            if (!isCreator) return m.reply(mess.owner);
+            let txt = `⚙️ *Automation Settings*\n\n`;
+            txt += `🔹 autoviewstatus : ${set.autostatus ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autolikestatus: ${set.autostatusreact ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autoreactmention: ${set.autoreactmention ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autoreplymention: ${set.autoreplymention ? '✏️ ' + set.autoreplymention : '❌ OFF'}\n`;
+            txt += `🔹 autoread       : ${set.autoread ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autotyping     : ${set.autotyping ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autorecording  : ${set.autorecording ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autobio        : ${set.autobio ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autobackup     : ${set.autobackup ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autojoin       : ${set.autojoin ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autodownload   : ${set.autodownload ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autoforward    : ${set.autoforward || '❌ OFF'}\n`;
+            txt += `🔹 autosticker    : ${set.autosticker ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autotranslate  : ${set.autotranslate || '❌ OFF'}\n`;
+            txt += `🔹 autodelete     : ${set.autodelete ? set.autodelete + 's' : '❌ OFF'}\n`;
+            txt += `🔹 autoreact      : ${set.autoreact || '❌ OFF'}\n`;
+            txt += `🔹 autoblock      : ${set.autoblock?.length ? set.autoblock.join(', ') : '❌ OFF'}\n`;
+            txt += `🔹 autokick       : ${set.autokick?.length ? set.autokick.join(', ') : '❌ OFF'}\n`;
+            txt += `🔹 automute       : ${set.automute?.length ? set.automute.join(', ') : '❌ OFF'}\n`;
+            txt += `🔹 autowelcome    : ${set.autowelcome ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 autogoodbye    : ${set.autogoodbye ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `\n_Use ${prefix}autoviewstatus on/off, etc._`;
+            m.reply(txt);
+        }
+        break
+
+        case 'docs': {
+            const fs = require('fs');
+            const path = require('path');
+            const docsDir = path.join(process.cwd(), 'docs');
+
+            // List available docs if no argument
+            if (!args[0]) {
+                if (!fs.existsSync(docsDir)) {
+                    return m.reply('❌ Documentation folder not found.');
+                }
+                const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+                if (files.length === 0) return m.reply('No documentation files available.');
+
+                let list = `📚 *Maureonix Documentation*\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+                files.forEach((f, i) => {
+                    const name = f.replace('.md', '');
+                    list += `${i + 1}. ${name}\n`;
+                });
+                list += `\n_Type ${prefix}docs <name> to read a file._\n_Example: ${prefix}docs install_`;
+                return m.reply(list);
+            }
+
+            // Read and send specific doc
+            const docName = args[0].toLowerCase();
+            const filePath = path.join(docsDir, `${docName}.md`);
+
+            if (!fs.existsSync(filePath)) {
+                return m.reply(`❌ Documentation file "*${docName}*" not found.\nUse ${prefix}docs to see all available files.`);
+            }
+
+            try {
+                let content = fs.readFileSync(filePath, 'utf8');
+                // Strip markdown headers and formatting for plain text WhatsApp
+                content = content
+                    .replace(/^#{1,6}\s+/gm, '')           // Remove headings
+                    .replace(/\*\*(.*?)\*\*/g, '$1')       // Bold → plain
+                    .replace(/\*(.*?)\*/g, '$1')           // Italic → plain
+                    .replace(/`{1,3}[^`]*`{1,3}/g, '')     // Remove code blocks
+                    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links → text
+                    .replace(/^\s*[-*+]\s+/gm, '• ')       // List bullets
+                    .replace(/^\s*\d+\.\s+/gm, '• ')       // Numbered lists
+                    .replace(/\n{3,}/g, '\n\n')            // Collapse multiple newlines
+                    .trim();
+
+                // Split into chunks if too long (WhatsApp limit ~4096 chars)
+                const maxLen = 3800;
+                if (content.length <= maxLen) {
+                    await m.reply(`📄 *${docName.toUpperCase()}.md*\n━━━━━━━━━━━━━━━━━━━━━━\n${content}`);
+                } else {
+                    const chunks = [];
+                    for (let i = 0; i < content.length; i += maxLen) {
+                        chunks.push(content.slice(i, i + maxLen));
+                    }
+                    await m.reply(`📄 *${docName.toUpperCase()}.md* (Part 1/${chunks.length})`);
+                    for (let i = 0; i < chunks.length; i++) {
+                        await nimesha.sendMessage(m.chat, { text: chunks[i] }, { quoted: m });
+                        await sleep(1000);
+                    }
+                }
+            } catch (e) {
+                m.reply(`❌ Error reading documentation: ${e.message}`);
+            }
+        }
+        break
+        case 'ask': case 'docsask': {
+            if (!text) return m.reply(`Example: ${prefix + command} How do I set up auto-backup?`);
+            await m.reply('🔍 *Searching documentation...*');
+
+            const { buildContext } = require('./lib/docs');
+            const context = buildContext(text, 3);
+
+            let prompt;
+            if (context) {
+                prompt = `You are Maureonix, a WhatsApp bot. Answer the user's question using ONLY the documentation provided below. If the answer is not in the documentation, say "I couldn't find that in my documentation. Try using .docs <name> to read the full guide." Keep answers concise and helpful.\n\n${context}\n\nUser question: ${text}`;
+            } else {
+                prompt = `You are Maureonix. Answer briefly. User question: ${text}`;
+            }
+
+            try {
+                const res = await AI.ultimateAI(prompt, m.sender, 'deepseek');
+                await m.reply(`📚 *Maureonix Help*\n\n${res.text}`);
+            } catch (e) {
+                m.reply(`❌ Failed to get answer: ${e.message}`);
+            }
+        }
+        break
+
+        case 'public': {
+            if (!isCreator) return m.reply(mess.owner);
+            set.public = true;
+            m.reply('✅ Bot is now in *PUBLIC* mode. Everyone can use commands.');
+        }
+        break
+
+        case 'private': {
+            if (!isCreator) return m.reply(mess.owner);
+            set.public = false;
+            m.reply('🔒 Bot is now in *PRIVATE* mode. Only owner can use commands.');
+        }
+        break
+
+        case 'mode': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = set.public ? 'PUBLIC' : 'PRIVATE';
+            m.reply(`⚙️ Current mode: *${status}*\nUse ${prefix}public or ${prefix}private to change.`);
+        }
+        break
 
         // ===== MENU COMMANDS =====
         case 'menu': case 'help': case 'allmenu': {
@@ -2834,6 +3930,7 @@ module.exports = async (nimesha, m, ctx) => {
                     { url: './database/menucards/sports.png', body: `⚽ *SPORTS*\n\n▸ ${prefix}leagues\n▸ ${prefix}fixtures <league>\n▸ ${prefix}live\n▸ ${prefix}standings <league>\n▸ ${prefix}team <id>\n▸ ${prefix}player <id>\n▸ ${prefix}h2h <id1>-<id2>\n▸ ${prefix}odds <sport>\n▸ ${prefix}espn`, footer: 'Live scores, stats & betting', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚽ Sports Menu', id: `${prefix}sportsmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔥 Live', id: `${prefix}live` }) }] },
                     { url: './database/menucards/casino.png', body: `🎰 *CASINO*\n\n▸ ${prefix}slot\n▸ ${prefix}roulette <bet> <choice>\n▸ ${prefix}crash <bet> <mult>\n▸ ${prefix}dice <bet> over/under <num>\n▸ ${prefix}coin <bet> heads/tails\n▸ ${prefix}rps rock/paper/scissors`, footer: 'Bet & win virtual coins', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎰 Casino Menu', id: `${prefix}casinomenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎲 Roulette', id: `${prefix}roulette ` }) }] },
                     { url: './database/menucards/rpg.png', body: `🧙 *RPG*\n\n▸ ${prefix}rpg – View stats\n▸ ${prefix}rpg fight – Attack\n▸ ${prefix}rpg heal – Heal (10 gold)\n▸ ${prefix}rpg spawn – New enemy`, footer: 'Adventure & level up', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧙 RPG Menu', id: `${prefix}rpgmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚔️ Fight', id: `${prefix}rpg fight` }) }] },
+                    { url: './database/menucards/movies.png', body: `🎬 *MOVIES*\n\n▸ ${prefix}movie\n▸ ${prefix}film\n▸ ${prefix}imdb\n▸ ${prefix}series\n▸ ${prefix}rating\n▸ ${prefix}tv\n▸ ${prefix}anime`, footer: 'Movie & TV show info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📽️ Movie', id: `${prefix}movie ` }) }] },
                     { url: './database/menucards/master.png', body: `📊 *MASTER*\n\n▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`, footer: 'Advanced features & tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }] }
                 ];
                 const carouselBody = `╔══════════════════════╗
@@ -2876,7 +3973,7 @@ ${ucapanWaktu}
                         `🎮 *Games:* ${prefix}connect4, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}rpg, ${prefix}math, ${prefix}tebaklagu\n` +
                         `😂 *Fun:* ${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare\n` +
                         `💰 *Economy:* ${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}buy, ${prefix}inventory\n` +
-                        `👑 *Owner:* ${prefix}block, ${prefix}unblock, ${prefix}join, ${prefix}leave, ${prefix}backup, ${prefix}setppbot, ${prefix}delppbot\n` +
+                        `👑 *Owner:* ${prefix}block, ${prefix}unblock, ${prefix}join, ${prefix}leave, ${prefix}backup, ${prefix}setppbot, ${prefix}delppbot\n` + `\n📚 *Documentation:* Type ${prefix}docs for full guides.\n` +
                         `\nType ${prefix}help <category> for more.`;
                     await m.reply(textMenu);
                 }
@@ -3191,6 +4288,28 @@ ${ucapanWaktu}
 ━━━━━━━━━━━━━━━━━━━━━━
 > *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
             await m.reply(sportsMenuText);
+        }
+        break
+
+        // ===== MOVIES SUB-MENU =====
+        case 'moviesmenu': {
+            const moviesMenuText = `╔══════════════════════╗
+║  *🎬 MOVIES COMMANDS*  ║
+╚══════════════════════╝
+
+📌 *Movie Info*
+▸ ${prefix}movie <title>
+▸ ${prefix}film <title>
+▸ ${prefix}imdb <id>
+▸ ${prefix}series <title>
+▸ ${prefix}rating <id>
+▸ ${prefix}tv <show>
+▸ ${prefix}episodes <show-id> <season>
+▸ ${prefix}moviequote
+
+━━━━━━━━━━━━━━━━━━━━━━
+> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+            await m.reply(moviesMenuText);
         }
         break
 
