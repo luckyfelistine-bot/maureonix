@@ -520,18 +520,6 @@ async function startnimaBot() {
         phoneNumber = '254116903500';
         console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pair code...'));
     }
-
-                (async () => {
-                    await getPhoneNumber();
-                    console.log('Number obtained. Waiting to connect...\n' + chalk.blueBright('Estimated time: 2 ~ 5 minutes'));
-                })();
-            } else {
-                console.log(chalk.yellowBright('☁️  BOT_NUMBER not set — use /pair?number=254xxxxxxxxx'));
-            }
-        } else {
-            console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pair code...'));
-        }
-    }
     
     global.nimaInstance = nimaBot;
 
