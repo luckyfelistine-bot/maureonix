@@ -2268,23 +2268,48 @@ app.all('/chat', (req, res) => {
 app.get('/pair', async (req, res) => {
     const { number } = req.query;
     if (!number) return res.status(400).json({ status: false, message: 'Missing "number" parameter. Example: /pair?number=254xxxxxxxx' });
-    const nima = global.nimaInstance;
-    if (!nima) return res.status(503).json({ status: false, message: 'Bot not ready yet. Please wait.' });
-    if (nima.authState?.creds?.registered) {
-        return res.status(400).json({ status: false, message: 'Bot is already registered. Pairing code not needed.' });
-    }
+    const cleanNumber = number.replace(/[^0-9]/g, '');
+    if (cleanNumber.length < 9) return res.status(400).json({ status: false, message: 'Invalid phone number. Include country code.' });
+
+    // Import necessary Baileys modules (inside function to avoid top‑level errors)
+    const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
+    const pino = require('pino');
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+
+    // Create a unique temporary auth folder
+    const tempId = `pair_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const tempDir = path.join(os.tmpdir(), tempId);
+    fs.mkdirSync(tempDir, { recursive: true });
+
     try {
-        const cleanNumber = number.replace(/[^0-9]/g, '');
-        const code = await nima.requestPairingCode(cleanNumber);
+        const { state } = await useMultiFileAuthState(tempDir);
+        const { version } = await fetchLatestWaWebVersion();
+        const sock = makeWASocket({
+            version,
+            logger: pino({ level: 'silent' }),
+            auth: state,
+            printQRInTerminal: false,
+            browser: ['Ubuntu', 'Chrome', '20.0.0']
+        });
+
+        const code = await sock.requestPairingCode(cleanNumber);
+        sock.ws?.close();
+        // Clean up the temporary folder
+        fs.rmSync(tempDir, { recursive: true, force: true });
+
         const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
         return res.json({
             status: true,
-            message: 'Pairing code received! Enter it in WhatsApp > Linked Devices > Link with phone number.',
+            message: 'Pairing code generated. Use it in WhatsApp > Linked Devices > Link with phone number.',
             number: cleanNumber,
             code: formatted,
             expires: '60 seconds'
         });
     } catch (e) {
+        // Clean up even if error
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
         return res.status(500).json({ status: false, message: 'Failed to get pairing code.', error: e.message });
     }
 });

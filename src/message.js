@@ -343,6 +343,9 @@ async function MessagesUpsert(nimesha, message, store) {
         for (const msg of allMsgs) {
             if (!msg?.key?.remoteJid) continue;
             const remoteJid = msg.key.remoteJid;
+            // Skip status broadcasts but NOT newsletters
+            if (remoteJid === 'status@broadcast') continue;
+            // ✅ Accept newsletters
 
             // Initialize per-chat message array if missing
             if (!store.messages[remoteJid]) {

@@ -515,12 +515,11 @@ async function startnimaBot() {
             keys: makeCacheableSignalKeyStore(state.keys, level),
         },
     });
-    
-    if (pairingCode && !nimaBot.authState.creds.registered) {
+
+        if (pairingCode && !nimaBot.authState.creds.registered) {
         if (!phoneNumber) {
             if (process.env.BOT_NUMBER) {
                 phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
-                exec('rm -rf ./nimadev/*');
                 console.log(chalk.cyan('📱 BOT_NUMBER env: ' + phoneNumber + ' | Requesting pair code...'));
             } else if (_isTTY) {
                 async function getPhoneNumber() {
@@ -533,15 +532,12 @@ async function startnimaBot() {
                 }
                 (async () => {
                     await getPhoneNumber();
-                    exec('rm -rf ./nimadev/*');
                     console.log('Number obtained. Waiting to connect...\n' + chalk.blueBright('Estimated time: 2 ~ 5 minutes'));
                 })();
             } else {
-                exec('rm -rf ./nimadev/*');
                 console.log(chalk.yellowBright('☁️  BOT_NUMBER not set — use /pair?number=254xxxxxxxxx'));
             }
         } else {
-            exec('rm -rf ./nimadev/*');
             console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pair code...'));
         }
     }

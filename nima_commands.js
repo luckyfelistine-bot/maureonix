@@ -432,10 +432,10 @@ module.exports = async (nimesha, m, ctx) => {
         // ===== AI COMMANDS =====
         case 'gpt': case 'chatgpt': case 'openai': {
             if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-            await m.reply('🧠 *Groq AI thinking...*');
+            await m.reply('🦊 *Maureonix thinking...*');
             try {
                 const res = await AI.askModel(text, 'gpt', m.sender);
-                await m.reply(`🤖 *GPT (Groq)*\n\n${res.text}`);
+                await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
             } catch (e) {
                 await m.reply(`❌ AI error: ${e.message}`);
             }
@@ -444,10 +444,10 @@ module.exports = async (nimesha, m, ctx) => {
 
         case 'gemini': {
             if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-            await m.reply('♊ *Gemini (via Groq)* thinking...');
+            await m.reply('♊ *Maureonix(gemini)* thinking...');
             try {
                 const res = await AI.askModel(text, 'gemini', m.sender);
-                await m.reply(`♊ *Gemini*\n\n${res.text}`);
+                await m.reply(`♊ *Maureonix*\n\n${res.text}`);
             } catch (e) {
                 await m.reply(`❌ AI error: ${e.message}`);
             }
@@ -456,10 +456,10 @@ module.exports = async (nimesha, m, ctx) => {
 
         case 'llama': case 'llama3': {
             if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-            await m.reply('🦙 *Llama 3 thinking...*');
+            await m.reply('🦙 *Maureonix(Llama 3)thinking...*');
             try {
                 const res = await AI.askModel(text, 'llama', m.sender);
-                await m.reply(`🦙 *Llama 3*\n\n${res.text}`);
+                await m.reply(`🦙 *Maureonix*\n\n${res.text}`);
             } catch (e) {
                 await m.reply(`❌ AI error: ${e.message}`);
             }
@@ -468,10 +468,10 @@ module.exports = async (nimesha, m, ctx) => {
 
         case 'deepseek': {
             if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-            await m.reply('🐋 *DeepSeek (via Groq)* thinking...');
+            await m.reply('🐋 *Maureonix(DeepSeek)* thinking...');
             try {
                 const res = await AI.askModel(text, 'deepseek', m.sender);
-                await m.reply(`🐋 *DeepSeek*\n\n${res.text}`);
+                await m.reply(`🐋 *Maureonix*\n\n${res.text}`);
             } catch (e) {
                 await m.reply(`❌ AI error: ${e.message}`);
             }
@@ -490,7 +490,7 @@ module.exports = async (nimesha, m, ctx) => {
             }
 
             const res = await AI.ultimateAI(prompt, m.sender);
-            await m.reply(`🤖 *AI*\n\n${res.text}`);
+            await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
         }
         break
 
@@ -3444,6 +3444,12 @@ module.exports = async (nimesha, m, ctx) => {
             }
 
             const req = db.jadibot.requests[m.sender];
+            // Check if request expired (older than 2 minutes)
+            if (Date.now() - req.timestamp > 120000) {
+                delete db.jadibot.requests[m.sender];
+                return m.reply('❌ Pairing request expired. Please use .pair again.');
+            }
+
             if (db.jadibot.sessions?.[m.sender]?.active) {
                 return m.reply('✅ Your bot is already running! Use .stopjadibot to stop.');
             }
@@ -3911,6 +3917,14 @@ module.exports = async (nimesha, m, ctx) => {
             if (!isCreator) return m.reply(mess.owner);
             const status = set.public ? 'PUBLIC' : 'PRIVATE';
             m.reply(`⚙️ Current mode: *${status}*\nUse ${prefix}public or ${prefix}private to change.`);
+        }
+        break
+        case 'autoai': case 'autogpt': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autoai ? 'ON' : 'OFF'}`);
+            set.autoai = status;
+            m.reply(`✅ Auto-AI ${status ? 'enabled' : 'disabled'}. Now messages without prefix will get AI responses.`);
         }
         break
 

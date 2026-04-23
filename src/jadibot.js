@@ -18,6 +18,11 @@ async function JadiBot(conn, from, m, store) {
     if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [] };
     if (!global.db.set) global.db.set = {};
 
+    // If an active session already exists for this user, return it
+    if (global.client[from] && global.client[from].user) {
+        return global.client[from];
+    }
+
     async function startJadiBot() {
         try {
             const authFolder = path.join(process.cwd(), 'jadibot_sessions', from.split('@')[0]);
@@ -108,6 +113,7 @@ async function JadiBot(conn, from, m, store) {
                 }
 
                 if (connection === 'close') {
+                    delete global.client[from];
                     const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
                     console.log(`[JadiBot ${from}] Disconnected: ${reason}`);
                     // Notify owner of unexpected disconnections
@@ -120,7 +126,7 @@ async function JadiBot(conn, from, m, store) {
                             }).catch(() => {});
                         }
                     }
-                    // ... existing reconnect logic
+                    // ... the rest of the existing reconnect logic (do not change anything below) ...    
 
                     if ([DisconnectReason.connectionLost, DisconnectReason.connectionClosed, DisconnectReason.restartRequired, DisconnectReason.timedOut, DisconnectReason.badSession, DisconnectReason.connectionReplaced].includes(reason)) {
                         // Reconnect

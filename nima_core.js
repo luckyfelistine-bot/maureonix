@@ -54,7 +54,7 @@ const { writeExif } = require('./lib/exif');
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const AI = require('./lib/ai');
+const { AI, enhancedAI, sendLongMessage } = require('./lib/ai');
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
@@ -83,6 +83,19 @@ const {
 const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
 
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
+
+// ═══════════════════════════════════════════════════════════════
+//  PROACTIVE SCHEDULER – runs on module load
+// ═══════════════════════════════════════════════════════════════
+
+// Morning briefing every day at 7 AM Nairobi time
+cron.schedule('0 7 * * *', async () => {
+    const ownerJid = global.owner[0] + '@s.whatsapp.net';
+    const briefing = `🌅 *Good Morning!*\n\n📅 ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\nHere's your briefing:\n- Check your reminders\n- Today's weather: .weather Nairobi\n- Top news: .news\n\nHave a great day! 🚀`;
+    if (global.nimaInstance) {
+        await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
+    }
+}, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  HELPER: fetchApi (fallback chain)
@@ -117,6 +130,31 @@ const menfesTimeouts = new Map();
 const settingsPath = path.join(__dirname, 'settings.js');
 const cases = global.db && global.db.cases ? global.db.cases : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js', 'utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(match => match[1]));
 
+// This function lets the auto‑AI execute internal bot commands
+async function handleAutoCommand(nimesha, m, ctx, aiResult) {
+    const { command, args } = aiResult;
+    // We need the full switch statement from nima_commands.js.
+    // The cleanest way is to call the same command handler but with a synthetic context.
+    const handleCommand = require('./nima_commands');
+    
+    // Build the context object that the command handler expects.
+    // You must pass all necessary properties; the easiest is to reuse the existing ctx
+    // but override `command`, `args`, `text`, `q`, and set `isCmd` to true.
+    const syntheticCtx = {
+        // Copy all existing ctx variables (db, store, set, AI, etc.)
+        ...ctx,
+        command: command,
+        args: args,
+        text: args.join(' ') || '',
+        q: args.join(' ') || '',
+        isCmd: true,          // tell the handler that this is a command
+        prefix: ctx.prefix,   // keep the prefix so commands like .menu still work
+        // The bot's socket is already passed as nimesha, so no change needed
+    };
+    
+    await handleCommand(nimesha, m, syntheticCtx);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  MAIN HANDLER EXPORT (will be wrapped by nima.js)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -131,6 +169,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
     if (!global.db.database) global.db.database = {};
     
     const botNumber = nimesha.decodeJid(nimesha.user.id);
+
+    // Helper to send replies that work for both regular chats and newsletters
+    const sendReply = async (jid, content, options = {}) => {
+        if (jid.endsWith('@newsletter')) {
+            let messageContent = content;
+            if (typeof content === 'string') {
+                messageContent = { text: content, ...options };
+            }
+            return nimesha.newsletterMsg(jid, messageContent).catch(e => {
+                console.error('[newsletter send error]', e?.message);
+            });
+        }
+        return nimesha.sendMessage(jid, content, options);
+    };
+    
 
     // Common reply messages
     const mess = {
@@ -205,9 +258,17 @@ const coreHandler = async (nimesha, m, msg, store) => {
         (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
         (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
         (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
+        (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
         (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
         
         const budy = (typeof m.text == 'string' ? m.text : '');
+
+        // Override m.reply so newsletters receive messages correctly
+        const originalReply = m.reply.bind(m);
+        m.reply = async (content, options = {}) => {
+            return sendReply(m.chat, content, options);
+        };
+
         const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
         const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
         const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
@@ -297,7 +358,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
         
-        // Set Mode
+                // Set Mode (newsletters are always allowed)
+        const isNewsletter = m.chat.endsWith('@newsletter');
         if (!isCreator) {
             if ((set.grouponly === set.privateonly)) {
                 if (!nimesha.public && !m.key.fromMe) return;
@@ -305,6 +367,53 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (!m.isGroup) return;
             } else if (set.privateonly) {
                 if (m.isGroup) return;
+            }
+        }
+
+        // ===== AUTO‑AI MODE (No Prefix Needed) =====
+        // This runs BEFORE we try to parse a command prefix.
+        // If auto‑AI is on, the message is not a command, not from the bot itself,
+        // and there is actual text, we let the AI handle it.
+        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+            const userMessage = body || budy;
+            if (userMessage.trim().length > 0) {
+                // Optional – show "typing..." if autotyping is enabled
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                
+                // Load the enhanced AI functions
+                const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                
+                // Let Maureonix understand the request and decide what to do
+                const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+
+                if (result.type === 'function') {
+                    // The AI decided the user wants to run an internal command
+                    // (e.g., "play some music" → function: play)
+                    await handleAutoCommand(nimesha, m, {
+                        command: result.function,
+                        args: result.args,
+                        text: result.args.join(' ') || '',
+                        q: result.args.join(' ') || '',
+                        prefix: prefix,       // keep existing prefix for sub‑commands
+                        isCreator: isCreator,
+                        isOwner: isOwner,
+                        ownerNumber: ownerNumber,
+                        set: set,
+                        sewa: sewa,
+                        premium: premium,
+                        db: db,
+                        store: store,
+                        botNumber: botNumber,
+                        // … pass any other ctx variables that handleAutoCommand might need
+                        // (you can pass the whole ctx if you prefer, but be selective)
+                    }, result);
+                } else {
+                    // Normal text response – send with unlimited length
+                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                }
+
+                // We handled the message, so stop further processing (no normal command run)
+                return;
             }
         }
 
