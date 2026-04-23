@@ -172,16 +172,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
     // Helper to send replies that work for both regular chats and newsletters
     const sendReply = async (jid, content, options = {}) => {
+        // Always normalise content to an object with a `text` property if it's a string
+        let messageContent;
+        if (typeof content === 'string') {
+            messageContent = { text: content, ...options };
+        } else {
+            // Merge provided options into the content object if needed
+            messageContent = { ...content, ...options };
+        }
+
         if (jid.endsWith('@newsletter')) {
-            let messageContent = content;
-            if (typeof content === 'string') {
-                messageContent = { text: content, ...options };
-            }
             return nimesha.newsletterMsg(jid, messageContent).catch(e => {
                 console.error('[newsletter send error]', e?.message);
             });
         }
-        return nimesha.sendMessage(jid, content, options);
+        return nimesha.sendMessage(jid, messageContent);
     };
     
 
