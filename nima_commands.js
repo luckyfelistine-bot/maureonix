@@ -620,7 +620,7 @@ module.exports = async (nimesha, m, ctx) => {
                 return false;
             };
 
-            // 1. gTTS (most reliable)
+            // 1. gTTS (most reliable, works offline after first run)
             try {
                 const gTTS = require('gtts');
                 const tempFile = path.join(tmpDir, `tts_${Date.now()}.mp3`);
@@ -657,18 +657,6 @@ module.exports = async (nimesha, m, ctx) => {
                 }
             }
 
-            // 3. VoiceRSS
-            if (!audioBuffer && global.voiceRssKey) {
-                try {
-                    const url = `https://api.voicerss.org/?key=${global.voiceRssKey}&hl=${lang}&src=${encodeURIComponent(txt)}&c=MP3&f=44khz_16bit_stereo`;
-                    const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-                    const buf = Buffer.from(res.data);
-                    if (isValidAudio(buf)) audioBuffer = buf;
-                } catch (e) {
-                    console.log('VoiceRSS failed:', e.message);
-                }
-            }
-
             if (audioBuffer) {
                 await nimesha.sendMessage(m.chat, {
                     audio: audioBuffer,
@@ -676,7 +664,7 @@ module.exports = async (nimesha, m, ctx) => {
                     ptt: true
                 }, { quoted: m });
             } else {
-                m.reply('❌ TTS failed. Make sure you have `gtts` installed:\n`npm install gtts`');
+                m.reply('❌ TTS failed. Make sure `gtts` is installed: npm install gtts');
             }
         }
         break
@@ -784,6 +772,7 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         // ===== DOWNLOADERS =====
+
         case 'song': case 'mp3': case 'ytmp3': case 'play': {
             if (!text) return m.reply(`Example: ${prefix + command} <query/url>`);
             await m.reply('🎵 *Searching & downloading audio...*');
@@ -823,6 +812,25 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
+        case 'play2': case 'yplay': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎵 *Searching & Downloading...*');
+            try {
+                const yts = require('yt-search');
+                const sr = await yts(text);
+                if (!sr.videos?.length) throw new Error('No results');
+                const video = sr.videos[0];
+                const audio = await ytMp3(video.url);
+                if (audio.local) {
+                    const buffer = fs.readFileSync(audio.url);
+                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
+                    fs.unlinkSync(audio.url);
+                } else {
+                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
+                }
+            } catch(e) { m.reply(`❌ ${e.message}`); }
+        }
+        break
         case 'tiktok': case 'tt': case 'tik': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
             await m.reply('🎬 *Fetching TikTok...*');
@@ -1017,26 +1025,6 @@ module.exports = async (nimesha, m, ctx) => {
                     txt += `${i + 1}. *${v.title}*\n👤 ${v.author.name} | ⏱️ ${v.timestamp} | 👁️ ${v.views}\n🔗 ${v.url}\n\n`;
                 });
                 await m.reply(txt);
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'play2': case 'yplay': {
-            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
-            await m.reply('🎵 *Searching & Downloading...*');
-            try {
-                const yts = require('yt-search');
-                const sr = await yts(text);
-                if (!sr.videos?.length) throw new Error('No results');
-                const video = sr.videos[0];
-                const audio = await ytMp3(video.url);
-                if (audio.local) {
-                    const buffer = fs.readFileSync(audio.url);
-                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
-                    fs.unlinkSync(audio.url);
-                } else {
-                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
-                }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
