@@ -604,16 +604,14 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
-
         case 'tts': {
             if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
-            const lang = args[0]?.length >= 2 ? args.shift() : 'en';
+            const lang = args[0]?.length === 2 ? args.shift() : 'en';
             const txt = args.join(' ') || text;
             await m.reply('🔊 *Generating voice...*');
 
-            const fetch = require('node-fetch');
-            const { exec } = require('child_process');
             let audioBuffer = null;
+            const tmpDir = path.join(require('os').tmpdir());
 
             const isValidAudio = (buf) => {
                 if (!buf || buf.length < 100) return false;
@@ -622,70 +620,52 @@ module.exports = async (nimesha, m, ctx) => {
                 return false;
             };
 
-            // 1. Google Translate TTS via Node fetch
+            // 1. gTTS (most reliable)
             try {
-                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
-                const res = await fetch(url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                const gTTS = require('gtts');
+                const tempFile = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                await new Promise((resolve, reject) => {
+                    const tts = new gTTS(txt, lang);
+                    tts.save(tempFile, (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
                 });
-                if (res.ok) {
-                    const buf = await res.buffer();
-                    if (isValidAudio(buf)) audioBuffer = buf;
-                }
+                const buf = fs.readFileSync(tempFile);
+                fs.unlinkSync(tempFile);
+                if (isValidAudio(buf)) audioBuffer = buf;
             } catch (e) {
-                console.log('Google TTS (fetch) failed:', e.message);
+                console.log('gTTS failed:', e.message);
             }
 
-            // 2. Google Translate TTS via curl (fallback)
+            // 2. Google Translate TTS via axios
             if (!audioBuffer) {
                 try {
-                    const tmpFile = path.join(require('os').tmpdir(), `tts_curl_${Date.now()}.mp3`);
                     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
-                    await new Promise((resolve, reject) => {
-                        exec(`curl -L -A "Mozilla/5.0" "${url}" --output "${tmpFile}"`, (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        });
+                    const res = await axios.get(url, {
+                        responseType: 'arraybuffer',
+                        headers: { 
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Referer': 'https://translate.google.com/'
+                        },
+                        timeout: 15000
                     });
-                    const buf = fs.readFileSync(tmpFile);
-                    fs.unlinkSync(tmpFile);
+                    const buf = Buffer.from(res.data);
                     if (isValidAudio(buf)) audioBuffer = buf;
                 } catch (e) {
-                    console.log('Google TTS (curl) failed:', e.message);
+                    console.log('Google TTS failed:', e.message);
                 }
             }
 
-            // 3. VoiceRSS (your key)
+            // 3. VoiceRSS
             if (!audioBuffer && global.voiceRssKey) {
                 try {
                     const url = `https://api.voicerss.org/?key=${global.voiceRssKey}&hl=${lang}&src=${encodeURIComponent(txt)}&c=MP3&f=44khz_16bit_stereo`;
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const buf = await res.buffer();
-                        if (isValidAudio(buf)) audioBuffer = buf;
-                    }
-                } catch (e) {
-                    console.log('VoiceRSS failed:', e.message);
-                }
-            }
-
-            // 4. gTTS
-            if (!audioBuffer) {
-                try {
-                    const gTTS = require('gtts');
-                    const tempFile = path.join(require('os').tmpdir(), `tts_${Date.now()}.mp3`);
-                    await new Promise((resolve, reject) => {
-                        const tts = new gTTS(txt, lang);
-                        tts.save(tempFile, (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        });
-                    });
-                    const buf = fs.readFileSync(tempFile);
-                    fs.unlinkSync(tempFile);
+                    const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+                    const buf = Buffer.from(res.data);
                     if (isValidAudio(buf)) audioBuffer = buf;
                 } catch (e) {
-                    console.log('gTTS failed:', e.message);
+                    console.log('VoiceRSS failed:', e.message);
                 }
             }
 
@@ -695,9 +675,8 @@ module.exports = async (nimesha, m, ctx) => {
                     mimetype: 'audio/mpeg',
                     ptt: true
                 }, { quoted: m });
-                m.reply('✅ Voice generated!');
             } else {
-                m.reply('❌ TTS failed. All services unavailable.');
+                m.reply('❌ TTS failed. Make sure you have `gtts` installed:\n`npm install gtts`');
             }
         }
         break
@@ -804,23 +783,26 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-// ===== DOWNLOADERS =====
+        // ===== DOWNLOADERS =====
         case 'song': case 'mp3': case 'ytmp3': case 'play': {
             if (!text) return m.reply(`Example: ${prefix + command} <query/url>`);
-            await m.reply('🎵 *Downloading audio...*');
+            await m.reply('🎵 *Searching & downloading audio...*');
             try {
                 let url = text;
                 if (!url.includes('youtube') && !url.includes('youtu.be')) {
                     const yts = require('yt-search');
                     const sr = await yts(text);
                     if (sr.videos?.length) url = sr.videos[0].url;
-                    else throw new Error('No results');
+                    else throw new Error('No YouTube results found');
                 }
                 const audio = await ytMp3(url);
-                await nimesha.sendMessage(m.chat, {
-                    audio: { url: audio.url }, mimetype: 'audio/mpeg',
-                    fileName: `${audio.title}.mp3`, ptt: false
-                }, { quoted: m });
+                if (audio.local) {
+                    const buffer = fs.readFileSync(audio.url);
+                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false }, { quoted: m });
+                    fs.unlinkSync(audio.url);
+                } else {
+                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false }, { quoted: m });
+                }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
@@ -830,7 +812,13 @@ module.exports = async (nimesha, m, ctx) => {
             await m.reply('📥 *Downloading video...*');
             try {
                 const v = await ytMp4(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: v.url }, caption: v.title }, { quoted: m });
+                if (v.local) {
+                    const buffer = fs.readFileSync(v.url);
+                    await nimesha.sendMessage(m.chat, { video: buffer, caption: v.title }, { quoted: m });
+                    fs.unlinkSync(v.url);
+                } else {
+                    await nimesha.sendMessage(m.chat, { video: { url: v.url }, caption: v.title }, { quoted: m });
+                }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
@@ -840,8 +828,11 @@ module.exports = async (nimesha, m, ctx) => {
             await m.reply('🎬 *Fetching TikTok...*');
             try {
                 const tt = await tiktokDownload(args[0]);
-                if (tt.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: tt.url }, caption: tt.title || 'TikTok' }, { quoted: m });
-                else if (tt.items) for (const img of tt.items.slice(0,10)) await nimesha.sendMessage(m.chat, { image: { url: img } }, { quoted: m });
+                if (tt.type === 'video') {
+                    await nimesha.sendMessage(m.chat, { video: { url: tt.url }, caption: tt.title || 'TikTok' }, { quoted: m });
+                } else if (tt.items) {
+                    for (const img of tt.items.slice(0,10)) await nimesha.sendMessage(m.chat, { image: { url: img } }, { quoted: m });
+                }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
@@ -853,8 +844,10 @@ module.exports = async (nimesha, m, ctx) => {
                 const ig = await igDownload(args[0]);
                 if (ig.type === 'image') await nimesha.sendMessage(m.chat, { image: { url: ig.url } }, { quoted: m });
                 else if (ig.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: ig.url } }, { quoted: m });
-                else if (ig.items) for (const item of ig.items.slice(0,10)) {
-                    await nimesha.sendMessage(m.chat, item.is_video ? { video: { url: item.url } } : { image: { url: item.url } }, { quoted: m });
+                else if (ig.items) {
+                    for (const item of ig.items.slice(0,10)) {
+                        await nimesha.sendMessage(m.chat, item.is_video ? { video: { url: item.url } } : { image: { url: item.url } }, { quoted: m });
+                    }
                 }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
@@ -1037,11 +1030,13 @@ module.exports = async (nimesha, m, ctx) => {
                 if (!sr.videos?.length) throw new Error('No results');
                 const video = sr.videos[0];
                 const audio = await ytMp3(video.url);
-                await nimesha.sendMessage(m.chat, {
-                    audio: { url: audio.url }, mimetype: 'audio/mpeg',
-                    fileName: `${audio.title}.mp3`, ptt: false,
-                    contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } }
-                }, { quoted: m });
+                if (audio.local) {
+                    const buffer = fs.readFileSync(audio.url);
+                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
+                    fs.unlinkSync(audio.url);
+                } else {
+                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
+                }
             } catch(e) { m.reply(`❌ ${e.message}`); }
         }
         break
@@ -1226,7 +1221,6 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
-
         case 'remindme': {
             if (args.length < 2) return m.reply(`Example: ${prefix + command} <minutes> <text>`);
             const mins = parseInt(args[0]);
@@ -1234,8 +1228,91 @@ module.exports = async (nimesha, m, ctx) => {
             if (isNaN(mins) || mins <= 0) return m.reply('Invalid minutes.');
             const due = Date.now() + mins * 60000;
             if (!db.reminders) db.reminders = [];
-            db.reminders.push({ user: m.sender, text: msgText, due });
+            db.reminders.push({ user: m.sender, target: m.sender, text: msgText, due });
             await m.reply(`⏰ Reminder set for ${mins} minute(s).\n📝 ${msgText}`);
+        }
+        break
+        case 'remind': {
+            if (!text) return m.reply(`Example: ${prefix + command} me to call John tomorrow at 10am`);
+            await m.reply('🧠 *Understanding your reminder...*');
+            try {
+                const { ultimateAI } = require('./lib/ai');
+                const now = new Date();
+                const prompt = `Extract the reminder datetime (ISO 8601 format, in Africa/Nairobi timezone) and message from this user request.
+Return ONLY a JSON object with "due" (timestamp in milliseconds) and "text" (the reminder message). If you can't determine a date/time, set "due" to null.
+Current time: ${now.toISOString()} (Nairobi: ${now.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })})
+User request: "${text}"
+JSON:`;
+                const res = await ultimateAI(prompt, m.sender, 'deepseek');
+                // Try to extract JSON from response
+                let parsed;
+                try {
+                    parsed = JSON.parse(res.text);
+                } catch {
+                    // maybe the response has extra text, find JSON object
+                    const match = res.text.match(/\{[\s\S]*\}/);
+                    if (!match) throw new Error('No JSON found');
+                    parsed = JSON.parse(match[0]);
+                }
+                if (!parsed.due || isNaN(parsed.due) || !parsed.text) {
+                    return m.reply('❌ Could not extract a valid time from your request. Please be more specific.\nExample: "remind me to buy milk at 5pm"');
+                }
+                const dueMs = parsed.due;
+                // Don't allow past reminders
+                if (dueMs <= Date.now()) {
+                    return m.reply('❌ The time you mentioned is in the past. Please use a future time.');
+                }
+                if (!db.reminders) db.reminders = [];
+                db.reminders.push({ user: m.sender, target: m.sender, text: parsed.text, due: dueMs });
+                const timeStr = new Date(dueMs).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+                await m.reply(`⏰ *Reminder set!*\n📝 ${parsed.text}\n📅 ${timeStr}`);
+            } catch (e) {
+                m.reply(`❌ Failed to set reminder: ${e.message}\n\nTry using the manual format: ${prefix}remindme 30 Buy milk`);
+            }
+        }
+        break
+        case 'schedule': case 'sched': {
+            if (!isCreator) return m.reply(mess.owner);
+            // Syntax: .schedule <time> <@user|jid> <message>
+            const timeArg = args[0];
+            const targetArg = args[1];
+            const message = args.slice(2).join(' ');
+            if (!timeArg || !targetArg || !message) return m.reply(`Example: ${prefix + command} 30m @user Hello, wake up!\nTime format: 30m (minutes), 2h (hours), 10s (seconds), or milliseconds.`);
+            
+            // Parse time
+            let due;
+            if (/^\d+$/.test(timeArg) && timeArg.length > 10) {
+                // it's a timestamp in ms
+                due = parseInt(timeArg);
+            } else {
+                const match = timeArg.match(/^(\d+)\s*(s|m|h|d)$/i);
+                if (!match) return m.reply('Invalid time format. Use: 10s, 30m, 2h, 1d, or a timestamp.');
+                const num = parseInt(match[1]);
+                const unit = match[2].toLowerCase();
+                const now = Date.now();
+                if (unit === 's') due = now + num * 1000;
+                else if (unit === 'm') due = now + num * 60000;
+                else if (unit === 'h') due = now + num * 3600000;
+                else if (unit === 'd') due = now + num * 86400000;
+            }
+
+            // Resolve target JID
+            let targetJid;
+            if (targetArg.startsWith('@')) {
+                const mentioned = m.mentionedJid?.[0];
+                if (!mentioned) return m.reply('Mention a valid user (e.g., @user).');
+                targetJid = mentioned;
+            } else if (targetArg.endsWith('@g.us') || targetArg.endsWith('@s.whatsapp.net')) {
+                targetJid = targetArg;
+            } else {
+                targetJid = targetArg.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+            }
+
+            if (!targetJid) return m.reply('Could not resolve target.');
+
+            if (!db.reminders) db.reminders = [];
+            db.reminders.push({ user: m.sender, target: targetJid, text: message, due });
+            await m.reply(`📨 Scheduled message to ${targetJid.split('@')[0]} in ${timeArg}.\n📝 ${message}`);
         }
         break
 
@@ -2852,14 +2929,23 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         case 'reminders': {
-            if (!db.reminders) return m.reply('No active reminders.');
-            const userReminders = db.reminders.filter(r => r.user === m.sender);
-            if (!userReminders.length) return m.reply('No active reminders.');
-            let txt = `⏰ *Your Reminders*\n`;
-            userReminders.forEach((r, i) => {
-                const timeLeft = Math.floor((r.due - Date.now()) / 60000);
-                txt += `${i+1}. ${r.text} — in ${timeLeft} min\n`;
+            if (!db.reminders) db.reminders = [];
+            // Filter only reminders for this user (user == m.sender)
+            const mine = db.reminders.filter(r => r.user === m.sender || r.target === m.sender);
+            if (!mine.length) return m.reply('📭 You have no active reminders.');
+            let txt = '⏰ *Your Active Reminders*\n\n';
+            mine.forEach((r, i) => {
+                const due = new Date(r.due);
+                const timeLeft = r.due - Date.now();
+                const timeStr = due.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+                let relative = '';
+                if (timeLeft < 60000) relative = ' (now)';
+                else if (timeLeft < 3600000) relative = ` (in ${Math.floor(timeLeft / 60000)}m)`;
+                else if (timeLeft < 86400000) relative = ` (in ${Math.floor(timeLeft / 3600000)}h)`;
+                else relative = ` (in ${Math.floor(timeLeft / 86400000)}d)`;
+                txt += `${i + 1}. ${r.text}\n   📅 ${timeStr}${relative}\n\n`;
             });
+            txt += `Total: ${mine.length} reminder${mine.length > 1 ? 's' : ''}`;
             await m.reply(txt);
         }
         break
@@ -3809,73 +3895,126 @@ module.exports = async (nimesha, m, ctx) => {
             txt += `🔹 autogoodbye    : ${set.autogoodbye ? '✅ ON' : '❌ OFF'}\n`;
             txt += `\n_Use ${prefix}autoviewstatus on/off, etc._`;
             m.reply(txt);
+            txt += `🔹 autoai_selfchat : ${set.autoai_selfchat ? '✅ ON' : '❌ OFF'}\n`;
+            txt += `🔹 privatemode     : ${(set.privatemode || 'off').toUpperCase()}\n`;
+            txt += `🔹 awaymsg         : ${set.awaymsg || 'Default'}\n`;
         }
         break
-
         case 'docs': {
             const fs = require('fs');
             const path = require('path');
             const docsDir = path.join(process.cwd(), 'docs');
 
-            // List available docs if no argument
+            // Simple fuzzy finder (if no findSimilar available)
+            const findSimilar = (input, items, limit = 3) => {
+                const lower = input.toLowerCase();
+                const scored = items.map(item => {
+                    const ilower = item.toLowerCase();
+                    let score = 0;
+                    if (ilower === lower) score = 100;
+                    else if (ilower.startsWith(lower)) score = 80;
+                    else if (ilower.includes(lower)) score = 60;
+                    else {
+                        let i = 0, j = 0;
+                        while (i < lower.length && j < ilower.length) {
+                            if (lower[i] === ilower[j]) { i++; score += 1; }
+                            j++;
+                        }
+                    }
+                    return { item, score };
+                });
+                return scored
+                    .filter(s => s.score > 0)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, limit)
+                    .map(s => s.item);
+            };
+
+            const getAvailableDocs = () => {
+                if (!fs.existsSync(docsDir)) return [];
+                return fs.readdirSync(docsDir)
+                    .filter(f => f.endsWith('.md'))
+                    .map(f => f.replace('.md', ''))
+                    .sort();
+            };
+
+            const available = getAvailableDocs();
+
+            // If no argument, show list
             if (!args[0]) {
                 if (!fs.existsSync(docsDir)) {
-                    return m.reply('❌ Documentation folder not found.');
+                    return m.reply('❌ *Documentation folder not found.*\n\nMake sure a `docs/` folder with `.md` files exists in the bot\'s root directory.');
                 }
-                const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
-                if (files.length === 0) return m.reply('No documentation files available.');
-
+                if (available.length === 0) {
+                    return m.reply('❌ No documentation files found in `docs/`.\n\nAdd some `.md` files there.');
+                }
                 let list = `📚 *Maureonix Documentation*\n━━━━━━━━━━━━━━━━━━━━━━\n`;
-                files.forEach((f, i) => {
-                    const name = f.replace('.md', '');
+                available.forEach((name, i) => {
                     list += `${i + 1}. ${name}\n`;
                 });
-                list += `\n_Type ${prefix}docs <name> to read a file._\n_Example: ${prefix}docs install_`;
+                list += `\n_Type ${prefix}docs <name> to read a file._`;
                 return m.reply(list);
             }
 
-            // Read and send specific doc
-            const docName = args[0].toLowerCase();
-            const filePath = path.join(docsDir, `${docName}.md`);
+            // Search for the requested doc (case-insensitive)
+            const requested = args[0].toLowerCase().replace(/\.md$/, '');
+            const exactMatch = available.find(f => f.toLowerCase() === requested);
 
-            if (!fs.existsSync(filePath)) {
-                return m.reply(`❌ Documentation file "*${docName}*" not found.\nUse ${prefix}docs to see all available files.`);
-            }
+            if (exactMatch) {
+                const filePath = path.join(docsDir, `${exactMatch}.md`);
+                try {
+                    let content = fs.readFileSync(filePath, 'utf8');
+                    content = content
+                        .replace(/^#{1,6}\s+/gm, '')
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .replace(/`{1,3}[^`]*`{1,3}/g, '')
+                        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                        .replace(/^\s*[-*+]\s+/gm, '• ')
+                        .replace(/^\s*\d+\.\s+/gm, '• ')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .trim();
 
-            try {
-                let content = fs.readFileSync(filePath, 'utf8');
-                // Strip markdown headers and formatting for plain text WhatsApp
-                content = content
-                    .replace(/^#{1,6}\s+/gm, '')           // Remove headings
-                    .replace(/\*\*(.*?)\*\*/g, '$1')       // Bold → plain
-                    .replace(/\*(.*?)\*/g, '$1')           // Italic → plain
-                    .replace(/`{1,3}[^`]*`{1,3}/g, '')     // Remove code blocks
-                    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links → text
-                    .replace(/^\s*[-*+]\s+/gm, '• ')       // List bullets
-                    .replace(/^\s*\d+\.\s+/gm, '• ')       // Numbered lists
-                    .replace(/\n{3,}/g, '\n\n')            // Collapse multiple newlines
-                    .trim();
-
-                // Split into chunks if too long (WhatsApp limit ~4096 chars)
-                const maxLen = 3800;
-                if (content.length <= maxLen) {
-                    await m.reply(`📄 *${docName.toUpperCase()}.md*\n━━━━━━━━━━━━━━━━━━━━━━\n${content}`);
-                } else {
-                    const chunks = [];
-                    for (let i = 0; i < content.length; i += maxLen) {
-                        chunks.push(content.slice(i, i + maxLen));
+                    const maxLen = 3800;
+                    if (content.length <= maxLen) {
+                        await m.reply(`📄 *${exactMatch.toUpperCase()}.md*\n━━━━━━━━━━━━━━━━━━━━━━\n${content}`);
+                    } else {
+                        const chunks = [];
+                        for (let i = 0; i < content.length; i += maxLen) {
+                            chunks.push(content.slice(i, i + maxLen));
+                        }
+                        await m.reply(`📄 *${exactMatch.toUpperCase()}.md* (Part 1/${chunks.length})`);
+                        for (let i = 0; i < chunks.length; i++) {
+                            await nimesha.sendMessage(m.chat, { text: chunks[i] }, { quoted: m });
+                            await sleep(1000);
+                        }
                     }
-                    await m.reply(`📄 *${docName.toUpperCase()}.md* (Part 1/${chunks.length})`);
-                    for (let i = 0; i < chunks.length; i++) {
-                        await nimesha.sendMessage(m.chat, { text: chunks[i] }, { quoted: m });
-                        await sleep(1000);
-                    }
+                } catch (e) {
+                    m.reply(`❌ Error reading documentation: ${e.message}`);
                 }
-            } catch (e) {
-                m.reply(`❌ Error reading documentation: ${e.message}`);
+            } else {
+                // No exact match – suggest similar
+                const similar = findSimilar(requested, available, 3);
+                if (similar.length > 0) {
+                    let suggestion = `❌ Documentation file *"${requested}"* not found.\n\n`;
+                    suggestion += `💡 *Did you mean:*\n`;
+                    similar.forEach(s => suggestion += `   • ${s}\n`);
+                    suggestion += `\n_Or type ${prefix}docs to see all available docs._`;
+                    return m.reply(suggestion);
+                } else {
+                    let msg = `❌ Documentation file *"${requested}"* not found.\n\n`;
+                    if (available.length > 0) {
+                        msg += `📚 *Available docs:*\n`;
+                        available.forEach(d => msg += `   • ${d}\n`);
+                    } else {
+                        msg += `No docs found in the \`docs/\` folder.`;
+                    }
+                    return m.reply(msg);
+                }
             }
         }
         break
+
         case 'ask': case 'docsask': {
             if (!text) return m.reply(`Example: ${prefix + command} How do I set up auto-backup?`);
             await m.reply('🔍 *Searching documentation...*');
@@ -3925,6 +4064,118 @@ module.exports = async (nimesha, m, ctx) => {
             if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autoai ? 'ON' : 'OFF'}`);
             set.autoai = status;
             m.reply(`✅ Auto-AI ${status ? 'enabled' : 'disabled'}. Now messages without prefix will get AI responses.`);
+        }
+        break
+        case 'autoaiselfchat': case 'selfchat': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+            if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autoai_selfchat ? 'ON' : 'OFF'}`);
+            set.autoai_selfchat = status;
+            m.reply(`✅ Self‑chat AI ${status ? 'enabled' : 'disabled'}.`);
+        }
+        break
+        case 'privatemode': {
+            if (!isCreator) return m.reply(mess.owner);
+            const mode = args[0]?.toLowerCase();
+            if (!['off', 'away', 'ai', 'both'].includes(mode)) {
+                return m.reply(`Usage: ${prefix}privatemode <off|away|ai|both>\nCurrent: ${set.privatemode || 'off'}`);
+            }
+            set.privatemode = mode;
+            let desc = mode === 'off' ? 'No automatic response to private messages.' :
+                       mode === 'away' ? 'Bot will send an away message.' :
+                       mode === 'ai' ? 'Bot will chat with strangers using AI.' :
+                       'Bot will send an away message then switch to AI chat.';
+            m.reply(`✅ Private mode set to *${mode.toUpperCase()}*\n${desc}`);
+        }
+        break
+        case 'setawaymsg': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!text && args[0] !== 'reset') return m.reply(`Usage: ${prefix}setawaymsg <message> or ${prefix}setawaymsg reset`);
+            if (args[0] === 'reset') {
+                set.awaymsg = 'I\'m currently not available. I\'ll respond when I can. Meanwhile, you can leave a message.';
+                m.reply('✅ Away message reset to default.');
+            } else {
+                set.awaymsg = text;
+                m.reply(`✅ Away message set to:\n${text}`);
+            }
+        }
+        break
+        case 'awaymsg': {
+            if (!isCreator) return m.reply(mess.owner);
+            m.reply(`📴 *Current away message:*\n${set.awaymsg || '(default)'}`);
+        }
+        break
+        case 'pending': case 'inbox': {
+            if (!isCreator) return m.reply(mess.owner);
+            const pending = set.pendingMessages || [];
+            if (!pending.length) return m.reply('📭 No pending messages.');
+
+            // Check if user wants a raw list instead of AI summary
+            const wantRaw = args[0]?.toLowerCase() === 'raw';
+            const wantSummary = !wantRaw; // default to summary
+
+            if (wantRaw) {
+                // Original raw view
+                let txt = '📩 *Pending Messages (while you were away)*\n\n';
+                pending.forEach(entry => {
+                    const num = entry.from.split('@')[0];
+                    const last = entry.messages[entry.messages.length - 1];
+                    const preview = last.body.length > 40 ? last.body.slice(0, 40) + '...' : last.body;
+                    const time = new Date(last.time).toLocaleString('en-KE', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+                    txt += `👤 *${num}* — ${entry.messages.length} msg${entry.messages.length > 1 ? 's' : ''}\n`;
+                    txt += `   Last: ${preview}\n`;
+                    txt += `   Time: ${time}\n\n`;
+                });
+                txt += `_Use ${prefix}pendingclear to clear this list._\n_Use ${prefix}pending (without raw) for AI summary._`;
+                return m.reply(txt);
+            }
+
+            // ---- AI Summary Mode ----
+            await m.reply('🧠 *Analyzing your inbox...*');
+
+            // Build a structured text to send to AI
+            let aiPrompt = 'Summarize the following pending messages for the owner in a clear, concise, bullet-point format. ';
+            aiPrompt += 'Group by user, highlight key topics and any urgent requests. Keep it brief.\n\n';
+            aiPrompt += 'Pending Messages:\n';
+            let totalMessages = 0;
+            pending.forEach(entry => {
+                const num = entry.from.split('@')[0];
+                const msgs = entry.messages;
+                totalMessages += msgs.length;
+                aiPrompt += `--- User @${num} (${msgs.length} message${msgs.length > 1 ? 's' : ''}) ---\n`;
+                // Take up to 5 messages per user to avoid huge prompt
+                const sample = msgs.slice(-5);
+                sample.forEach((msg, i) => {
+                    const time = new Date(msg.time).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
+                    aiPrompt += `[${time}] ${msg.body}\n`;
+                });
+                if (msgs.length > 5) aiPrompt += `... and ${msgs.length - 5} earlier messages.\n`;
+                aiPrompt += '\n';
+            });
+            aiPrompt += `\nProvide a helpful summary for the owner. Mention any urgent matters.`;
+
+            try {
+                const { ultimateAI } = require('./lib/ai');
+                const result = await ultimateAI(aiPrompt, m.sender, 'deepseek');
+                const summary = result.text || 'Unable to generate summary.';
+                let finalText = `📩 *Inbox Summary* (${totalMessages} messages from ${pending.length} user${pending.length > 1 ? 's' : ''})\n\n`;
+                finalText += summary;
+                finalText += `\n\n_Use ${prefix}pending raw for full list._\n_Use ${prefix}pendingclear to clear._`;
+                await m.reply(finalText);
+            } catch (e) {
+                // Fallback to raw if AI fails
+                console.error('[inbox AI summary error]', e);
+                m.reply('⚠️ AI summary failed. Here is the raw list:\n\n' + txt);
+                // but we don't have txt here... we'll just call the raw block recursively;
+                // instead, just tell user to use raw
+                m.reply(`❌ AI summary failed. Use ${prefix}pending raw for full list.`);
+            }
+        }
+        break
+        case 'pendingclear': case 'clearinbox': {
+            if (!isCreator) return m.reply(mess.owner);
+            set.pendingMessages = [];
+            await m.reply('✅ Pending messages cleared.');
         }
         break
 

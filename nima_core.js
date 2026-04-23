@@ -54,7 +54,7 @@ const { writeExif } = require('./lib/exif');
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const { AI, enhancedAI, sendLongMessage } = require('./lib/ai');
+const AI = require('./lib/ai');   // now AI.askModel, AI.imagine, etc. work
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
@@ -96,6 +96,38 @@ cron.schedule('0 7 * * *', async () => {
         await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
     }
 }, { timezone: 'Africa/Nairobi' });
+
+// ═══════════════════════════════════════════════════════════════
+//  🔔 PROACTIVE REMINDER / SCHEDULER (checks every 10 seconds)
+// ═══════════════════════════════════════════════════════════════
+setInterval(async () => {
+    if (!global.db?.reminders || !Array.isArray(global.db.reminders)) return;
+    const now = Date.now();
+    const dueItems = global.db.reminders.filter(r => r.due && r.due <= now);
+    if (dueItems.length === 0) return;
+
+    // Process each due reminder
+    for (const item of dueItems) {
+        try {
+            const sock = global.nimaInstance;
+            if (!sock) continue;
+
+            const recipient = item.target || item.user; // target for .schedule, user for .remindme
+            const text = item.text || item.message || '⏰ Reminder!';
+
+            if (recipient && text) {
+                // Send to the intended recipient (could be a user JID or group JID)
+                await sock.sendMessage(recipient, { text: `🔔 *Reminder:*\n\n${text}` })
+                    .catch(e => console.error('[reminder send error]', e.message));
+            }
+        } catch (e) {
+            console.error('[reminder process error]', e);
+        }
+    }
+
+    // Remove sent reminders from the array
+    global.db.reminders = global.db.reminders.filter(r => !dueItems.includes(r));
+}, 10000); // every 10 seconds
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  HELPER: fetchApi (fallback chain)
@@ -375,51 +407,86 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
 
-        // ===== AUTO‑AI MODE (No Prefix Needed) =====
-        // This runs BEFORE we try to parse a command prefix.
-        // If auto‑AI is on, the message is not a command, not from the bot itself,
-        // and there is actual text, we let the AI handle it.
-        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+        // ===== ENHANCED AUTO‑AI MODE =====
+        // Determine if this is a self‑chat (owner messaging own bot number)
+        const botOwnJid = nimesha.decodeJid(nimesha.user.id);
+        const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
+
+        // 1) Self‑chat AI – owner talking to bot from the same number
+        if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
             const userMessage = body || budy;
             if (userMessage.trim().length > 0) {
-                // Optional – show "typing..." if autotyping is enabled
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                
-                // Load the enhanced AI functions
-                const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                
-                // Let Maureonix understand the request and decide what to do
-                const result = await enhancedAI(userMessage, m.sender, 'deepseek');
-
-                if (result.type === 'function') {
-                    // The AI decided the user wants to run an internal command
-                    // (e.g., "play some music" → function: play)
-                    await handleAutoCommand(nimesha, m, {
-                        command: result.function,
-                        args: result.args,
-                        text: result.args.join(' ') || '',
-                        q: result.args.join(' ') || '',
-                        prefix: prefix,       // keep existing prefix for sub‑commands
-                        isCreator: isCreator,
-                        isOwner: isOwner,
-                        ownerNumber: ownerNumber,
-                        set: set,
-                        sewa: sewa,
-                        premium: premium,
-                        db: db,
-                        store: store,
-                        botNumber: botNumber,
-                        // … pass any other ctx variables that handleAutoCommand might need
-                        // (you can pass the whole ctx if you prefer, but be selective)
-                    }, result);
-                } else {
-                    // Normal text response – send with unlimited length
+                try {
+                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                    const result = await enhancedAI(userMessage, m.sender, 'deepseek');
                     await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                } catch (e) {
+                    console.error('[selfchat AI error]', e);
                 }
+                return; // stop further processing
+            }
+        }
 
-                // We handled the message, so stop further processing (no normal command run)
+        // 2) Private message from a stranger (not owner, not group, not status)
+        if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
+            const mode = set.privatemode || 'off';
+            const awayMsg = set.awaymsg || 'I am not available right now.';
+            const user = db.users[m.sender];
+
+            // Helper to store a pending message for the owner
+            const addPending = (fromJid, msg) => {
+                if (!set.pendingMessages) set.pendingMessages = [];
+                // Find existing entry for this JID
+                let entry = set.pendingMessages.find(e => e.from === fromJid);
+                if (!entry) {
+                    entry = { from: fromJid, timestamp: Date.now(), messages: [] };
+                    set.pendingMessages.push(entry);
+                }
+                entry.messages.push({ time: Date.now(), body: msg });
+                // Limit to 50 messages per user
+                if (entry.messages.length > 50) entry.messages.shift();
+            };
+
+            // Store the incoming message if we are in a 'recording' mode (away, both)
+            if (mode === 'away' || mode === 'both') {
+                addPending(m.sender, body || budy);
+            }
+
+            if (mode === 'away') {
+                // Always send away message (flag not needed for pure away)
+                await m.reply(awayMsg);
+                return;
+            } else if (mode === 'ai') {
+                // No away message, just AI
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                    const result = await enhancedAI(body || budy, m.sender, 'deepseek');
+                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                } catch (e) {
+                    console.error('[privat AI error]', e);
+                }
+                return;
+            } else if (mode === 'both') {
+                // Send away message only once per user
+                if (!user._awayNotified) {
+                    await m.reply(awayMsg);
+                    user._awayNotified = true;
+                    await sleep(1000);  // small delay before switching to AI
+                }
+                // Now engage AI
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                    const result = await enhancedAI(body || budy, m.sender, 'deepseek');
+                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                } catch (e) {
+                    console.error('[privat AI error]', e);
+                }
                 return;
             }
+            // If mode is 'off' or unrecognised, do nothing (and don't store message)
         }
 
         // Private chat — block commands for non-owners
