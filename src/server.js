@@ -2267,12 +2267,16 @@ app.all('/chat', (req, res) => {
 
 app.get('/pair', async (req, res) => {
     const { number } = req.query;
-    if (!number) return res.status(400).json({ status: false, message: 'Missing "number" parameter. Example: /pair?number=254xxxxxxxx' });
+    if (!number) {
+        return res.status(400).json({ status: false, message: 'Missing "number" parameter. Example: /pair?number=254xxxxxxxx' });
+    }
     const cleanNumber = number.replace(/[^0-9]/g, '');
-    if (cleanNumber.length < 9) return res.status(400).json({ status: false, message: 'Invalid phone number. Include country code.' });
+    if (cleanNumber.length < 9) {
+        return res.status(400).json({ status: false, message: 'Invalid phone number. Include country code.' });
+    }
 
-    // Import necessary Baileys modules (inside function to avoid top‑level errors)
-    const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
+    // Import required modules inside the route to avoid top‑level issues
+    const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion, DisconnectReason } = require('baileys');
     const pino = require('pino');
     const path = require('path');
     const fs = require('fs');
@@ -2283,34 +2287,85 @@ app.get('/pair', async (req, res) => {
     const tempDir = path.join(os.tmpdir(), tempId);
     fs.mkdirSync(tempDir, { recursive: true });
 
+    let sock = null;
+    let timeoutId = null;
+
     try {
-        const { state } = await useMultiFileAuthState(tempDir);
-        const { version } = await fetchLatestWaWebVersion();
-        const sock = makeWASocket({
-            version,
-            logger: pino({ level: 'silent' }),
-            auth: state,
-            printQRInTerminal: false,
-            browser: ['Ubuntu', 'Chrome', '20.0.0']
+        // Set a global timeout to abort the whole pairing attempt
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Pairing request timed out after 60 seconds')), 60000);
         });
 
-        const code = await sock.requestPairingCode(cleanNumber);
-        sock.ws?.close();
-        // Clean up the temporary folder
+        const authPromise = (async () => {
+            const { state } = await useMultiFileAuthState(tempDir);
+            const { version } = await fetchLatestWaWebVersion();
+            sock = makeWASocket({
+                version,
+                logger: pino({ level: 'silent' }),
+                auth: state,
+                printQRInTerminal: false,
+                browser: ['Ubuntu', 'Chrome', '20.0.0'],
+                connectTimeoutMs: 30000,
+                defaultQueryTimeoutMs: 30000,
+                keepAliveIntervalMs: 10000
+            });
+
+            // Wait for the socket to be ready or fail
+            return new Promise((resolve, reject) => {
+                const onConnectionUpdate = async (update) => {
+                    const { connection, lastDisconnect } = update;
+                    if (connection === 'open') {
+                        sock.ev.off('connection.update', onConnectionUpdate);
+                        resolve();
+                    } else if (connection === 'close') {
+                        const reason = lastDisconnect?.error?.output?.statusCode;
+                        reject(new Error(`Socket closed: ${reason}`));
+                    }
+                };
+                sock.ev.on('connection.update', onConnectionUpdate);
+
+                // Also reject if socket emits an error
+                sock.ev.on('error', (err) => {
+                    sock.ev.off('connection.update', onConnectionUpdate);
+                    reject(err);
+                });
+            });
+        })();
+
+        await Promise.race([authPromise, timeoutPromise]);
+
+        // Now request the pairing code
+        const pairPromise = sock.requestPairingCode(cleanNumber);
+        const code = await Promise.race([pairPromise, timeoutPromise]);
+
+        // Clean up
+        if (timeoutId) clearTimeout(timeoutId);
+        if (sock) sock.ws?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
 
         const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
         return res.json({
             status: true,
-            message: 'Pairing code generated. Use it in WhatsApp > Linked Devices > Link with phone number.',
+            message: 'Pairing code generated. Enter it in WhatsApp > Linked Devices > Link with phone number.',
             number: cleanNumber,
             code: formatted,
             expires: '60 seconds'
         });
-    } catch (e) {
-        // Clean up even if error
-        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
-        return res.status(500).json({ status: false, message: 'Failed to get pairing code.', error: e.message });
+    } catch (err) {
+        console.error('[PAIR ENDPOINT ERROR]', err);
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+            if (sock) sock.ws?.close();
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (_) {}
+
+        // Optional: fallback to a public pairing API (if needed)
+        // You could try to fetch from a trusted proxy here, but we'll just return error.
+        return res.status(500).json({
+            status: false,
+            message: 'Failed to get pairing code. The server cannot connect to WhatsApp Web at this time.',
+            error: err.message
+        });
     }
 });
 

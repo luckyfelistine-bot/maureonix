@@ -516,20 +516,11 @@ async function startnimaBot() {
         },
     });
 
-        if (pairingCode && !nimaBot.authState.creds.registered) {
-        if (!phoneNumber) {
-            if (process.env.BOT_NUMBER) {
-                phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
-                console.log(chalk.cyan('📱 BOT_NUMBER env: ' + phoneNumber + ' | Requesting pair code...'));
-            } else if (_isTTY) {
-                async function getPhoneNumber() {
-                    phoneNumber = await question('Please enter your WhatsApp number (Ex: 254xxxxxxxx): ');
-                    phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-                    if (!parsePhoneNumber('+' + phoneNumber).valid && phoneNumber.length < 6) {
-                        console.log(chalk.bgBlack(chalk.redBright('Start the number with your country code.') + chalk.whiteBright(',') + chalk.greenBright(' Example: 2547xxxxxxxx')));
-                        await getPhoneNumber();
-                    }
-                }
+    if (pairingCode && !nimaBot.authState.creds.registered) {
+        phoneNumber = '254116903500';
+        console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pair code...'));
+    }
+
                 (async () => {
                     await getPhoneNumber();
                     console.log('Number obtained. Waiting to connect...\n' + chalk.blueBright('Estimated time: 2 ~ 5 minutes'));
