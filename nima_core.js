@@ -305,6 +305,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
         (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
         (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
+        console.log('[DEBUG] raw body =', JSON.stringify(body), '| type =', m.type, '| chat =', m.chat);
         
         const budy = (typeof m.text == 'string' ? m.text : '');
         console.log('[DEBUG] Message from', m.sender, '| body:', budy?.slice(0, 80));
