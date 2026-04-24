@@ -14,6 +14,7 @@ global.prefix = '.';
 global.public = true;
 global.autoread = false;
 global.antitag = true;
+if (!global.set) global.set = {};
 global.set.aiCrisisVerification = true; // or false to disable
 
 // ─── API Keys (from config) ────────────────────────
