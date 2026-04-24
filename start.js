@@ -530,8 +530,8 @@ async function installOrUpdateYtDlp(osInfo) {
         { cmd: 'python3 -m pip install -U yt-dlp',                         desc: 'python3 -m pip -U' },
         { cmd: 'python3 -m pip install -U --break-system-packages yt-dlp', desc: 'python3 -m pip --break-system-packages' },
         { cmd: 'python -m pip install -U yt-dlp',                          desc: 'python -m pip -U' },
-        { cmd: 'sudo pip3 install -U yt-dlp',                              desc: 'sudo pip3 -U' },
-        { cmd: 'sudo python3 -m pip install -U yt-dlp',                    desc: 'sudo python3 -m pip -U' },
+        { cmd: 'pip3 install -U --break-system-packages yt-dlp',            desc: 'pip3 --break-system-packages (retry)' },
+        { cmd: 'python3 -m pip install -U yt-dlp',                         desc: 'python3 -m pip -U (retry)' },
         { cmd: 'pip3 install yt-dlp',                                      desc: 'pip3 fresh' },
 
         // Termux
@@ -540,16 +540,16 @@ async function installOrUpdateYtDlp(osInfo) {
         { cmd: 'apt install -y yt-dlp',                                    desc: 'apt install (termux)' },
         { cmd: 'apt update -y && apt install -y yt-dlp',                   desc: 'apt update+install (termux)' },
 
-        // apt / apt-get (Ubuntu, Debian, Kali, Raspi, WSL)
-        { cmd: 'sudo apt install -y yt-dlp',                               desc: 'sudo apt install' },
-        { cmd: 'sudo apt update && sudo apt install -y yt-dlp',            desc: 'sudo apt update+install' },
-        { cmd: 'sudo apt-get install -y yt-dlp',                           desc: 'sudo apt-get install' },
-        { cmd: 'sudo apt-get update && sudo apt-get install -y yt-dlp',    desc: 'sudo apt-get update+install' },
-        { cmd: 'sudo snap install yt-dlp',                                 desc: 'snap install' },
+        // apt / apt-get (Ubuntu, Debian, Kali, Raspi, WSL, Railway/Docker)
+        { cmd: 'apt install -y yt-dlp',                                    desc: 'apt install' },
+        { cmd: 'apt update && apt install -y yt-dlp',                      desc: 'apt update+install' },
+        { cmd: 'apt-get install -y yt-dlp',                                desc: 'apt-get install' },
+        { cmd: 'apt-get update && apt-get install -y yt-dlp',              desc: 'apt-get update+install' },
+        { cmd: 'snap install yt-dlp',                                      desc: 'snap install' },
 
         // pacman / AUR (Arch, Manjaro)
-        { cmd: 'sudo pacman -S --noconfirm yt-dlp',                        desc: 'pacman -S' },
-        { cmd: 'sudo pacman -Syu --noconfirm yt-dlp',                      desc: 'pacman -Syu' },
+        { cmd: 'pacman -S --noconfirm yt-dlp',                             desc: 'pacman -S' },
+        { cmd: 'pacman -Syu --noconfirm yt-dlp',                           desc: 'pacman -Syu' },
         { cmd: 'yay -S --noconfirm yt-dlp',                                desc: 'yay (AUR)' },
         { cmd: 'paru -S --noconfirm yt-dlp',                               desc: 'paru (AUR)' },
 
@@ -558,25 +558,25 @@ async function installOrUpdateYtDlp(osInfo) {
         { cmd: 'apk update && apk add yt-dlp',                             desc: 'apk update+add' },
 
         // dnf (Fedora, RHEL 8+, Rocky, Alma)
-        { cmd: 'sudo dnf install -y yt-dlp',                               desc: 'dnf install' },
-        { cmd: 'sudo dnf upgrade -y && sudo dnf install -y yt-dlp',        desc: 'dnf upgrade+install' },
+        { cmd: 'dnf install -y yt-dlp',                                    desc: 'dnf install' },
+        { cmd: 'dnf upgrade -y && dnf install -y yt-dlp',                  desc: 'dnf upgrade+install' },
 
         // yum (CentOS 7, RHEL 7)
-        { cmd: 'sudo yum install -y yt-dlp',                               desc: 'yum install' },
-        { cmd: 'sudo yum update -y && sudo yum install -y yt-dlp',         desc: 'yum update+install' },
+        { cmd: 'yum install -y yt-dlp',                                    desc: 'yum install' },
+        { cmd: 'yum update -y && yum install -y yt-dlp',                   desc: 'yum update+install' },
 
         // zypper (openSUSE)
-        { cmd: 'sudo zypper install -y yt-dlp',                            desc: 'zypper install' },
-        { cmd: 'sudo zypper refresh && sudo zypper install -y yt-dlp',     desc: 'zypper refresh+install' },
+        { cmd: 'zypper install -y yt-dlp',                                 desc: 'zypper install' },
+        { cmd: 'zypper refresh && zypper install -y yt-dlp',               desc: 'zypper refresh+install' },
 
         // xbps (Void Linux)
-        { cmd: 'sudo xbps-install -y yt-dlp',                              desc: 'xbps install' },
-        { cmd: 'sudo xbps-install -Sy yt-dlp',                             desc: 'xbps sync+install' },
+        { cmd: 'xbps-install -y yt-dlp',                                   desc: 'xbps install' },
+        { cmd: 'xbps-install -Sy yt-dlp',                                  desc: 'xbps sync+install' },
 
         // brew (macOS / Linux brew)
         { cmd: 'brew install yt-dlp',                                      desc: 'brew install' },
         { cmd: 'brew upgrade yt-dlp',                                      desc: 'brew upgrade' },
-        { cmd: 'sudo port install yt-dlp',                                 desc: 'macports install' },
+        { cmd: 'port install yt-dlp',                                      desc: 'macports install' },
 
         // Windows
         { cmd: 'winget install -e --id yt-dlp.yt-dlp -h --accept-source-agreements', desc: 'winget' },
@@ -778,6 +778,23 @@ async function autoInstallDependencies() {
     
     log.header(`🦊 Maureonix Starting\n${chalk.yellow(`Platform: ${osInfo.display}`)}`);
 
+    // ── Railway / Docker fast path ──────────────────────────────────────
+    // On Railway the Dockerfile already installs all system deps (ffmpeg,
+    // python3, pip3, yt-dlp) and runs `npm install`.  Skip the heavy
+    // system-level setup steps so the bot starts quickly and passes the
+    // healthcheck without timing out.
+    const isRailway = !!(
+        process.env.RAILWAY_ENVIRONMENT ||
+        process.env.RAILWAY_SERVICE_NAME ||
+        process.env.RAILWAY_PROJECT_ID
+    );
+    if (isRailway) {
+        log.info('🚂 Railway environment detected — skipping system-level installs (handled by Dockerfile)');
+        log.success('✅ Setup verification complete (Railway fast path)!');
+        return;
+    }
+    // ───────────────────────────────────────────────────────────────────
+
     // STEP 1: Permissions & Environment
     try {
         await autoSetupPermissions(osInfo);
@@ -810,10 +827,10 @@ async function autoInstallDependencies() {
         
         const nodeMethods = {
             termux: ['pkg update -y && pkg install -y nodejs', 'apt update -y && apt install -y nodejs'],
-            ubuntu: ['sudo apt update && sudo apt install -y nodejs npm', 'sudo apt-get update && sudo apt-get install -y nodejs npm', 'sudo snap install node --classic'],
-            wsl: ['sudo apt update && sudo apt install -y nodejs npm', 'winget install OpenJS.NodeJS'],
+            ubuntu: ['apt update && apt install -y nodejs npm', 'apt-get update && apt-get install -y nodejs npm', 'snap install node --classic'],
+            wsl: ['apt update && apt install -y nodejs npm', 'winget install OpenJS.NodeJS'],
             macos: ['brew update && brew install node', 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash'],
-            linux: ['sudo apt update && sudo apt install -y nodejs npm', 'sudo yum install -y nodejs npm', 'sudo dnf install -y nodejs npm', 'sudo pacman -S --noconfirm nodejs npm']
+            linux: ['apt update && apt install -y nodejs npm', 'yum install -y nodejs npm', 'dnf install -y nodejs npm', 'pacman -S --noconfirm nodejs npm']
         };
 
         const methods = nodeMethods[osInfo.type] || nodeMethods.linux;
@@ -1037,9 +1054,7 @@ async function autoInstallDependencies() {
                 let spotifyInstalled = false;
                 const npmMethods = [
                     'npm install -g spotifydl',
-                    'sudo npm install -g spotifydl',
-                    'npm install spotifydl',
-                    'sudo npm install spotifydl'
+                    'npm install spotifydl'
                 ];
                 for (let i = 0; i < npmMethods.length; i++) {
                     try {
@@ -1079,8 +1094,6 @@ async function autoInstallDependencies() {
                     { cmd: `pip install -U ${tool}`,                                    desc: `pip -U` },
                     { cmd: `python3 -m pip install -U --break-system-packages ${tool}`, desc: `python3 -m pip --break-system-packages` },
                     { cmd: `python3 -m pip install -U ${tool}`,                         desc: `python3 -m pip -U` },
-                    { cmd: `sudo pip3 install -U --break-system-packages ${tool}`,      desc: `sudo pip3 --break-system-packages` },
-                    { cmd: `sudo pip3 install -U ${tool}`,                              desc: `sudo pip3 -U` },
                 );
                 if (tool === 'yt-dlp') {
                     toolMethods.push(
@@ -1097,15 +1110,15 @@ async function autoInstallDependencies() {
                 { cmd: `pkg install -y ${pkgName}`,                              desc: `pkg (termux)` },
                 { cmd: `apt install -y ${pkgName}`,                              desc: `apt (termux)` },
                 { cmd: `apt update -y && apt install -y ${pkgName}`,             desc: `apt update+install (termux)` },
-                { cmd: `sudo apt install -y ${pkgName}`,                         desc: `sudo apt` },
-                { cmd: `sudo apt update && sudo apt install -y ${pkgName}`,      desc: `sudo apt update+install` },
-                { cmd: `sudo apt-get install -y ${pkgName}`,                     desc: `sudo apt-get` },
-                { cmd: `sudo pacman -S --noconfirm ${pkgName}`,                  desc: `pacman` },
+                { cmd: `apt install -y ${pkgName}`,                              desc: `apt` },
+                { cmd: `apt update && apt install -y ${pkgName}`,                desc: `apt update+install` },
+                { cmd: `apt-get install -y ${pkgName}`,                          desc: `apt-get` },
+                { cmd: `pacman -S --noconfirm ${pkgName}`,                       desc: `pacman` },
                 { cmd: `apk add ${pkgName}`,                                     desc: `apk` },
-                { cmd: `sudo dnf install -y ${pkgName}`,                         desc: `dnf` },
-                { cmd: `sudo yum install -y ${pkgName}`,                         desc: `yum` },
-                { cmd: `sudo zypper install -y ${pkgName}`,                      desc: `zypper` },
-                { cmd: `sudo xbps-install -y ${pkgName}`,                        desc: `xbps` },
+                { cmd: `dnf install -y ${pkgName}`,                              desc: `dnf` },
+                { cmd: `yum install -y ${pkgName}`,                              desc: `yum` },
+                { cmd: `zypper install -y ${pkgName}`,                           desc: `zypper` },
+                { cmd: `xbps-install -y ${pkgName}`,                             desc: `xbps` },
                 { cmd: `brew install ${pkgName}`,                                desc: `brew` },
             );
 

@@ -2375,4 +2375,11 @@ app.get('/pair', async (req, res) => {
     }
 });
 
+// ── Healthcheck endpoint ─────────────────────────────────────────────────
+// Returns 200 immediately so Railway's healthcheck passes without waiting
+// for the WhatsApp connection to be established.
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
+
 module.exports = { app, server, PORT };
