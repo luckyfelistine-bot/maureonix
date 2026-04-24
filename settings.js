@@ -14,6 +14,7 @@ global.prefix = '.';
 global.public = true;
 global.autoread = false;
 global.antitag = true;
+global.set.aiCrisisVerification = true; // or false to disable
 
 // ─── API Keys (from config) ────────────────────────
 global.poeApiKey = SecureConfig.poeApiKey;

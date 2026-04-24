@@ -711,29 +711,47 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (Date.now() - lastCrisis < 30 * 60 * 1000) {
                     // Already handled recently – do nothing
                 } else {
-                    // Mark that we responded
+                    // Mark that we are processing
                     if (!db.crisisTimestamps) db.crisisTimestamps = {};
                     db.crisisTimestamps[m.sender] = Date.now();
-                    
-                    // Send caring message with two options
+
+                    // Optional: AI verification (to reduce false positives)
+                    let verified = true; // default to true if verification fails
+                    if (global.set?.aiCrisisVerification !== false) {
+                        const { verifyCrisisWithAI } = require('./lib/ai');
+                        const verification = await verifyCrisisWithAI(userMessage, m.sender);
+                        if (!verification.isDistress) {
+                            // Not a real crisis, just log and ignore
+                            console.log(`[Crisis] AI overrode: ${userMessage} – reason: ${verification.reason}`);
+                            verified = false;
+                        }
+                    }
+
+                    if (!verified) {
+                        // Do not trigger crisis flow, just log
+                        return;
+                    }
+
+                    // --- Real crisis detected ---
                     const crisisMsg = `💙 *I hear you. You're not alone.*\n\n` +
                         `You can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n` +
                         `👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n` +
                         `👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n` +
                         `_Your feelings matter._ 💙`;
                     await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
-                    
+
                     // Store crisis pending state
                     if (!db.crisisPending) db.crisisPending = {};
                     db.crisisPending[m.sender] = {
                         state: 'awaiting_choice',
                         originalMsg: userMessage,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        severity: crisis.severity
                     };
-                    
-                    // Notify owner (once per crisis)
+
+                    // Notify owner (only once per crisis)
                     const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                    const ownerMsg = `🚨 *CRISIS ALERT*\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
+                    const ownerMsg = `🚨 *CRISIS ALERT* (${crisis.severity})\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
                     for (const owner of ownerJids) {
                         await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
                     }

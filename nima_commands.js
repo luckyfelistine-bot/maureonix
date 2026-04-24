@@ -4187,15 +4187,34 @@ JSON:`;
         break
         case 'crisis': {
             if (!isCreator) return m.reply(mess.owner);
-            const status = args[0]?.toLowerCase();
-            if (status !== 'on' && status !== 'off') {
-                return m.reply(`Usage: ${prefix}crisis on/off\nCurrent: ${db.set?.crisisDetection ? 'ON' : 'OFF'}`);
+            if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisiscancel @user - stop crisis mode for a specific user`);
+            const action = args[0].toLowerCase();
+            if (action === 'on') {
+                db.set.crisisDetection = true;
+                m.reply('✅ Crisis detection ENABLED. I will monitor for distress signals.');
+            } else if (action === 'off') {
+                db.set.crisisDetection = false;
+                m.reply('❌ Crisis detection DISABLED. No automatic help will be offered.');
+            } else {
+                m.reply('Unknown action. Use `on` or `off`.');
             }
-            db.set.crisisDetection = (status === 'on');
-            m.reply(`✅ Crisis detection ${status === 'on' ? 'enabled' : 'disabled'}. I will silently monitor for distress signals.`);
         }
         break
 
+        case 'crisiscancel': {
+            if (!isCreator) return m.reply(mess.owner);
+            const target = m.mentionedJid?.[0];
+            if (!target) return m.reply('Tag the user to cancel crisis mode.\nExample: `.crisiscancel @user`');
+            if (db.crisisPending?.[target]) {
+                delete db.crisisPending[target];
+                await m.reply(`✅ Crisis mode cancelled for @${target.split('@')[0]}. They will now need prefix to talk to me.`, { mentions: [target] });
+                // Optionally send a message to the user
+                await nimesha.sendMessage(target, { text: '🕊️ *The crisis support session has ended.*\n\nIf you need help again, just type anything – I will listen. You are not alone.' }).catch(() => {});
+            } else {
+                m.reply(`❌ No active crisis mode found for @${target.split('@')[0]}.`);
+            }
+        }
+        break
         // ===== MENU COMMANDS =====
         case 'menu': case 'help': case 'allmenu': {
             try {
