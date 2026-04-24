@@ -71,6 +71,7 @@ const Travel = require('./lib/travel');
 const Food = require('./lib/food');
 const { generateQuantumMenu } = require('./lib/menuimage');
 
+
 // ═══════════════════════════════════════════════════════════════════
 //  GODMODE IMPORTS (v6.0.0)
 // ═══════════════════════════════════════════════════════════════════
@@ -85,6 +86,9 @@ const {
 const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
 
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
+
+// List of all possible command prefixes
+const listprefix = ['.', '#', '!', '/', '?', ';', ',', '`', '-', '+', '*', '%', '&', '=', '@', '$', '~', '^', '|', '\\', ':', '"', "'", '<', '>', '(', ')', '[', ']', '{', '}'];
 
 // ═══════════════════════════════════════════════════════════════
 //  PROACTIVE SCHEDULER – runs on module load
@@ -279,6 +283,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
     if (set.autostatus === undefined) set.autostatus = false;
     if (set.autostatusreact === undefined) set.autostatusreact = false;
     if (set.autorecording === undefined) set.autorecording = false;
+    if (set.multiprefix === undefined) set.multiprefix = true;
     
     try {
         await GroupUpdate(nimesha, m, store);
@@ -302,6 +307,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
         
         const budy = (typeof m.text == 'string' ? m.text : '');
+        console.log('[DEBUG] Message from', m.sender, '| body:', budy?.slice(0, 80));
         // ===== CRISIS RESPONSE HANDLER =====
         // If user is replying to a crisis offer, process it and stop further command processing
         if (db.crisisResponses?.[m.sender]?.pending) {
@@ -1384,8 +1390,13 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ═══════════════════════════════════════════════════════════════
         //  IMPORT COMMANDS FROM SEPARATE FILE
         // ═══════════════════════════════════════════════════════════════
-        const handleCommand = require('./nima_commands');
-        await handleCommand(nimesha, m, {
+        let handleCommand;
+        try {
+            handleCommand = require('./nima_commands');
+        } catch (err) {
+            console.error('[CRITICAL] Failed to load nima_commands.js:', err);
+            return m.reply('❌ Command handler error. Check console.');
+        }        await handleCommand(nimesha, m, {
             mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,
