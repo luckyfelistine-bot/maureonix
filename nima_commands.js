@@ -953,183 +953,783 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         // ===== SEARCH COMMANDS =====
+        // ===== SEARCH COMMANDS =====
         case 'google': case 'g': case 'search': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🔍 *Searching Google...*');
             try {
                 const res = await Search.googleSearch(text);
-                await m.reply(`🔍 *Google Results*\n\n${res || 'No results'}`);
+                await m.reply(res);
             } catch (e) {
                 m.reply('❌ Search failed: ' + e.message);
             }
         }
         break
 
+        case 'bing': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🔍 *Searching Bing...*');
+            try {
+                const res = await Search.bingSearch(text);
+                await m.reply(res);
+            } catch (e) {
+                m.reply('❌ Bing search failed: ' + e.message);
+            }
+        }
+        break
+
         case 'wiki': case 'wikipedia': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📚 *Searching Wikipedia...*');
             try {
-                const fetch = require('node-fetch');
-                // Using Wikipedia API (free, no key)
-                const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(text)}`;
-                const res = await fetch(url);
-                const json = await res.json();
-                if (json.type === 'disambiguation') {
-                    await m.reply(`📚 *Wikipedia: ${json.title}*\n\n${json.extract}\n\nThis is a disambiguation page. Please be more specific.`);
-                } else if (json.extract) {
-                    const img = json.thumbnail?.source ? `\n\n${json.thumbnail.source}` : '';
-                    await m.reply(`📚 *Wikipedia: ${json.title}*\n\n${json.extract}${img}`);
-                } else {
-                    throw new Error('No results found');
-                }
+                const res = await Search.wikiSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback to Search module
-                try {
-                    const res = await Search.wikiSearch(text);
-                    await m.reply(`📚 ${res}`);
-                } catch (e2) {
-                    m.reply('❌ Wikipedia search failed: ' + e.message);
-                }
+                m.reply('❌ Wikipedia failed: ' + e.message);
             }
         }
         break
 
         case 'github': {
-            if (!text) return m.reply(`Example: ${prefix + command} <repo>`);
+            if (!text) return m.reply(`Example: ${prefix + command} <repo/user>`);
+            await m.reply('💻 *Searching GitHub...*');
             try {
-                const fetch = require('node-fetch');
-                // Using GitHub API (free, no key for public repos)
-                const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(text)}&sort=stars&order=desc&per_page=5`;
-                const res = await fetch(url, {
-                    headers: { 'User-Agent': 'Maureonix-Bot' }
-                });
-                const json = await res.json();
-                if (json.items && json.items.length > 0) {
-                    let result = `💻 *GitHub Search: ${text}*\n\n`;
-                    json.items.forEach((item, i) => {
-                        result += `${i + 1}. *${item.full_name}*\n⭐ ${item.stargazers_count} | 🍴 ${item.forks_count} | 👀 ${item.watchers_count}\n${item.description || 'No description'}\n🔗 ${item.html_url}\n\n`;
-                    });
-                    await m.reply(result);
-                } else {
-                    throw new Error('No repositories found');
-                }
+                const res = await Search.githubSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Search.githubSearch(text);
-                    await m.reply(`💻 *GitHub*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ GitHub search failed: ' + e.message);
-                }
+                m.reply('❌ GitHub search failed: ' + e.message);
             }
         }
         break
 
         case 'npm': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <package>`);
+            if (!text) return m.reply(`Example: ${prefix + command} <package>`);
+            await m.reply('📦 *Searching NPM...*');
             try {
-                const fetch = require('node-fetch');
-                // Using NPM Registry API (free, no key)
-                const url = `https://registry.npmjs.org/${encodeURIComponent(args[0])}`;
-                const res = await fetch(url);
-                if (res.status === 404) throw new Error('Package not found');
-                const json = await res.json();
-                const latest = json['dist-tags']?.latest;
-                const version = json.versions?.[latest];
-                const result = `📦 *NPM: ${json.name}*\n\n📌 Version: ${latest}\n📝 ${json.description || 'No description'}\n👤 Author: ${version?.author?.name || json.author?.name || 'Unknown'}\n📅 Updated: ${new Date(json.time?.[latest] || Date.now()).toLocaleDateString()}\n⭐ Weekly Downloads: ~${Math.floor(Math.random() * 1000000)}\n🔗 https://npmjs.com/package/${json.name}`;
-                await m.reply(result);
+                const res = await Search.npmSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Search.npmSearch(args[0]);
-                    await m.reply(`📦 *NPM*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ NPM search failed: ' + e.message);
-                }
+                m.reply('❌ NPM search failed: ' + e.message);
             }
         }
         break
 
         case 'urban': {
             if (!text) return m.reply(`Example: ${prefix + command} <word>`);
+            await m.reply('📖 *Searching Urban Dictionary...*');
             try {
-                const fetch = require('node-fetch');
-                // Using Urban Dictionary API (free, no key)
-                const url = `https://api.urbandictionary.com/v0/define?term=${encodeURIComponent(text)}`;
-                const res = await fetch(url);
-                const json = await res.json();
-                if (json.list && json.list.length > 0) {
-                    const item = json.list[0];
-                    const result = `📖 *Urban Dictionary: ${item.word}*\n\n${item.definition}\n\n📌 Example: ${item.example || 'No example'}\n👍 ${item.thumbs_up} | 👎 ${item.thumbs_down}\n✍️ By: ${item.author}`;
-                    await m.reply(result);
-                } else {
-                    throw new Error('No definitions found');
-                }
+                const res = await Search.urbanDictionary(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Search.urbanDictionary(text);
-                    await m.reply(`📖 *Urban Dictionary*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ Urban Dictionary failed: ' + e.message);
-                }
+                m.reply('❌ Urban Dictionary failed: ' + e.message);
             }
         }
         break
-
         case 'anime': {
             if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('📺 *Searching Anime...*');
             try {
-                const fetch = require('node-fetch');
-                // Using Jikan API (free, no key)
-                const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(text)}&limit=5`;
-                const res = await fetch(url);
-                const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    let result = `📺 *Anime Search: ${text}*\n\n`;
-                    json.data.forEach((item, i) => {
-                        result += `${i + 1}. *${item.title}* (${item.title_japanese || 'N/A'})\n⭐ Score: ${item.score || 'N/A'} | 📺 Episodes: ${item.episodes || 'N/A'}\n📅 ${item.aired?.string || 'N/A'}\n📝 ${item.synopsis?.substring(0, 100) || 'No synopsis'}...\n🔗 ${item.url}\n\n`;
-                    });
-                    await m.reply(result);
-                } else {
-                    throw new Error('No anime found');
-                }
+                const res = await Search.animeSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Search.animeSearch(text);
-                    await m.reply(`📺 *Anime*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ Anime search failed: ' + e.message);
-                }
+                m.reply('❌ Anime search failed: ' + e.message);
             }
         }
         break
 
         case 'manga': {
             if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('📖 *Searching Manga...*');
             try {
-                const fetch = require('node-fetch');
-                // Using Jikan API (free, no key)
-                const url = `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(text)}&limit=5`;
-                const res = await fetch(url);
-                const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    let result = `📖 *Manga Search: ${text}*\n\n`;
-                    json.data.forEach((item, i) => {
-                        result += `${i + 1}. *${item.title}* (${item.title_japanese || 'N/A'})\n⭐ Score: ${item.score || 'N/A'} | 📖 Chapters: ${item.chapters || 'N/A'}\n📅 ${item.published?.string || 'N/A'}\n📝 ${item.synopsis?.substring(0, 100) || 'No synopsis'}...\n🔗 ${item.url}\n\n`;
-                    });
-                    await m.reply(result);
-                } else {
-                    throw new Error('No manga found');
-                }
+                const res = await Search.mangaSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Search.mangaSearch(text);
-                    await m.reply(`📖 *Manga*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ Manga search failed: ' + e.message);
-                }
+                m.reply('❌ Manga search failed: ' + e.message);
             }
+        }
+        break
+        // ===== SOCIAL MEDIA SEARCH =====
+        case 'reddit': case 'redditsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query> | [subreddit]`);
+            const [query, sub] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'all'];
+            await m.reply('🔴 *Searching Reddit...*');
+            try {
+                const res = await Search.redditSearch(query, sub);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'reddituser': {
+            if (!text) return m.reply(`Example: ${prefix + command} <username>`);
+            await m.reply('👤 *Searching Reddit User...*');
+            try {
+                const res = await Search.redditUserSearch(text.replace(/^u\//, ''));
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'twitter': case 'x': case 'tweetsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🐦 *Searching Twitter...*');
+            try {
+                const res = await Search.twitterSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'twitteruser': case 'xuser': {
+            if (!text) return m.reply(`Example: ${prefix + command} <username>`);
+            await m.reply('👤 *Searching Twitter User...*');
+            try {
+                const res = await Search.twitterUserSearch(text.replace(/^@/, ''));
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'discord': {
+            if (!text) return m.reply(`Example: ${prefix + command} <server keyword>`);
+            await m.reply('💬 *Searching Discord servers...*');
+            try {
+                const res = await Search.discordSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'telegram': case 'tg': {
+            if (!text) return m.reply(`Example: ${prefix + command} <channel keyword>`);
+            await m.reply('📱 *Searching Telegram...*');
+            try {
+                const res = await Search.telegramSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'mastodon': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query> | [instance]`);
+            const [query, instance] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'mastodon.social'];
+            await m.reply('🐘 *Searching Mastodon...*');
+            try {
+                const res = await Search.mastodonSearch(query, instance);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'bluesky': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🦋 *Searching Bluesky...*');
+            try {
+                const res = await Search.blueskySearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'instagram': case 'igsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <username>`);
+            await m.reply('📸 *Searching Instagram...*');
+            try {
+                const res = await Search.instagramSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'tiktok': case 'ttsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎵 *Searching TikTok...*');
+            try {
+                const res = await Search.tiktokSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'pinterest': case 'pin': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📌 *Searching Pinterest...*');
+            try {
+                const res = await Search.pinterestSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'twitch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <channel>`);
+            await m.reply('🎮 *Searching Twitch...*');
+            try {
+                const res = await Search.twitchSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'youtube': case 'yt': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎬 *Searching YouTube...*');
+            try {
+                const res = await Search.youtubeSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'ytchannel': case 'ytc': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📺 *Searching YouTube Channels...*');
+            try {
+                const res = await Search.youtubeChannelSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== CODE & DEV SEARCH =====
+        case 'gitlab': {
+            if (!text) return m.reply(`Example: ${prefix + command} <project>`);
+            await m.reply('🦊 *Searching GitLab...*');
+            try {
+                const res = await Search.gitlabSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'pypi': {
+            if (!text) return m.reply(`Example: ${prefix + command} <package>`);
+            await m.reply('🐍 *Searching PyPI...*');
+            try {
+                const res = await Search.pypiSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'docker': case 'dockerhub': {
+            if (!text) return m.reply(`Example: ${prefix + command} <image>`);
+            await m.reply('🐳 *Searching Docker Hub...*');
+            try {
+                const res = await Search.dockerHubSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'stackoverflow': case 'so': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('💻 *Searching Stack Overflow...*');
+            try {
+                const res = await Search.stackOverflowSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'sourceforge': case 'sf': {
+            if (!text) return m.reply(`Example: ${prefix + command} <project>`);
+            await m.reply('📦 *Searching SourceForge...*');
+            try {
+                const res = await Search.sourceForgeSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== ENTERTAINMENT SEARCH =====
+        case 'tvsearch': case 'tvdb': {
+            if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('📺 *Searching TV Shows...*');
+            try {
+                const res = await Search.tvSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'game': case 'gamesearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('🎮 *Searching Games (RAWG)...*');
+            try {
+                const res = await Search.gameSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'igdb': {
+            if (!text) return m.reply(`Example: ${prefix + command} <title>`);
+            await m.reply('🎮 *Searching IGDB...*');
+            try {
+                const res = await Search.igdbSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'comic': case 'comicvine': {
+            if (!text) return m.reply(`Example: ${prefix + command} <character/issue>`);
+            await m.reply('💥 *Searching ComicVine...*');
+            try {
+                const res = await Search.comicSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'spotifysearch': case 'sps': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query> | [track/artist/album]`);
+            const [query, type] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'track'];
+            await m.reply('🎵 *Searching Spotify...*');
+            try {
+                const res = await Search.spotifySearch(query, type);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'lastfm': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query> | [track/artist/album]`);
+            const [query, type] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'track'];
+            await m.reply('🎵 *Searching Last.fm...*');
+            try {
+                const res = await Search.lastfmSearch(query, type);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'deezer': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query> | [track/artist/album]`);
+            const [query, type] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'track'];
+            await m.reply('🎵 *Searching Deezer...*');
+            try {
+                const res = await Search.deezerSearch(query, type);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'lyrics': {
+            if (!text || !text.includes('|')) return m.reply(`Example: ${prefix + command} <artist> | <song>`);
+            const [artist, title] = text.split('|').map(s => s.trim());
+            await m.reply('🎤 *Searching Lyrics...*');
+            try {
+                const res = await Search.lyricsSearch(artist, title);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'giphy': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎭 *Searching GIPHY...*');
+            try {
+                const res = await Search.giphySearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'tenor': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🎭 *Searching Tenor...*');
+            try {
+                const res = await Search.tenorSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== ACADEMIC SEARCH =====
+        case 'arxiv': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📄 *Searching arXiv...*');
+            try {
+                const res = await Search.arxivSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'crossref': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📄 *Searching Crossref...*');
+            try {
+                const res = await Search.crossrefSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'semanticscholar': case 'scholar': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📚 *Searching Semantic Scholar...*');
+            try {
+                const res = await Search.semanticScholarSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'openalex': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📚 *Searching OpenAlex...*');
+            try {
+                const res = await Search.openAlexSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'pubmed': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🧬 *Searching PubMed...*');
+            try {
+                const res = await Search.pubmedSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'core': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📄 *Searching CORE...*');
+            try {
+                const res = await Search.coreSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'googlescholar': case 'gscholar': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📄 *Searching Google Scholar...*');
+            try {
+                const res = await Search.googleScholarSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'doi': {
+            if (!text) return m.reply(`Example: ${prefix + command} <doi>`);
+            await m.reply('📄 *Looking up DOI...*');
+            try {
+                const res = await Search.doiLookup(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== NEWS SEARCH =====
+        case 'hackernews': case 'hn': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🟠 *Searching HackerNews...*');
+            try {
+                const res = await Search.hackernewsSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'techcrunch': case 'tc': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('💻 *Searching TechCrunch...*');
+            try {
+                const res = await Search.techCrunchSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== SHOPPING SEARCH =====
+        case 'ebay': {
+            if (!text) return m.reply(`Example: ${prefix + command} <item>`);
+            await m.reply('🛒 *Searching eBay...*');
+            try {
+                const res = await Search.ebaySearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'amazon': {
+            if (!text) return m.reply(`Example: ${prefix + command} <item>`);
+            await m.reply('📦 *Searching Amazon...*');
+            try {
+                const res = await Search.amazonSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'aliexpress': case 'ali': {
+            if (!text) return m.reply(`Example: ${prefix + command} <item>`);
+            await m.reply('📦 *Searching AliExpress...*');
+            try {
+                const res = await Search.aliexpressSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'etsy': {
+            if (!text) return m.reply(`Example: ${prefix + command} <item>`);
+            await m.reply('🎨 *Searching Etsy...*');
+            try {
+                const res = await Search.etsySearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== IMAGE SEARCH =====
+        case 'image': case 'img': case 'imgsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🖼️ *Searching Images...*');
+            try {
+                const res = await Search.imageSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== WEATHER & GEO =====
+        case 'openweather': case 'ow': {
+            if (!text) return m.reply(`Example: ${prefix + command} <city>`);
+            await m.reply('🌤️ *Searching Weather...*');
+            try {
+                const res = await Search.openWeatherSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'geocode': case 'locate': case 'whereis': {
+            if (!text) return m.reply(`Example: ${prefix + command} <place>`);
+            await m.reply('📍 *Geocoding...*');
+            try {
+                const res = await Search.geocodeSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== FINANCE =====
+        case 'stocksearch': case 'stocks': {
+            if (!text) return m.reply(`Example: ${prefix + command} <AAPL>`);
+            await m.reply('📈 *Searching Stock...*');
+            try {
+                const res = await Search.stockSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'exchange': case 'exchangerate': case 'convertcurrency': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} <USD> <EUR>`);
+            await m.reply('💱 *Fetching exchange rate...*');
+            try {
+                const res = await Search.exchangeRate(args[0], args[1]);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== GOVERNMENT / PUBLIC DATA =====
+        case 'nasa': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🚀 *Searching NASA...*');
+            try {
+                const res = await Search.nasaSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'worldbank': {
+            if (!text) return m.reply(`Example: ${prefix + command} <indicator>`);
+            await m.reply('🌍 *Searching World Bank...*');
+            try {
+                const res = await Search.worldBankSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'patent': {
+            if (!text) return m.reply(`Example: ${prefix + command} <keyword>`);
+            await m.reply('📜 *Searching Patents...*');
+            try {
+                const res = await Search.patentSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== FUN APIs =====
+        case 'randomuser': case 'fakeuser': {
+            await m.reply('👤 *Generating random user...*');
+            try {
+                const res = await Search.randomUser();
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'nameinfo': case 'namecheck': {
+            if (!text) return m.reply(`Example: ${prefix + command} <name>`);
+            await m.reply('📛 *Analyzing name...*');
+            try {
+                const res = await Search.nameInfo(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'pokedex': case 'pokemoninfo': {
+            if (!text) return m.reply(`Example: ${prefix + command} <pokemon>`);
+            await m.reply('⚡ *Searching Pokedex...*');
+            try {
+                const res = await Search.pokemonSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'chucknorris': case 'chuck': {
+            await m.reply('🥋 *Fetching Chuck Norris fact...*');
+            try {
+                const res = await Search.chuckNorris();
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'dadjoke': {
+            await m.reply('😂 *Fetching dad joke...*');
+            try {
+                const res = await Search.dadJoke();
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'catfact': {
+            await m.reply('🐱 *Fetching cat fact...*');
+            try {
+                const res = await Search.catFact();
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'dog': case 'dogimg': case 'dogpic': {
+            await m.reply('🐕 *Fetching dog image...*');
+            try {
+                const res = await Search.dogImage();
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'numberfact': case 'numfact': {
+            if (!text) return m.reply(`Example: ${prefix + command} <number>`);
+            await m.reply('🔢 *Fetching number fact...*');
+            try {
+                const res = await Search.numberFact(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'rickandmorty': case 'rm': {
+            if (!text) return m.reply(`Example: ${prefix + command} <name> | [character/episode/location]`);
+            const [query, type] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'character'];
+            await m.reply('👽 *Searching Rick and Morty...*');
+            try {
+                const res = await Search.rickAndMortySearch(query, type);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'starwars': case 'sw': {
+            if (!text) return m.reply(`Example: ${prefix + command} <name> | [people/planets/starships]`);
+            const [query, type] = text.includes('|') ? text.split('|').map(s => s.trim()) : [text, 'people'];
+            await m.reply('⭐ *Searching Star Wars...*');
+            try {
+                const res = await Search.starWarsSearch(query, type);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'harrypotter': case 'hp': {
+            if (!text) return m.reply(`Example: ${prefix + command} <name>`);
+            await m.reply('⚡ *Searching Harry Potter...*');
+            try {
+                const res = await Search.harryPotterSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'brewery': {
+            if (!text) return m.reply(`Example: ${prefix + command} <city/name>`);
+            await m.reply('🍺 *Searching Breweries...*');
+            try {
+                const res = await Search.brewerySearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'foodsearch': case 'recipesearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <dish>`);
+            await m.reply('🍽️ *Searching Recipes...*');
+            try {
+                const res = await Search.foodSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        // ===== META / UNIVERSAL SEARCH =====
+        case 'find': case 'searchall': case 'universalsearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('🔥 *Running universal search across 20+ platforms...*');
+            try {
+                const res = await Search.universalSearch(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'findperson': case 'stalk': case 'whoisuser': {
+            if (!text) return m.reply(`Example: ${prefix + command} <username>`);
+            await m.reply('👤 *Searching person across social platforms...*');
+            try {
+                const res = await Search.findPerson(text.replace(/^@/, ''));
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
+        }
+        break
+
+        case 'findanything': case 'deepsearch': case 'knowledgesearch': {
+            if (!text) return m.reply(`Example: ${prefix + command} <query>`);
+            await m.reply('📚 *Deep knowledge search across academic databases...*');
+            try {
+                const res = await Search.findAnything(text);
+                await m.reply(res);
+            } catch (e) { m.reply('❌ ' + e.message); }
         }
         break
         case 'remindme': {
@@ -1226,80 +1826,53 @@ JSON:`;
             await m.reply(`📨 Scheduled message to ${targetJid.split('@')[0]} in ${timeArg}.\n📝 ${message}`);
         }
         break
-
         case 'weather': case 'cuaca': {
             if (!text) return m.reply(`Example: ${prefix + command} <city>`);
+            await m.reply('🌤️ *Checking weather...*');
             try {
-                const fetch = require('node-fetch');
-                // Using Open-Meteo API (free, no key required)
-                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(text)}&count=1&language=en&format=json`;
-                const geoRes = await fetch(geoUrl);
-                const geoJson = await geoRes.json();
-                
-                if (!geoJson.results || geoJson.results.length === 0) throw new Error('City not found');
-                
-                const { latitude, longitude, name, country } = geoJson.results[0];
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
-                const weatherRes = await fetch(weatherUrl);
-                const weatherJson = await weatherRes.json();
-                
-                const current = weatherJson.current;
-                const daily = weatherJson.daily;
-                const weatherCodes = {
-                    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-                    45: 'Fog', 48: 'Depositing rime fog', 51: 'Light drizzle', 53: 'Moderate drizzle',
-                    55: 'Dense drizzle', 61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
-                    71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow', 77: 'Snow grains',
-                    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
-                    85: 'Slight snow showers', 86: 'Heavy snow showers', 95: 'Thunderstorm',
-                    96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail'
-                };
-                
-                const result = `🌤️ *Weather in ${name}, ${country}*\n\n🌡️ Temperature: ${current.temperature_2m}°C\n🌡️ Feels like: ${current.apparent_temperature}°C\n💧 Humidity: ${current.relative_humidity_2m}%\n💨 Wind: ${current.wind_speed_10m} km/h\n☁️ Condition: ${weatherCodes[current.weather_code] || 'Unknown'}\n\n📅 Today: High ${daily.temperature_2m_max[0]}°C | Low ${daily.temperature_2m_min[0]}°C`;
-                await m.reply(result);
+                const res = await Search.weatherSearch(text);
+                await m.reply(res);
             } catch (e) {
-                // Fallback to Tools module
-                try {
-                    const res = await Tools.weather(text);
-                    await m.reply(res);
-                } catch (e2) {
-                    m.reply('❌ Weather lookup failed: ' + e.message);
-                }
+                m.reply('❌ Weather failed: ' + e.message);
             }
         }
         break
 
         case 'news': {
+            const query = text || '';
+            await m.reply('📰 *Fetching news...*');
             try {
-                const fetch = require('node-fetch');
-                // Using NewsAPI free tier or GNews (free tier available)
-                // Using RSS to JSON as free alternative
-                const rssUrl = 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml';
-                const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
-                const res = await fetch(apiUrl);
-                const json = await res.json();
-                
-                if (json.items && json.items.length > 0) {
-                    let result = `📰 *Latest News*\n\n`;
-                    json.items.slice(0, 5).forEach((item, i) => {
-                        result += `${i + 1}. *${item.title}*\n${item.description?.substring(0, 100) || ''}...\n🔗 ${item.link}\n\n`;
-                    });
-                    await m.reply(result);
-                } else {
-                    throw new Error('No news found');
-                }
+                const res = await Search.newsSearch(query);
+                await m.reply(res);
             } catch (e) {
-                // Fallback
-                try {
-                    const res = await Tools.news();
-                    await m.reply(`📰 *News*\n\n${res}`);
-                } catch (e2) {
-                    m.reply('❌ News fetch failed: ' + e.message);
-                }
+                m.reply('❌ News failed: ' + e.message);
             }
         }
         break
 
+        case 'crypto': case 'bitcoin': case 'eth': {
+            const coin = args[0]?.toLowerCase() || 'bitcoin';
+            await m.reply('💰 *Checking crypto...*');
+            try {
+                const res = await Search.cryptoSearch(coin);
+                await m.reply(res);
+            } catch (e) {
+                m.reply('❌ Crypto failed: ' + e.message);
+            }
+        }
+        break
+
+        case 'forex': {
+            if (args.length < 2) return m.reply(`Example: ${prefix + command} USD EUR`);
+            await m.reply('💱 *Fetching rate...*');
+            try {
+                const res = await Search.exchangeRate(args[0], args[1]);
+                await m.reply(res);
+            } catch (e) {
+                m.reply('❌ Forex failed: ' + e.message);
+            }
+        }
+        break
         case 'covid': {
             if (!text) return m.reply(`Example: ${prefix + command} <country>`);
             try {
@@ -2375,28 +2948,6 @@ JSON:`;
                 const s = await TVMaze.schedule('US');
                 let txt = `📡 *Airing Today (US)*\n\n`; s.slice(0, 15).forEach(x => txt += `• ${x.show.name} — ${x.name} (${x.show.network?.name || 'Web'})\n`);
                 m.reply(txt);
-            } catch (e) { m.reply('❌ ' + e.message); }
-        }
-        break
-
-        case 'anime': {
-            if (!text) return m.reply(`Example: ${prefix + command} attack on titan`);
-            try {
-                const r = await AniList.searchAnime(text, 1, 5);
-                if (!r.Page.media.length) return m.reply('No anime found.');
-                const a = r.Page.media[0];
-                await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtAnime(a) }, { quoted: m });
-            } catch (e) { m.reply('❌ ' + e.message); }
-        }
-        break
-
-        case 'manga': {
-            if (!text) return m.reply(`Example: ${prefix + command} one piece`);
-            try {
-                const r = await AniList.searchManga(text, 1, 5);
-                if (!r.Page.media.length) return m.reply('No manga found.');
-                const a = r.Page.media[0];
-                await nimesha.sendMessage(m.chat, { image: { url: a.coverImage.large }, caption: AniList.fmtManga(a) }, { quoted: m });
             } catch (e) { m.reply('❌ ' + e.message); }
         }
         break
@@ -4087,6 +4638,16 @@ JSON:`;
             if (!isCreator) return m.reply(mess.owner);
             set.pendingMessages = [];
             await m.reply('✅ Pending messages cleared.');
+        }
+        break
+        case 'crisis': {
+            if (!isCreator) return m.reply(mess.owner);
+            const status = args[0]?.toLowerCase();
+            if (status !== 'on' && status !== 'off') {
+                return m.reply(`Usage: ${prefix}crisis on/off\nCurrent: ${db.set?.crisisDetection ? 'ON' : 'OFF'}`);
+            }
+            db.set.crisisDetection = (status === 'on');
+            m.reply(`✅ Crisis detection ${status === 'on' ? 'enabled' : 'disabled'}. I will silently monitor for distress signals.`);
         }
         break
 

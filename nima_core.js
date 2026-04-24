@@ -54,7 +54,8 @@ const { writeExif } = require('./lib/exif');
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const AI = require('./lib/ai');   // now AI.askModel, AI.imagine, etc. work
+const AI = require('./lib/ai');
+const { detectCrisis, handleCrisis, processCrisisResponse } = AI;
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
@@ -299,6 +300,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
         (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
         
         const budy = (typeof m.text == 'string' ? m.text : '');
+        // ===== CRISIS RESPONSE HANDLER =====
+        // If user is replying to a crisis offer, process it and stop further command processing
+        if (db.crisisResponses?.[m.sender]?.pending) {
+            const responded = await processCrisisResponse(m.sender, budy, nimesha, db, ownerNumber);
+            if (responded) return; // no further processing
+        }
 
         // Override m.reply so newsletters receive messages correctly
         const originalReply = m.reply.bind(m);
@@ -412,13 +419,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
 
-        // 1) Self‑chat AI – owner talking to bot from the same number
+         // 1) Self‑chat AI – owner talking to bot from the same number
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
             const userMessage = body || budy;
-            
             // Guard: ignore messages that look like the bot's own replies
             if (userMessage.trim().startsWith('🤖 *Maureonix*')) return;
-            
             // Cooldown: only respond once every 3 seconds (adjust as needed)
             const now = Date.now();
             if (!set._lastSelfChatTime) set._lastSelfChatTime = 0;
@@ -426,24 +431,28 @@ const coreHandler = async (nimesha, m, msg, store) => {
             set._lastSelfChatTime = now;
 
             if (userMessage.trim().length > 0) {
+                // ===== CRISIS DETECTION (self‑chat) =====
+                if (set.crisisDetection) {
+                    const handled = await handleCrisis(m.sender, userMessage, nimesha, m, db, ownerNumber);
+                    if (handled) {
+                        // Support message already sent, owner notified. Stop further AI.
+                        return;
+                    }
+                }
+
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { detectTone, getTonePrompt, groqChat, sendLongMessage } = require('./lib/ai');
                     const tone = detectTone(userMessage);
                     const tonePrompt = getTonePrompt(tone);
-                    
-                    // Use a fast, reliable model; fallback handled inside groqChat
                     const result = await groqChat(userMessage, 'llama-3.3-70b-versatile', m.sender, tonePrompt);
-                    
-                    // Only reply if we got meaningful text
                     if (result && result.text && result.text.length > 0) {
                         await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
                     }
                 } catch (e) {
-                    // Log error but don't flood the owner with error messages
                     console.error('[selfchat AI error]', e.message);
                 }
-                return; // stop further processing
+                return;
             }
         }
 
@@ -477,7 +486,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 await m.reply(awayMsg);
                 return;
             } else if (mode === 'ai') {
-                // No away message, just AI
+                // ===== CRISIS DETECTION (private AI) =====
+                if (set.crisisDetection) {
+                    const handled = await handleCrisis(m.sender, body || budy, nimesha, m, db, ownerNumber);
+                    if (handled) return;
+                }
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
@@ -492,9 +505,13 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (!user._awayNotified) {
                     await m.reply(awayMsg);
                     user._awayNotified = true;
-                    await sleep(1000);  // small delay before switching to AI
+                    await sleep(1000);
                 }
-                // Now engage AI
+                // ===== CRISIS DETECTION (private AI after away) =====
+                if (set.crisisDetection) {
+                    const handled = await handleCrisis(m.sender, body || budy, nimesha, m, db, ownerNumber);
+                    if (handled) return;
+                }
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
@@ -504,7 +521,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     console.error('[privat AI error]', e);
                 }
                 return;
-            }
             // If mode is 'off' or unrecognised, do nothing (and don't store message)
         }
 
