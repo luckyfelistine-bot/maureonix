@@ -76,7 +76,7 @@ module.exports = async (nimesha, m, ctx) => {
 ╠══════════════════════╣
 ║ 👑 *By ${author}*
 ╚══════════════════════╝`;
-            await m.reply(aliveMsg);
+            await nimesha.sendMessage(m.chat, { text: aliveMsg }, { quoted: m });
         }
         break
 
