@@ -415,27 +415,35 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // 1) Self‑chat AI – owner talking to bot from the same number
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
             const userMessage = body || budy;
-            // Prevent replying to the bot's own messages (infinite loop guard)
+            
+            // Guard: ignore messages that look like the bot's own replies
             if (userMessage.trim().startsWith('🤖 *Maureonix*')) return;
             
-            if (userMessage.trim().length > 0) {
-                // Cooldown to avoid rate limits (10 seconds since last selfchat response)
-                const now = Date.now();
-                if (!set._lastSelfChatTime) set._lastSelfChatTime = 0;
-                if (now - set._lastSelfChatTime < 10000) return;
-                set._lastSelfChatTime = now;
+            // Cooldown: only respond once every 3 seconds (adjust as needed)
+            const now = Date.now();
+            if (!set._lastSelfChatTime) set._lastSelfChatTime = 0;
+            if (now - set._lastSelfChatTime < 3000) return;
+            set._lastSelfChatTime = now;
 
+            if (userMessage.trim().length > 0) {
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { detectTone, getTonePrompt, groqChat, sendLongMessage } = require('./lib/ai');
                     const tone = detectTone(userMessage);
                     const tonePrompt = getTonePrompt(tone);
+                    
+                    // Use a fast, reliable model; fallback handled inside groqChat
                     const result = await groqChat(userMessage, 'llama-3.3-70b-versatile', m.sender, tonePrompt);
-                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                    
+                    // Only reply if we got meaningful text
+                    if (result && result.text && result.text.length > 0) {
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                    }
                 } catch (e) {
-                    console.error('[selfchat AI error]', e);
+                    // Log error but don't flood the owner with error messages
+                    console.error('[selfchat AI error]', e.message);
                 }
-                return;
+                return; // stop further processing
             }
         }
 
