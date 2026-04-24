@@ -9,6 +9,7 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
 
 require('./settings');
+const owner = global.owner || [];
 const fs = require('fs');
 const os = require('os');
 const util = require('util');
