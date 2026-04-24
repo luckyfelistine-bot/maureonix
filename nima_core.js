@@ -1419,7 +1419,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
             pickRandom, similarity, almost, cases, getBuffer, writeExif
         });
 
-    } catch (e) {
+    } 
+    catch (e) {
         console.log(e);
         if (e?.message?.includes('No sessions')) return;
         const errorKey = e?.code || e?.name || e?.message?.slice(0, 100) || 'unknown_error';
