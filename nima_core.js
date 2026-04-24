@@ -316,12 +316,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (responded) return; // no further processing
         }
 
-        // Override m.reply so newsletters receive messages correctly
-        const originalReply = m.reply.bind(m);
-        m.reply = async (content, options = {}) => {
-            return sendReply(m.chat, content, options);
-        };
-
         const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
         console.log('[DEBUG] ownerNumber =', ownerNumber);
         console.log('[DEBUG] isCreator =', isCreator);
