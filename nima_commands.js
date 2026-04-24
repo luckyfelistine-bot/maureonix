@@ -771,44 +771,82 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        // ===== DOWNLOADERS =====
+        // ═══════════════════════════════════════════════════════════════
+        //  UNIVERSAL VIDEO DOWNLOADER — works across ALL platforms
+        // ═══════════════════════════════════════════════════════════════
+        case 'video': case 'vid': case 'dl': case 'download': {
+            if (!text) return m.reply(`📥 *Universal Video Downloader*\n\nSupports 50+ platforms:\nYouTube, TikTok, Instagram, Facebook, Twitter/X, Pinterest, Reddit, SoundCloud, Threads, Snapchat, Vimeo, Dailymotion, Twitch, Rumble, Odysee, Bandcamp, Audiomack, Mixcloud, Kick, Streamable, Loom, LinkedIn, VK, Bilibili, TED, Coursera, BBC, CNN, and more!\n\nUsage: ${prefix + command} <url>`);
 
-        case 'song': case 'mp3': case 'ytmp3': case 'play': {
-            if (!text) return m.reply(`Example: ${prefix + command} <query/url>`);
-            await m.reply('🎵 *Searching & downloading audio...*');
+            const url = text.trim();
+            await m.reply(`🔍 Detecting platform...`);
+
             try {
-                let url = text;
-                if (!url.includes('youtube') && !url.includes('youtu.be')) {
-                    const yts = require('yt-search');
-                    const sr = await yts(text);
-                    if (sr.videos?.length) url = sr.videos[0].url;
-                    else throw new Error('No YouTube results found');
-                }
-                const audio = await ytMp3(url);
-                if (audio.local) {
-                    const buffer = fs.readFileSync(audio.url);
-                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false }, { quoted: m });
-                    fs.unlinkSync(audio.url);
+                const { universalDownload, detectPlatform } = require('./lib/downloader');
+                const platform = detectPlatform(url);
+
+                await m.reply(`📥 Downloading from *${platform}*...`);
+
+                const result = await universalDownload(url, { audio: false });
+
+                if (result.local) {
+                    const buffer = fs.readFileSync(result.url);
+                    await nimesha.sendMessage(m.chat, {
+                        video: buffer,
+                        caption: `✅ *${result.platform} Video*\n📦 Size: ${(result.size / 1024 / 1024).toFixed(2)} MB`
+                    }, { quoted: m });
+                    fs.unlinkSync(result.url);
                 } else {
-                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false }, { quoted: m });
+                    await nimesha.sendMessage(m.chat, {
+                        video: { url: result.url },
+                        caption: `✅ *${result.platform} Video*`
+                    }, { quoted: m });
                 }
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+            } catch (e) {
+                m.reply(`❌ Download failed:\n${e.message}\n\n💡 Tip: Make sure the URL is public and not geo-blocked.`);
+            }
         }
         break
 
-        case 'video': case 'mp4': case 'ytmp4': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📥 *Downloading video...*');
+        case 'song': case 'mp3': case 'ytmp3': case 'play': {
+            if (!text) return m.reply(`🎵 *Universal Audio Downloader*\n\nUsage: ${prefix + command} <query or url>\n\nWorks with YouTube, SoundCloud, Bandcamp, Audiomack, Mixcloud, and more.`);
+
             try {
-                const v = await ytMp4(args[0]);
-                if (v.local) {
-                    const buffer = fs.readFileSync(v.url);
-                    await nimesha.sendMessage(m.chat, { video: buffer, caption: v.title }, { quoted: m });
-                    fs.unlinkSync(v.url);
-                } else {
-                    await nimesha.sendMessage(m.chat, { video: { url: v.url }, caption: v.title }, { quoted: m });
+                const { universalDownload } = require('./lib/downloader');
+                let url = text.trim();
+
+                // If not a URL, search YouTube
+                if (!url.startsWith('http')) {
+                    await m.reply(`🔍 Searching: *${text}*`);
+                    const yts = require('yt-search');
+                    const sr = await yts(text);
+                    if (!sr.videos?.length) throw new Error('No results found');
+                    url = sr.videos[0].url;
                 }
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+
+                await m.reply(`🎵 Downloading audio...`);
+
+                const result = await universalDownload(url, { audio: true });
+
+                if (result.local) {
+                    const buffer = fs.readFileSync(result.url);
+                    await nimesha.sendMessage(m.chat, {
+                        audio: buffer,
+                        mimetype: 'audio/mpeg',
+                        fileName: `${result.title}.mp3`,
+                        ptt: false
+                    }, { quoted: m });
+                    fs.unlinkSync(result.url);
+                } else {
+                    await nimesha.sendMessage(m.chat, {
+                        audio: { url: result.url },
+                        mimetype: 'audio/mpeg',
+                        fileName: `${result.title}.mp3`,
+                        ptt: false
+                    }, { quoted: m });
+                }
+            } catch (e) {
+                m.reply(`❌ Audio download failed:\n${e.message}`);
+            }
         }
         break
 
@@ -817,190 +855,65 @@ module.exports = async (nimesha, m, ctx) => {
             await m.reply('🎵 *Searching & Downloading...*');
             try {
                 const yts = require('yt-search');
+                const { universalDownload } = require('./lib/downloader');
                 const sr = await yts(text);
                 if (!sr.videos?.length) throw new Error('No results');
                 const video = sr.videos[0];
-                const audio = await ytMp3(video.url);
-                if (audio.local) {
-                    const buffer = fs.readFileSync(audio.url);
-                    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
-                    fs.unlinkSync(audio.url);
+                const result = await universalDownload(video.url, { audio: true });
+
+                if (result.local) {
+                    const buffer = fs.readFileSync(result.url);
+                    await nimesha.sendMessage(m.chat, {
+                        audio: buffer,
+                        mimetype: 'audio/mpeg',
+                        fileName: `${result.title}.mp3`,
+                        ptt: false,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: video.title,
+                                body: video.author.name,
+                                thumbnailUrl: video.thumbnail,
+                                sourceUrl: video.url
+                            }
+                        }
+                    }, { quoted: m });
+                    fs.unlinkSync(result.url);
                 } else {
-                    await nimesha.sendMessage(m.chat, { audio: { url: audio.url }, mimetype: 'audio/mpeg', fileName: `${audio.title}.mp3`, ptt: false, contextInfo: { externalAdReply: { title: audio.title, body: video.author.name, thumbnailUrl: video.thumbnail, sourceUrl: video.url } } }, { quoted: m });
+                    await nimesha.sendMessage(m.chat, {
+                        audio: { url: result.url },
+                        mimetype: 'audio/mpeg',
+                        fileName: `${result.title}.mp3`,
+                        ptt: false,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: video.title,
+                                body: video.author.name,
+                                thumbnailUrl: video.thumbnail,
+                                sourceUrl: video.url
+                            }
+                        }
+                    }, { quoted: m });
                 }
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-        case 'tiktok': case 'tt': case 'tik': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('🎬 *Fetching TikTok...*');
-            try {
-                const tt = await tiktokDownload(args[0]);
-                if (tt.type === 'video') {
-                    await nimesha.sendMessage(m.chat, { video: { url: tt.url }, caption: tt.title || 'TikTok' }, { quoted: m });
-                } else if (tt.items) {
-                    for (const img of tt.items.slice(0,10)) await nimesha.sendMessage(m.chat, { image: { url: img } }, { quoted: m });
-                }
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'instagram': case 'ig': case 'insta': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📸 *Downloading...*');
-            try {
-                const ig = await igDownload(args[0]);
-                if (ig.type === 'image') await nimesha.sendMessage(m.chat, { image: { url: ig.url } }, { quoted: m });
-                else if (ig.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: ig.url } }, { quoted: m });
-                else if (ig.items) {
-                    for (const item of ig.items.slice(0,10)) {
-                        await nimesha.sendMessage(m.chat, item.is_video ? { video: { url: item.url } } : { image: { url: item.url } }, { quoted: m });
-                    }
-                }
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'facebook': case 'fb': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📱 *Downloading FB...*');
-            try {
-                const fb = await fbDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: fb.hd || fb.sd }, caption: 'Facebook Video' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'twitter': case 'x': case 'twit': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('🐦 *Downloading X...*');
-            try {
-                const tw = await twitterDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: tw.url } }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+            } catch (e) {
+                m.reply(`❌ ${e.message}`);
+            }
         }
         break
 
         case 'spotify': case 'sp': {
             if (!args[0]) return m.reply(`Example: ${prefix + command} <track url>`);
-            await m.reply('🎧 *Downloading...*');
+            await m.reply('🎧 *Downloading from Spotify...*');
             try {
+                const { spotifyDownload } = require('./lib/downloader');
                 const sp = await spotifyDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { audio: { url: sp.url }, mimetype: 'audio/mpeg', fileName: `${sp.title}.mp3` }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'pinterest': case 'pin': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📌 *Downloading Pinterest...*');
-            try {
-                const pin = await pinterestDownload(args[0]);
-                if (pin.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: pin.url }, caption: pin.title || 'Pinterest' }, { quoted: m });
-                else await nimesha.sendMessage(m.chat, { image: { url: pin.url }, caption: pin.title || 'Pinterest' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'reddit': case 'rd': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('🔴 *Fetching Reddit...*');
-            try {
-                const rd = await redditDownload(args[0]);
-                if (rd.isVideo) await nimesha.sendMessage(m.chat, { video: { url: rd.url }, caption: rd.title }, { quoted: m });
-                else await nimesha.sendMessage(m.chat, { image: { url: rd.url }, caption: rd.title }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'soundcloud': case 'sc': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('☁️ *Downloading SoundCloud...*');
-            try {
-                const sc = await soundcloudDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { audio: { url: sc.url }, mimetype: 'audio/mpeg', fileName: `${sc.title}.mp3` }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'threads': case 'th': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('🧵 *Downloading Threads...*');
-            try {
-                const th = await threadsDownload(args[0]);
-                if (th.type === 'video') await nimesha.sendMessage(m.chat, { video: { url: th.url }, caption: th.title || 'Threads' }, { quoted: m });
-                else await nimesha.sendMessage(m.chat, { image: { url: th.url }, caption: th.title || 'Threads' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'capcut': case 'cc': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('✂️ *Downloading CapCut...*');
-            try {
-                const cc = await capcutDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: cc.url }, caption: cc.title || 'CapCut' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'likee': case 'le': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('⭐ *Downloading Likee...*');
-            try {
-                const le = await likeeDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: le.url }, caption: le.title || 'Likee' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'snapchat': case 'snap': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('👻 *Downloading Snapchat...*');
-            try {
-                const snap = await snapchatDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: snap.url }, caption: snap.title || 'Snapchat' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'vimeo': case 'vm': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('▶️ *Downloading Vimeo...*');
-            try {
-                const vm = await vimeoDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: vm.url }, caption: vm.title || 'Vimeo' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'dailymotion': case 'dm': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📺 *Downloading Dailymotion...*');
-            try {
-                const dm = await dailymotionDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { video: { url: dm.url }, caption: dm.title || 'Dailymotion' }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'mediafire': case 'mf': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('📦 *Downloading MediaFire...*');
-            try {
-                const mf = await mediafireDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { document: { url: mf.url }, mimetype: mf.mimetype, fileName: mf.filename }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
-        }
-        break
-
-        case 'gdrive': case 'drive': {
-            if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
-            await m.reply('☁️ *Downloading Google Drive...*');
-            try {
-                const gd = await gdriveDownload(args[0]);
-                await nimesha.sendMessage(m.chat, { document: { url: gd.url }, mimetype: gd.mimetype, fileName: gd.filename }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+                await nimesha.sendMessage(m.chat, {
+                    audio: { url: sp.url },
+                    mimetype: 'audio/mpeg',
+                    fileName: `${sp.title}.mp3`
+                }, { quoted: m });
+            } catch (e) {
+                m.reply(`❌ ${e.message}`);
+            }
         }
         break
 
@@ -1008,9 +921,17 @@ module.exports = async (nimesha, m, ctx) => {
             if (!text) return m.reply(`Example: ${prefix + command} <app name>`);
             await m.reply('📲 *Searching APK...*');
             try {
+                const { apkDownload } = require('./lib/downloader');
                 const apk = await apkDownload(text);
-                await nimesha.sendMessage(m.chat, { document: { url: apk.url }, mimetype: 'application/vnd.android.package-archive', fileName: `${apk.name}.apk`, caption: apk.name }, { quoted: m });
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+                await nimesha.sendMessage(m.chat, {
+                    document: { url: apk.url },
+                    mimetype: 'application/vnd.android.package-archive',
+                    fileName: `${apk.name}.apk`,
+                    caption: apk.name
+                }, { quoted: m });
+            } catch (e) {
+                m.reply(`❌ ${e.message}`);
+            }
         }
         break
 
@@ -1025,7 +946,9 @@ module.exports = async (nimesha, m, ctx) => {
                     txt += `${i + 1}. *${v.title}*\n👤 ${v.author.name} | ⏱️ ${v.timestamp} | 👁️ ${v.views}\n🔗 ${v.url}\n\n`;
                 });
                 await m.reply(txt);
-            } catch(e) { m.reply(`❌ ${e.message}`); }
+            } catch (e) {
+                m.reply(`❌ ${e.message}`);
+            }
         }
         break
 
@@ -4172,19 +4095,21 @@ JSON:`;
             try {
                 // Carousel attempt (may fail if sendCarouselMsg not available)
                 const carouselCards = [
-                    { url: './database/menucards/bot.png', body: `🤖 *BOT*\n\n▸ ${prefix}alive\n▸ ${prefix}ping\n▸ ${prefix}info\n▸ ${prefix}owner\n▸ ${prefix}runtime\n▸ ${prefix}speed\n▸ ${prefix}profile\n▸ ${prefix}leaderboard\n▸ ${prefix}totalpesan\n▸ ${prefix}sc\n▸ ${prefix}donasi`, footer: 'Bot utilities & info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) }] },
-                    { url: './database/menucards/group.png', body: `👥 *GROUP*\n\n▸ ${prefix}add\n▸ ${prefix}kick\n▸ ${prefix}promote\n▸ ${prefix}demote\n▸ ${prefix}tagall\n▸ ${prefix}hidetag\n▸ ${prefix}setname\n▸ ${prefix}setdesc\n▸ ${prefix}linkgroup\n▸ ${prefix}revoke`, footer: 'Manage your group', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) }] },
+                    { url: './database/menucards/bot.png', body: `🤖 *BOT*\n\n▸ ${prefix}alive\n▸ ${prefix}ping\n▸ ${prefix}info\n▸ ${prefix}owner\n▸ ${prefix}runtime\n▸ ${prefix}profile\n▸ ${prefix}leaderboard\n▸ ${prefix}totalpesan\n▸ ${prefix}sc\n▸ ${prefix}donasi`, footer: 'Bot utilities & info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🤖 Bot Menu', id: `${prefix}botmenu` }) }] },
+                    { url: './database/menucards/group.png', body: `👥 *GROUP*\n\n▸ ${prefix}add\n▸ ${prefix}kick\n▸ ${prefix}promote\n▸ ${prefix}demote\n▸ ${prefix}warn\n▸ ${prefix}tagall\n▸ ${prefix}hidetag\n▸ ${prefix}setname\n▸ ${prefix}setdesc\n▸ ${prefix}linkgroup\n▸ ${prefix}revoke`, footer: 'Manage your group', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👥 Group Menu', id: `${prefix}groupmenu` }) }] },
                     { url: './database/menucards/download.png', body: `⬇️ *DOWNLOAD*\n\n▸ ${prefix}song\n▸ ${prefix}video\n▸ ${prefix}tiktok\n▸ ${prefix}instagram\n▸ ${prefix}facebook\n▸ ${prefix}twitter\n▸ ${prefix}spotify\n▸ ${prefix}mediafire\n▸ ${prefix}apk`, footer: 'Download from 20+ platforms', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⬇️ Download Menu', id: `${prefix}downloadmenu` }) }] },
-                    { url: './database/menucards/ai.png', body: `🧠 *AI*\n\n▸ ${prefix}gpt\n▸ ${prefix}gemini\n▸ ${prefix}llama\n▸ ${prefix}deepseek\n▸ ${prefix}ai\n▸ ${prefix}imagine\n▸ ${prefix}translate\n▸ ${prefix}tts\n▸ ${prefix}summarize\n▸ ${prefix}code`, footer: 'Chat with advanced AI', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) }] },
-                    { url: './database/menucards/sticker.png', body: `🎨 *STICKER*\n\n▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n▸ ${prefix}brat\n▸ ${prefix}smeme`, footer: 'Create and edit stickers', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) }] },
-                    { url: './database/menucards/games.png', body: `🎮 *GAMES*\n\n▸ ${prefix}connect4 @user\n▸ ${prefix}suit @user\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n▸ ${prefix}rpg\n▸ ${prefix}math\n▸ ${prefix}tebaklagu`, footer: 'Multiplayer & solo games', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) }] },
-                    { url: './database/menucards/fun.png', body: `😂 *FUN*\n\n▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n▸ ${prefix}truth\n▸ ${prefix}dare`, footer: 'Entertainment & random fun', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) }] },
+                    { url: './database/menucards/ai.png', body: `🧠 *AI*\n\n▸ ${prefix}gpt\n▸ ${prefix}gemini\n▸ ${prefix}llama\n▸ ${prefix}deepseek\n▸ ${prefix}ai\n▸ ${prefix}imagine\n▸ ${prefix}translate\n▸ ${prefix}tts\n▸ ${prefix}summarize\n▸ ${prefix}code\n▸ ${prefix}brainrot\n▸ ${prefix}docs\n▸ ${prefix}ask`, footer: 'Chat with advanced AI', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧠 AI Menu', id: `${prefix}aimenu` }) }] },
+                    { url: './database/menucards/sticker.png', body: `🎨 *STICKER*\n\n▸ ${prefix}sticker\n▸ ${prefix}s\n▸ ${prefix}simage\n▸ ${prefix}toimg\n▸ ${prefix}attp\n▸ ${prefix}removebg\n▸ ${prefix}blur\n▸ ${prefix}qc\n▸ ${prefix}brat\n▸ ${prefix}smeme\n▸ ${prefix}vv\n▸ ${prefix}namecard`, footer: 'Create and edit stickers', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎨 Sticker Menu', id: `${prefix}stickermenu` }) }] },
+                    { url: './database/menucards/fun.png', body: `😂 *FUN*\n\n▸ ${prefix}joke\n▸ ${prefix}meme\n▸ ${prefix}quote\n▸ ${prefix}fact\n▸ ${prefix}8ball\n▸ ${prefix}roast\n▸ ${prefix}compliment\n▸ ${prefix}ship\n▸ ${prefix}truth\n▸ ${prefix}dare\n▸ ${prefix}neko\n▸ ${prefix}waifu`, footer: 'Entertainment & random fun', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '😂 Fun Menu', id: `${prefix}funmenu` }) }] },
+                    { url: './database/menucards/games.png', body: `🎮 *GAMES*\n\n▸ ${prefix}connect4\n▸ ${prefix}suit\n▸ ${prefix}slot\n▸ ${prefix}blackjack\n▸ ${prefix}rpg\n▸ ${prefix}math\n▸ ${prefix}anagram\n▸ ${prefix}guessnum\n▸ ${prefix}trivia\n▸ ${prefix}pokemon`, footer: 'Multiplayer & solo games', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎮 Games Menu', id: `${prefix}gamemenu` }) }] },
                     { url: './database/menucards/search.png', body: `🔍 *SEARCH*\n\n▸ ${prefix}google\n▸ ${prefix}wiki\n▸ ${prefix}urban\n▸ ${prefix}weather\n▸ ${prefix}news\n▸ ${prefix}anime\n▸ ${prefix}manga\n▸ ${prefix}github\n▸ ${prefix}npm\n▸ ${prefix}iplookup`, footer: 'Search the web instantly', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔍 Search Menu', id: `${prefix}searchmenu` }) }] },
-                    { url: './database/menucards/sports.png', body: `⚽ *SPORTS*\n\n▸ ${prefix}leagues\n▸ ${prefix}fixtures <league>\n▸ ${prefix}live\n▸ ${prefix}standings <league>\n▸ ${prefix}team <id>\n▸ ${prefix}player <id>\n▸ ${prefix}h2h <id1>-<id2>\n▸ ${prefix}odds <sport>\n▸ ${prefix}espn`, footer: 'Live scores, stats & betting', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚽ Sports Menu', id: `${prefix}sportsmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔥 Live', id: `${prefix}live` }) }] },
-                    { url: './database/menucards/casino.png', body: `🎰 *CASINO*\n\n▸ ${prefix}slot\n▸ ${prefix}roulette <bet> <choice>\n▸ ${prefix}crash <bet> <mult>\n▸ ${prefix}dice <bet> over/under <num>\n▸ ${prefix}coin <bet> heads/tails\n▸ ${prefix}rps rock/paper/scissors`, footer: 'Bet & win virtual coins', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎰 Casino Menu', id: `${prefix}casinomenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎲 Roulette', id: `${prefix}roulette ` }) }] },
-                    { url: './database/menucards/rpg.png', body: `🧙 *RPG*\n\n▸ ${prefix}rpg – View stats\n▸ ${prefix}rpg fight – Attack\n▸ ${prefix}rpg heal – Heal (10 gold)\n▸ ${prefix}rpg spawn – New enemy`, footer: 'Adventure & level up', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🧙 RPG Menu', id: `${prefix}rpgmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚔️ Fight', id: `${prefix}rpg fight` }) }] },
-                    { url: './database/menucards/movies.png', body: `🎬 *MOVIES*\n\n▸ ${prefix}movie\n▸ ${prefix}film\n▸ ${prefix}imdb\n▸ ${prefix}series\n▸ ${prefix}rating\n▸ ${prefix}tv\n▸ ${prefix}anime`, footer: 'Movie & TV show info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📽️ Movie', id: `${prefix}movie ` }) }] },
-                    { url: './database/menucards/master.png', body: `📊 *MASTER*\n\n▸ ${prefix}economy\n▸ ${prefix}daily\n▸ ${prefix}health\n▸ ${prefix}finance\n▸ ${prefix}social\n▸ ${prefix}dev\n▸ ${prefix}travel\n▸ ${prefix}food`, footer: 'Advanced features & tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Master Menu', id: `${prefix}mastermenu` }) }, { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy', id: `${prefix}economymenu` }) }] }
+                    { url: './database/menucards/privacy.png', body: `🔒 *PRIVACY & AUTO*\n\n▸ ${prefix}autoai\n▸ ${prefix}selfchat\n▸ ${prefix}privatemode\n▸ ${prefix}setawaymsg\n▸ ${prefix}pending\n▸ ${prefix}pendingclear\n▸ ${prefix}automation`, footer: 'Auto toggles & privacy', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔒 Privacy Menu', id: `${prefix}privacymenu` }) }] },
+                    { url: './database/menucards/economy.png', body: `💰 *ECONOMY*\n\n▸ ${prefix}daily\n▸ ${prefix}work\n▸ ${prefix}rob\n▸ ${prefix}balance\n▸ ${prefix}deposit\n▸ ${prefix}withdraw\n▸ ${prefix}transfer\n▸ ${prefix}buy\n▸ ${prefix}inventory\n▸ ${prefix}lb`, footer: 'Virtual economy & banking', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '💰 Economy Menu', id: `${prefix}economymenu` }) }] },
+                    { url: './database/menucards/sports.png', body: `⚽ *SPORTS*\n\n▸ ${prefix}leagues\n▸ ${prefix}fixtures <league>\n▸ ${prefix}live\n▸ ${prefix}standings <league>\n▸ ${prefix}team <id>\n▸ ${prefix}player <id>\n▸ ${prefix}h2h <id1>-<id2>\n▸ ${prefix}odds <sport>\n▸ ${prefix}espn`, footer: 'Live scores, stats & betting', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '⚽ Sports Menu', id: `${prefix}sportsmenu` }) }] },
+                    { url: './database/menucards/movies.png', body: `🎬 *MOVIES*\n\n▸ ${prefix}movie\n▸ ${prefix}series\n▸ ${prefix}imdb\n▸ ${prefix}rating\n▸ ${prefix}tv\n▸ ${prefix}episodes\n▸ ${prefix}anime\n▸ ${prefix}manga`, footer: 'Movie & TV show info', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎬 Movies Menu', id: `${prefix}moviesmenu` }) }] },
+                    { url: './database/menucards/casino.png', body: `🎰 *CASINO*\n\n▸ ${prefix}roulette <bet> <choice>\n▸ ${prefix}crash <bet> <mult>\n▸ ${prefix}dice <bet> over/under <num>\n▸ ${prefix}coin <bet> heads/tails\n▸ ${prefix}rps rock/paper/scissors`, footer: 'Bet & win virtual coins', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🎰 Casino Menu', id: `${prefix}casinomenu` }) }] },
+                    { url: './database/menucards/admin.png', body: `🛠️ *ADMIN*\n\n▸ ${prefix}ban\n▸ ${prefix}unban\n▸ ${prefix}mute\n▸ ${prefix}unmute\n▸ ${prefix}warn\n▸ ${prefix}unwarn\n▸ ${prefix}clear\n▸ ${prefix}delete\n▸ ${prefix}pin\n▸ ${prefix}unpin`, footer: 'Moderation tools', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛠️ Admin Menu', id: `${prefix}adminmenu` }) }] },
+                    { url: './database/menucards/owner.png', body: `👑 *OWNER*\n\n▸ ${prefix}block\n▸ ${prefix}unblock\n▸ ${prefix}join\n▸ ${prefix}leave\n▸ ${prefix}backup\n▸ ${prefix}setppbot\n▸ ${prefix}delppbot\n▸ ${prefix}public\n▸ ${prefix}private\n▸ ${prefix}schedule\n▸ ${prefix}remind\n▸ ${prefix}reminders\n▸ ${prefix}pendingclear`, footer: 'Owner commands', buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '👑 Owner Menu', id: `${prefix}ownermenu` }) }] }
                 ];
                 const carouselBody = `╔══════════════════════╗
 ║  *🦊 Maureonix*  ║
@@ -4217,16 +4142,21 @@ ${ucapanWaktu}
                     await nimesha.sendMessage(m.chat, { image: buf, caption }, { quoted: m });
                 } catch (imgErr) {
                     const textMenu = `*🦊 Maureonix Menu*\n\n` +
-                        `🤖 *Bot:* ${prefix}ping, ${prefix}alive, ${prefix}owner, ${prefix}profile, ${prefix}leaderboard, ${prefix}sc, ${prefix}donasi\n` +
-                        `👥 *Group:* ${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}linkgroup, ${prefix}revoke, ${prefix}setname, ${prefix}setdesc, ${prefix}setppgc\n` +
-                        `⬇️ *Download:* ${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk\n` +
-                        `🧠 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot\n` +
-                        `🎨 *Sticker:* ${prefix}sticker, ${prefix}simage, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme\n` +
-                        `🔍 *Search:* ${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup\n` +
-                        `🎮 *Games:* ${prefix}connect4, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}rpg, ${prefix}math, ${prefix}tebaklagu\n` +
-                        `😂 *Fun:* ${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare\n` +
-                        `💰 *Economy:* ${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}buy, ${prefix}inventory\n` +
-                        `👑 *Owner:* ${prefix}block, ${prefix}unblock, ${prefix}join, ${prefix}leave, ${prefix}backup, ${prefix}setppbot, ${prefix}delppbot\n` + `\n📚 *Documentation:* Type ${prefix}docs for full guides.\n` +
+        `🤖 *Bot:* ${prefix}ping, ${prefix}alive, ${prefix}owner, ${prefix}profile, ${prefix}leaderboard, ${prefix}sc, ${prefix}donasi\n` +
+        `👥 *Group:* ${prefix}add, ${prefix}kick, ${prefix}promote, ${prefix}demote, ${prefix}tagall, ${prefix}hidetag, ${prefix}linkgroup, ${prefix}revoke, ${prefix}setname, ${prefix}setdesc, ${prefix}setppgc, ${prefix}delete, ${prefix}pin\n` +
+        `⬇️ *Download:* ${prefix}song, ${prefix}video, ${prefix}tiktok, ${prefix}instagram, ${prefix}facebook, ${prefix}twitter, ${prefix}spotify, ${prefix}mediafire, ${prefix}apk\n` +
+        `🧠 *AI:* ${prefix}gpt, ${prefix}gemini, ${prefix}llama, ${prefix}deepseek, ${prefix}ai, ${prefix}imagine, ${prefix}translate, ${prefix}tts, ${prefix}summarize, ${prefix}code, ${prefix}brainrot, ${prefix}docs, ${prefix}ask\n` +
+        `🎨 *Sticker:* ${prefix}sticker, ${prefix}simage, ${prefix}attp, ${prefix}removebg, ${prefix}blur, ${prefix}qc, ${prefix}brat, ${prefix}smeme\n` +
+        `😂 *Fun:* ${prefix}joke, ${prefix}meme, ${prefix}quote, ${prefix}fact, ${prefix}8ball, ${prefix}roast, ${prefix}compliment, ${prefix}ship, ${prefix}truth, ${prefix}dare, ${prefix}neko, ${prefix}waifu\n` +
+        `🎮 *Games:* ${prefix}connect4, ${prefix}suit, ${prefix}slot, ${prefix}blackjack, ${prefix}rpg, ${prefix}math, ${prefix}anagram, ${prefix}guessnum, ${prefix}trivia, ${prefix}pokemon\n` +
+        `🔍 *Search:* ${prefix}google, ${prefix}wiki, ${prefix}urban, ${prefix}weather, ${prefix}news, ${prefix}anime, ${prefix}manga, ${prefix}github, ${prefix}npm, ${prefix}iplookup\n` +
+        `🔒 *Privacy/Auto:* ${prefix}autodownload, ${prefix}autoviewstatus, ${prefix}selfchat, ${prefix}privatemode, ${prefix}setawaymsg, ${prefix}pending, ${prefix}automation\n` +
+        `💰 *Economy:* ${prefix}daily, ${prefix}work, ${prefix}rob, ${prefix}balance, ${prefix}deposit, ${prefix}withdraw, ${prefix}transfer, ${prefix}buy, ${prefix}inventory, ${prefix}lb\n` +
+        `⚽ *Sports:* ${prefix}leagues, ${prefix}fixtures, ${prefix}live, ${prefix}standings, ${prefix}team, ${prefix}player, ${prefix}h2h, ${prefix}odds, ${prefix}espn\n` +
+        `🎬 *Movies:* ${prefix}movie, ${prefix}series, ${prefix}imdb, ${prefix}rating, ${prefix}tv, ${prefix}episodes, ${prefix}anime, ${prefix}manga\n` +
+        `🎰 *Casino:* ${prefix}roulette, ${prefix}crash, ${prefix}dice, ${prefix}coin, ${prefix}rps\n` +
+        `🛠️ *Admin:* ${prefix}ban, ${prefix}unban, ${prefix}mute, ${prefix}unmute, ${prefix}warn, ${prefix}unwarn, ${prefix}clear, ${prefix}delete, ${prefix}pin\n` +
+        `👑 *Owner:* ${prefix}block, ${prefix}unblock, ${prefix}join, ${prefix}leave, ${prefix}backup, ${prefix}setppbot, ${prefix}delppbot, ${prefix}public, ${prefix}private, ${prefix}schedule, ${prefix}remind, ${prefix}reminders, ${prefix}pendingclear\n` +
                         `\nType ${prefix}help <category> for more.`;
                     await m.reply(textMenu);
                 }

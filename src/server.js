@@ -35,15 +35,21 @@ async function generateMenuCards(botInfo = {}) {
 
         // Define categories – each will generate a JPEG only if PNG is missing
         const CATS = [
-            { id:'bot',      title:'BOT',       sub:'Bot Commands',           color:'#e67e22', cmds:['.alive','.bot','.ping','.speed','.runtime','.info','.owner','.vv','.jid','.github','.groupinfo','.staff'] },
-            { id:'group',    title:'GROUP',     sub:'Group Commands',          color:'#b85c1a', cmds:['.tagall','.hidetag','.totag','.add','.kick','.promote','.demote','.warn','.setname','.setdesc','.welcome','.goodbye'] },
-            { id:'download', title:'DOWNLOAD',  sub:'Download Commands',       color:'#2ecc71', cmds:['.song','.mp3','.play','.ytmp3','.video','.mp4','.ytmp4'] },
-            { id:'ai',       title:'AI',        sub:'Artificial Intelligence', color:'#3498db', cmds:['.gpt','.gemini','.llama3','.ai','.chatai','.imagine','.flux','.sora'] },
-            { id:'sticker',  title:'STICKER',   sub:'Sticker & Image',         color:'#9b59b6', cmds:['.sticker','.s','.simage','.attp','.removebg','.blur','.ss','.tts','.trt'] },
-            { id:'fun',      title:'FUN',       sub:'Fun & Entertainment',     color:'#f1c40f', cmds:['.joke','.quote','.fact','.8ball','.compliment','.insult','.hack','.ship','.flirt','.shayari'] },
-            { id:'games',    title:'GAMES',     sub:'Games Commands',          color:'#e74c3c', cmds:['.tictactoe','.suit','.chess','.akinator','.slot','.math','.blackjack'] },
-            { id:'search',   title:'SEARCH',    sub:'Search Commands',         color:'#1abc9c', cmds:['.google','.ytsearch','.define','.weather','.news','.lyrics','.fact'] },
-            { id:'privacy',  title:'PRIVACY',   sub:'Privacy Manager',         color:'#95a5a6', cmds:['.privacy 1-3','.privacy 4-5','.privacy 6-8','.privacy 9-11','.privacy 12-13','.privacy 14-16','.privacy 17-20','.privacy 21'] },
+            { id:'bot',      title:'BOT',       sub:'Bot Commands',           color:'#e67e22', cmds:['.alive','.ping','.speed','.runtime','.info','.owner','.vv','.jid','.github','.groupinfo','.staff','.profile','.leaderboard','.totalpesan','.sc','.donasi'] },
+            { id:'group',    title:'GROUP',     sub:'Group Commands',          color:'#b85c1a', cmds:['.add','.kick','.promote','.demote','.warn','.unwarn','.tagall','.hidetag','.totag','.setname','.setdesc','.setppgc','.linkgroup','.revoke','.delete','.pin','.unpin','.mute','.unmute'] },
+            { id:'download', title:'DOWNLOAD',  sub:'Download Commands',       color:'#2ecc71', cmds:['.song','.mp3','.play','.video','.mp4','.tiktok','.instagram','.facebook','.twitter','.spotify','.pinterest','.reddit','.soundcloud','.threads','.capcut','.likee','.snapchat','.vimeo','.dailymotion','.mediafire','.gdrive','.apk'] },
+            { id:'ai',       title:'AI',        sub:'Artificial Intelligence', color:'#3498db', cmds:['.gpt','.gemini','.llama','.deepseek','.ai','.imagine','.translate','.tts','.summarize','.code','.brainrot','.roastai','.rizz','.clearmemory','.aibalance','.docs','.ask'] },
+            { id:'sticker',  title:'STICKER',   sub:'Sticker & Image',         color:'#9b59b6', cmds:['.sticker','.s','.simage','.toimg','.attp','.removebg','.blur','.qc','.brat','.smeme','.vv','.namecard','.jail','.triggered'] },
+            { id:'fun',      title:'FUN',       sub:'Fun & Entertainment',     color:'#f1c40f', cmds:['.joke','.meme','.quote','.fact','.8ball','.roast','.compliment','.ship','.truth','.dare','.wyr','.flip','.roll','.neko','.waifu','.hug','.kiss','.pat','.cry','.slap'] },
+            { id:'games',    title:'GAMES',     sub:'Games Commands',          color:'#e74c3c', cmds:['.connect4','.suit','.slot','.blackjack','.rpg','.math','.anagram','.guessnum','.trivia','.pokemon','.numbers','.hangman','.wordle','.snake','.tictactoe'] },
+            { id:'search',   title:'SEARCH',    sub:'Search Commands',         color:'#1abc9c', cmds:['.google','.wiki','.urban','.weather','.news','.covid','.crypto','.forex','.iplookup','.whois','.dns','.qr','.shorten','.anime','.manga','.github','.npm'] },
+            { id:'privacy',  title:'PRIVACY',   sub:'Privacy & Auto Toggles',  color:'#95a5a6', cmds:['.autodownload','.autoviewstatus','.autolikestatus','.autoreactmention','.autoreplymention','.autoforward','.autosticker','.autotranslate','.autodelete','.autoreact','.autoblock','.autokick','.automute','.autowelcome','.autogoodbye','.autoai','.selfchat','.privatemode','.setawaymsg','.awaymsg','.pending','.pendingclear','.automation'] },
+            { id:'economy',  title:'ECONOMY',   sub:'Economy & Banking',       color:'#f39c12', cmds:['.daily','.work','.rob','.balance','.deposit','.withdraw','.transfer','.buy','.inventory','.lb','.leaderboard'] },
+            { id:'sports',   title:'SPORTS',    sub:'Sports & Live Scores',    color:'#27ae60', cmds:['.leagues','.fixtures','.live','.standings','.team','.player','.h2h','.predict','.odds','.sports','.espn','.espnnews'] },
+            { id:'movies',   title:'MOVIES',    sub:'Movies & TV Shows',       color:'#c0392b', cmds:['.movie','.series','.imdb','.rating','.tv','.episodes','.tvschedule','.anime','.manga','.trendinganime','.topanime','.moviequote'] },
+            { id:'casino',   title:'CASINO',    sub:'Casino Games',            color:'#d35400', cmds:['.roulette','.crash','.dice','.coinflip','.rps'] },
+            { id:'admin',    title:'ADMIN',     sub:'Admin & Moderation',      color:'#7f8c8d', cmds:['.ban','.unban','.mute','.unmute','.warn','.unwarn','.clear','.delete','.pin','.unpin'] },
+            { id:'owner',    title:'OWNER',     sub:'Owner Commands',          color:'#8e44ad', cmds:['.block','.unblock','.join','.leave','.backup','.setppbot','.delppbot','.shutdown','.public','.private','.mode','.listjadibot','.stopuserjadibot','.schedule','.remind','.reminders','.pendingclear'] },
         ];
 
         // Helper: escape XML

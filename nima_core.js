@@ -415,16 +415,27 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // 1) Self‑chat AI – owner talking to bot from the same number
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
             const userMessage = body || budy;
+            // Prevent replying to the bot's own messages (infinite loop guard)
+            if (userMessage.trim().startsWith('🤖 *Maureonix*')) return;
+            
             if (userMessage.trim().length > 0) {
+                // Cooldown to avoid rate limits (10 seconds since last selfchat response)
+                const now = Date.now();
+                if (!set._lastSelfChatTime) set._lastSelfChatTime = 0;
+                if (now - set._lastSelfChatTime < 10000) return;
+                set._lastSelfChatTime = now;
+
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                    const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+                    const { detectTone, getTonePrompt, groqChat, sendLongMessage } = require('./lib/ai');
+                    const tone = detectTone(userMessage);
+                    const tonePrompt = getTonePrompt(tone);
+                    const result = await groqChat(userMessage, 'llama-3.3-70b-versatile', m.sender, tonePrompt);
                     await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
                 } catch (e) {
                     console.error('[selfchat AI error]', e);
                 }
-                return; // stop further processing
+                return;
             }
         }
 
