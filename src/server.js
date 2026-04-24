@@ -2281,28 +2281,26 @@ app.get('/pair', async (req, res) => {
         return res.status(400).json({ status: false, message: 'Invalid phone number. Include country code.' });
     }
 
-    // Import required modules inside the route to avoid top‑level issues
+    // Import required modules
     const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion, DisconnectReason } = require('baileys');
     const pino = require('pino');
     const path = require('path');
     const fs = require('fs');
     const os = require('os');
 
-    // Create a unique temporary auth folder
     const tempId = `pair_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const tempDir = path.join(os.tmpdir(), tempId);
     fs.mkdirSync(tempDir, { recursive: true });
 
     let sock = null;
-    let timeoutId = null;
+    let connectionTimeout = null;
+    let pairingTimeout = null;
 
     try {
-        // Set a global timeout to abort the whole pairing attempt
-        const timeoutPromise = new Promise((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error('Pairing request timed out after 60 seconds')), 60000);
-        });
+        // 1. Establish connection (max 30 seconds)
+        const connectionPromise = new Promise(async (resolve, reject) => {
+            connectionTimeout = setTimeout(() => reject(new Error('Connection timeout after 30s')), 30000);
 
-        const authPromise = (async () => {
             const { state } = await useMultiFileAuthState(tempDir);
             const { version } = await fetchLatestWaWebVersion();
             sock = makeWASocket({
@@ -2310,42 +2308,50 @@ app.get('/pair', async (req, res) => {
                 logger: pino({ level: 'silent' }),
                 auth: state,
                 printQRInTerminal: false,
-                browser: ['Ubuntu', 'Chrome', '20.0.0'],
-                connectTimeoutMs: 30000,
-                defaultQueryTimeoutMs: 30000,
+                browser: ['Maureonix', 'Chrome', '120.0.0.0'],
+                connectTimeoutMs: 20000,
+                defaultQueryTimeoutMs: 20000,
                 keepAliveIntervalMs: 10000
             });
 
-            // Wait for the socket to be ready or fail
-            return new Promise((resolve, reject) => {
-                const onConnectionUpdate = async (update) => {
-                    const { connection, lastDisconnect } = update;
-                    if (connection === 'open') {
-                        sock.ev.off('connection.update', onConnectionUpdate);
-                        resolve();
-                    } else if (connection === 'close') {
-                        const reason = lastDisconnect?.error?.output?.statusCode;
-                        reject(new Error(`Socket closed: ${reason}`));
-                    }
-                };
-                sock.ev.on('connection.update', onConnectionUpdate);
-
-                // Also reject if socket emits an error
-                sock.ev.on('error', (err) => {
+            const onConnectionUpdate = (update) => {
+                const { connection, lastDisconnect } = update;
+                console.log(`[PAIR] Connection update: ${connection}`);
+                if (connection === 'open') {
                     sock.ev.off('connection.update', onConnectionUpdate);
-                    reject(err);
-                });
+                    clearTimeout(connectionTimeout);
+                    resolve();
+                } else if (connection === 'close') {
+                    const reason = lastDisconnect?.error?.output?.statusCode;
+                    reject(new Error(`Socket closed: ${reason || 'unknown'}`));
+                }
+            };
+            sock.ev.on('connection.update', onConnectionUpdate);
+            sock.ev.on('error', (err) => {
+                console.error('[PAIR] Socket error:', err);
+                reject(err);
             });
-        })();
+        });
 
-        await Promise.race([authPromise, timeoutPromise]);
+        await connectionPromise;
 
-        // Now request the pairing code
-        const pairPromise = sock.requestPairingCode(cleanNumber);
-        const code = await Promise.race([pairPromise, timeoutPromise]);
+        // 2. Request pairing code (max 20 seconds)
+        const pairingPromise = new Promise(async (resolve, reject) => {
+            pairingTimeout = setTimeout(() => reject(new Error('Pairing code request timeout after 20s')), 20000);
+            try {
+                const code = await sock.requestPairingCode(cleanNumber);
+                clearTimeout(pairingTimeout);
+                resolve(code);
+            } catch (err) {
+                reject(err);
+            }
+        });
 
-        // Clean up
-        if (timeoutId) clearTimeout(timeoutId);
+        let code = await pairingPromise;
+
+        // 3. Cleanup
+        if (connectionTimeout) clearTimeout(connectionTimeout);
+        if (pairingTimeout) clearTimeout(pairingTimeout);
         if (sock) sock.ws?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
 
@@ -2358,18 +2364,26 @@ app.get('/pair', async (req, res) => {
             expires: '60 seconds'
         });
     } catch (err) {
-        console.error('[PAIR ENDPOINT ERROR]', err);
-        if (timeoutId) clearTimeout(timeoutId);
+        console.error('[PAIR ENDPOINT ERROR]', err.message);
+        if (connectionTimeout) clearTimeout(connectionTimeout);
+        if (pairingTimeout) clearTimeout(pairingTimeout);
         try {
             if (sock) sock.ws?.close();
             fs.rmSync(tempDir, { recursive: true, force: true });
         } catch (_) {}
 
-        // Optional: fallback to a public pairing API (if needed)
-        // You could try to fetch from a trusted proxy here, but we'll just return error.
+        // Provide a more helpful error message
+        let userMessage = 'Failed to get pairing code. ';
+        if (err.message.includes('timeout')) {
+            userMessage += 'The connection to WhatsApp timed out. Please try again in a few minutes.';
+        } else if (err.message.includes('closed')) {
+            userMessage += 'WhatsApp Web session could not be established. Check your internet or try again later.';
+        } else {
+            userMessage += err.message;
+        }
         return res.status(500).json({
             status: false,
-            message: 'Failed to get pairing code. The server cannot connect to WhatsApp Web at this time.',
+            message: userMessage,
             error: err.message
         });
     }
