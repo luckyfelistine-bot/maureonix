@@ -380,21 +380,53 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
 
-        // 1) Self‑chat AI – owner talking to bot from the same number
+        // ========== SELF‑CHAT (OWNER, NO PREFIX) – INTELLIGENT COMMAND EXECUTION ==========
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
-            if (m.fromMe) return;   // ignore bot's own messages
+            // === LOOP PREVENTION: ignore bot's own replies (2 sec cooldown) ===
+            const now = Date.now();
+            const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
+            if (now - lastSelfReply < 2000) return;
+            if (!db.lastSelfReply) db.lastSelfReply = {};
+            db.lastSelfReply[m.sender] = now;
+
             const userMessage = body || budy;
-            if (userMessage.trim().length > 0) {
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                try {
-                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                    const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+            if (userMessage.trim().length === 0) return;
+
+            // Use enhancedAI to detect intent (command or plain chat)
+            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+            try {
+                const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+
+                if (result.type === 'function') {
+                    // === EXECUTE A REAL COMMAND ===
+                    const cmd = result.function;      // e.g., 'song', 'remindme', 'video', 'google'
+                    const args = result.args;         // array of arguments
+                    const syntheticText = cmd + ' ' + args.join(' ');
+                    
+                    // Create a synthetic context to run the command
+                    const syntheticCtx = {
+                        ...ctx,                       // copy all existing ctx (db, store, set, etc.)
+                        command: cmd,
+                        args: args,
+                        text: syntheticText,
+                        q: syntheticText,
+                        isCmd: true,                  // pretend it's a command
+                        prefix: prefix,
+                        fromMe: true,                 // mark as from owner
+                    };
+                    // Import and run the command handler
+                    const handleCommand = require('./nima_commands');
+                    await handleCommand(nimesha, m, syntheticCtx);
+                } else {
+                    // === PURE AI CONVERSATION ===
                     await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
-                } catch (e) {
-                    console.error('[selfchat AI error]', e);
                 }
-                return; // stop further processing
+            } catch (e) {
+                console.error('[selfchat error]', e);
+                await m.reply(`❌ Error: ${e.message}`);
             }
+            return;
         }
 
         // 2) Private message from a stranger (not owner, not group, not status)
