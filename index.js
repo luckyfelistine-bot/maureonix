@@ -523,8 +523,7 @@ async function startnimaBot() {
     
     global.nimaInstance = nimaBot;
 
-    // Pre-key refresh is automatic in modern Baileys – no manual calls needed
-    /*
+    // Pre-key refresh to avoid "closed session" errors
     setInterval(async () => {
         if (nimaBot && nimaBot.authState?.creds?.registered) {
             try {
@@ -534,8 +533,7 @@ async function startnimaBot() {
                 console.log('⚠️ Pre-key refresh failed:', e.message);
             }
         }
-    }, 12 * 60 * 60 * 1000);
-    */
+    }, 12 * 60 * 60 * 1000); // every 12 hours
 
     await Solving(nimaBot, global.store);
     
@@ -597,13 +595,13 @@ async function startnimaBot() {
         }
         if (connection == 'open') {
             _reconnectCount = 0;
-            // Pre-keys are managed automatically in modern Baileys
-            // try {
-            //     await nimaBot.requestPreKeys(3);
-            //     console.log('🔄 Initial pre-keys requested');
-            // } catch (e) {
-            //     console.log('⚠️ Initial pre-key request failed:', e.message);
-            // }
+            // Request fresh pre-keys immediately after connection
+            try {
+                await nimaBot.requestPreKeys(3);
+                console.log('🔄 Initial pre-keys requested');
+            } catch (e) {
+                console.log('⚠️ Initial pre-key request failed:', e.message);
+            }
             console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
             let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
             if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {

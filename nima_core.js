@@ -9,7 +9,6 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
 
 require('./settings');
-const owner = global.owner || [];
 const fs = require('fs');
 const os = require('os');
 const util = require('util');
@@ -55,8 +54,7 @@ const { writeExif } = require('./lib/exif');
 //  NEW ULTIMATE LIBRARIES (v5.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const AI = require('./lib/ai');
-const { detectCrisis, handleCrisis, processCrisisResponse } = AI;
+const AI = require('./lib/ai');   // now AI.askModel, AI.imagine, etc. work
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
@@ -70,7 +68,6 @@ const Dev = require('./lib/dev');
 const Travel = require('./lib/travel');
 const Food = require('./lib/food');
 const { generateQuantumMenu } = require('./lib/menuimage');
-
 
 // ═══════════════════════════════════════════════════════════════════
 //  GODMODE IMPORTS (v6.0.0)
@@ -87,9 +84,6 @@ const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = req
 
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
 
-// List of all possible command prefixes
-const listprefix = ['.', '#', '!', '/', '?', ';', ',', '`', '-', '+', '*', '%', '&', '=', '@', '$', '~', '^', '|', '\\', ':', '"', "'", '<', '>', '(', ')', '[', ']', '{', '}'];
-
 // ═══════════════════════════════════════════════════════════════
 //  PROACTIVE SCHEDULER – runs on module load
 // ═══════════════════════════════════════════════════════════════
@@ -102,38 +96,6 @@ cron.schedule('0 7 * * *', async () => {
         await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
     }
 }, { timezone: 'Africa/Nairobi' });
-
-// ═══════════════════════════════════════════════════════════════
-//  🔔 PROACTIVE REMINDER / SCHEDULER (checks every 10 seconds)
-// ═══════════════════════════════════════════════════════════════
-setInterval(async () => {
-    if (!global.db?.reminders || !Array.isArray(global.db.reminders)) return;
-    const now = Date.now();
-    const dueItems = global.db.reminders.filter(r => r.due && r.due <= now);
-    if (dueItems.length === 0) return;
-
-    // Process each due reminder
-    for (const item of dueItems) {
-        try {
-            const sock = global.nimaInstance;
-            if (!sock) continue;
-
-            const recipient = item.target || item.user; // target for .schedule, user for .remindme
-            const text = item.text || item.message || '⏰ Reminder!';
-
-            if (recipient && text) {
-                // Send to the intended recipient (could be a user JID or group JID)
-                await sock.sendMessage(recipient, { text: `🔔 *Reminder:*\n\n${text}` })
-                    .catch(e => console.error('[reminder send error]', e.message));
-            }
-        } catch (e) {
-            console.error('[reminder process error]', e);
-        }
-    }
-
-    // Remove sent reminders from the array
-    global.db.reminders = global.db.reminders.filter(r => !dueItems.includes(r));
-}, 10000); // every 10 seconds
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  HELPER: fetchApi (fallback chain)
@@ -205,7 +167,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
         global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
     }
     if (!global.db.database) global.db.database = {};
-    if (db.set.crisisDetection === undefined) db.set.crisisDetection = true;
     
     const botNumber = nimesha.decodeJid(nimesha.user.id);
 
@@ -283,7 +244,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
     if (set.autostatus === undefined) set.autostatus = false;
     if (set.autostatusreact === undefined) set.autostatusreact = false;
     if (set.autorecording === undefined) set.autorecording = false;
-    if (set.multiprefix === undefined) set.multiprefix = true;
     
     try {
         await GroupUpdate(nimesha, m, store);
@@ -305,27 +265,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
         (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
         (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
         (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
-        console.log('[DEBUG] raw body =', JSON.stringify(body), '| type =', m.type, '| chat =', m.chat);
         
         const budy = (typeof m.text == 'string' ? m.text : '');
-        console.log('[DEBUG] Message from', m.sender, '| body:', budy?.slice(0, 80));
-        // ===== CRISIS RESPONSE HANDLER =====
-        // If user is replying to a crisis offer, process it and stop further command processing
-        if (db.crisisResponses?.[m.sender]?.pending) {
-            const responded = await processCrisisResponse(m.sender, budy, nimesha, db, ownerNumber);
-            if (responded) return; // no further processing
-        }
+
+        // Override m.reply so newsletters receive messages correctly
+        const originalReply = m.reply.bind(m);
+        m.reply = async (content, options = {}) => {
+            return sendReply(m.chat, content, options);
+        };
 
         const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
-        console.log('[DEBUG] ownerNumber =', ownerNumber);
-        console.log('[DEBUG] isCreator =', isCreator);
-
         const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
         const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
         const args = body.trim().split(/ +/).slice(1);
         const quoted = m.quoted ? m.quoted : m;
         const command = isCreator ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : isCmd ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : '';
-        console.log('[DEBUG] command =', command, '| isCmd =', isCmd);
         const text = q = args.join(' ');
         const mime = (quoted.msg || quoted).mimetype || '';
         const qmsg = (quoted.msg || quoted);
@@ -426,40 +380,20 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
 
-         // 1) Self‑chat AI – owner talking to bot from the same number
+        // 1) Self‑chat AI – owner talking to bot from the same number
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
+            if (m.fromMe) return;   // ignore bot's own messages
             const userMessage = body || budy;
-            // Guard: ignore messages that look like the bot's own replies
-            if (userMessage.trim().startsWith('🤖 *Maureonix*')) return;
-            // Cooldown: only respond once every 3 seconds (adjust as needed)
-            const now = Date.now();
-            if (!set._lastSelfChatTime) set._lastSelfChatTime = 0;
-            if (now - set._lastSelfChatTime < 3000) return;
-            set._lastSelfChatTime = now;
-
             if (userMessage.trim().length > 0) {
-                // ===== CRISIS DETECTION (self‑chat) =====
-                if (set.crisisDetection) {
-                    const handled = await handleCrisis(m.sender, userMessage, nimesha, m, db, ownerNumber);
-                    if (handled) {
-                        // Support message already sent, owner notified. Stop further AI.
-                        return;
-                    }
-                }
-
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const { detectTone, getTonePrompt, groqChat, sendLongMessage } = require('./lib/ai');
-                    const tone = detectTone(userMessage);
-                    const tonePrompt = getTonePrompt(tone);
-                    const result = await groqChat(userMessage, 'llama-3.3-70b-versatile', m.sender, tonePrompt);
-                    if (result && result.text && result.text.length > 0) {
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
-                    }
+                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                    const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
                 } catch (e) {
-                    console.error('[selfchat AI error]', e.message);
+                    console.error('[selfchat AI error]', e);
                 }
-                return;
+                return; // stop further processing
             }
         }
 
@@ -493,11 +427,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 await m.reply(awayMsg);
                 return;
             } else if (mode === 'ai') {
-                // ===== CRISIS DETECTION (private AI) =====
-                if (set.crisisDetection) {
-                    const handled = await handleCrisis(m.sender, body || budy, nimesha, m, db, ownerNumber);
-                    if (handled) return;
-                }
+                // No away message, just AI
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
@@ -512,13 +442,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (!user._awayNotified) {
                     await m.reply(awayMsg);
                     user._awayNotified = true;
-                    await sleep(1000);
+                    await sleep(1000);  // small delay before switching to AI
                 }
-                // ===== CRISIS DETECTION (private AI after away) =====
-                if (set.crisisDetection) {
-                    const handled = await handleCrisis(m.sender, body || budy, nimesha, m, db, ownerNumber);
-                    if (handled) return;
-                }
+                // Now engage AI
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
@@ -528,6 +454,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     console.error('[privat AI error]', e);
                 }
                 return;
+            }
             // If mode is 'off' or unrecognised, do nothing (and don't store message)
         }
 
@@ -737,6 +664,121 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (update.action === 'remove') {
                 for (const jid of update.participants) {
                     await nimesha.sendMessage(m.chat, { text: `😢 Goodbye @${jid.split('@')[0]}.`, mentions: [jid] });
+                }
+            }
+        }
+
+        // ========== 🧠 ENHANCED CRISIS INTERVENTION SYSTEM ==========
+        if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+            const userMessage = body || budy;
+            const crisis = AI.detectCrisis(userMessage);
+            
+            if (crisis.isCrisis) {
+                // Prevent spamming crisis responses (once per 30 minutes)
+                const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
+                if (Date.now() - lastCrisis < 30 * 60 * 1000) {
+                    // Already handled recently – do nothing
+                } else {
+                    // Mark that we responded
+                    if (!db.crisisTimestamps) db.crisisTimestamps = {};
+                    db.crisisTimestamps[m.sender] = Date.now();
+                    
+                    // Send caring message with two options
+                    const crisisMsg = `💙 *I hear you. You're not alone.*\n\n` +
+                        `You can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n` +
+                        `👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n` +
+                        `👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n` +
+                        `_Your feelings matter._ 💙`;
+                    await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
+                    
+                    // Store crisis pending state
+                    if (!db.crisisPending) db.crisisPending = {};
+                    db.crisisPending[m.sender] = {
+                        state: 'awaiting_choice',
+                        originalMsg: userMessage,
+                        timestamp: Date.now()
+                    };
+                    
+                    // Notify owner (once per crisis)
+                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
+                    const ownerMsg = `🚨 *CRISIS ALERT*\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
+                    for (const owner of ownerJids) {
+                        await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
+                    }
+                    return; // Stop processing this message
+                }
+            }
+            
+            // ----- Handle user's reply to crisis offer (yes/no) -----
+            if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
+                const choice = userMessage.trim().toLowerCase();
+                const pending = db.crisisPending[m.sender];
+                
+                if (choice === 'yes') {
+                    // Start crisis conversation mode (no prefix needed)
+                    db.crisisPending[m.sender].state = 'talking';
+                    db.crisisPending[m.sender].lastMsgTime = Date.now();
+                    
+                    const welcomeMsg = `💙 *I'm here for you.*\n\n` +
+                        `You can now talk to me normally – just type your thoughts. I'll respond with care.\n\n` +
+                        `_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\n` +
+                        `What's on your mind? 🌷`;
+                    await nimesha.sendMessage(m.chat, { text: welcomeMsg }, { quoted: m });
+                    return;
+                } 
+                else if (choice === 'no') {
+                    // User doesn't want to talk to bot – offer owner's contact
+                    const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
+                    const waMeLink = `https://wa.me/${ownerFirst}`;
+                    const apologyMsg = `💙 *I understand.*\n\n` +
+                        `I'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\n` +
+                        `They will listen without judgment. You are not alone.\n\n` +
+                        `*Be kind to yourself.* 💙`;
+                    await nimesha.sendMessage(m.chat, { text: apologyMsg }, { quoted: m });
+                    
+                    // Notify owner again with the user's decision
+                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
+                    for (const owner of ownerJids) {
+                        await nimesha.sendMessage(owner, { text: `💬 User ${m.sender} declined bot help and asked for human contact. They were sent your wa.me link.` }).catch(() => {});
+                    }
+                    delete db.crisisPending[m.sender];
+                    return;
+                }
+                else {
+                    // Invalid response – remind them
+                    await nimesha.sendMessage(m.chat, { text: `Please reply with *yes* (talk to me) or *no* (talk to a human).` }, { quoted: m });
+                    return;
+                }
+            }
+            
+            // ----- Active crisis conversation mode (no prefix, AI responds) -----
+            if (db.crisisPending?.[m.sender]?.state === 'talking') {
+                // Update last activity time
+                db.crisisPending[m.sender].lastMsgTime = Date.now();
+                
+                // Use AI to respond with extra care
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const crisisSystem = `You are a compassionate, non-judgmental listener. The user is in emotional distress. Respond with warmth, validation, and gentle encouragement. Never give medical advice, but always remind them that they matter and that help is available. Use emojis like 💙, 🌷, or 🌟. Keep responses calm and brief.`;
+                    const { ultimateAI } = require('./lib/ai');
+                    const result = await ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
+                    await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
+                } catch (e) {
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm still here. Tell me more, or type "crisis stop" if you need a moment.` }, { quoted: m });
+                }
+                return;
+            }
+        }
+
+        // ----- Cleanup idle crisis sessions (if last message > 10 minutes ago) -----
+        const now = Date.now();
+        if (db.crisisPending) {
+            for (const [userId, state] of Object.entries(db.crisisPending)) {
+                if (state.state === 'talking' && now - state.lastMsgTime > 10 * 60 * 1000) {
+                    delete db.crisisPending[userId];
+                    try {
+                        await nimesha.sendMessage(userId, { text: `💙 I'm stepping back, but I'm always here if you need me. Just type anything again.` });
+                    } catch {}
                 }
             }
         }
@@ -1389,13 +1431,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ═══════════════════════════════════════════════════════════════
         //  IMPORT COMMANDS FROM SEPARATE FILE
         // ═══════════════════════════════════════════════════════════════
-        let handleCommand;
-        try {
-            handleCommand = require('./nima_commands');
-        } catch (err) {
-            console.error('[CRITICAL] Failed to load nima_commands.js:', err);
-            return m.reply('❌ Command handler error. Check console.');
-        }        await handleCommand(nimesha, m, {
+        const handleCommand = require('./nima_commands');
+        await handleCommand(nimesha, m, {
             mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,
@@ -1403,10 +1440,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
             checkStatus,
             getExpired,
             formatDate,
-            listv,
-            fake,
-            my,
-            tempatDB,
+            listv,   // <-- ADD THIS
+            fake,    // <-- ADD THIS
+            my,        // <-- ADD THIS
+            tempatDB,  // <-- ADD THIS
             tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
             tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
             tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
@@ -1427,12 +1464,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
             gdriveDownload, apkDownload,
             toAudio, toPTT, toVideo, generateMenuImage,
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-            pickRandom, similarity, almost, cases, getBuffer, writeExif
+            pickRandom, similarity, almost, cases, getBuffer, writeExif 
         });
 
-    }
-    } 
-    catch (e) {
+    } catch (e) {
         console.log(e);
         if (e?.message?.includes('No sessions')) return;
         const errorKey = e?.code || e?.name || e?.message?.slice(0, 100) || 'unknown_error';
