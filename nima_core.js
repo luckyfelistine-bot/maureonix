@@ -322,6 +322,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
         };
 
         const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
+        console.log('[DEBUG] ownerNumber =', ownerNumber);
+        console.log('[DEBUG] isCreator =', isCreator);
+        console.log('[DEBUG] command =', command, '| isCmd =', isCmd);
+
         const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
         const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
         const args = body.trim().split(/ +/).slice(1);
