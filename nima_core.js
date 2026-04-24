@@ -200,6 +200,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
     }
     if (!global.db.database) global.db.database = {};
+    if (db.set.crisisDetection === undefined) db.set.crisisDetection = true;
     
     const botNumber = nimesha.decodeJid(nimesha.user.id);
 
@@ -1391,10 +1392,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
             checkStatus,
             getExpired,
             formatDate,
-            listv,   // <-- ADD THIS
-            fake,    // <-- ADD THIS
-            my,        // <-- ADD THIS
-            tempatDB,  // <-- ADD THIS
+            listv,
+            fake,
+            my,
+            tempatDB,
             tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
             tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
             tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
@@ -1415,7 +1416,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             gdriveDownload, apkDownload,
             toAudio, toPTT, toVideo, generateMenuImage,
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-            pickRandom, similarity, almost, cases, getBuffer, writeExif 
+            pickRandom, similarity, almost, cases, getBuffer, writeExif
         });
 
     } catch (e) {
