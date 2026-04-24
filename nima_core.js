@@ -1419,6 +1419,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             pickRandom, similarity, almost, cases, getBuffer, writeExif
         });
 
+    }
     } 
     catch (e) {
         console.log(e);
