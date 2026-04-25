@@ -397,7 +397,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
 
             try {
-                const { selfChatAI, sendLongMessage, think } = require('./lib/ai');
+                const { selfChatAI, sendLongMessage, think, ALL_COMMANDS } = require('./lib/ai');
 
                 // Use chain-of-thought for complex requests, fast path for simple ones
                 let result = await selfChatAI(userMessage, m.sender);
