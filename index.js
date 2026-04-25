@@ -367,9 +367,13 @@ print('Baileys', `v${require('./package.json').dependencies.baileys}`);
 print('Date & Time', new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi', hour12: false }));
 console.log(chalk.green.bold('╚' + ('═'.repeat(30))));
 
-server.listen(PORT, () => {
-    console.log('Maureonix [BOT] is now active!');
-});
+if (!server.listening) {
+    server.listen(PORT, () => {
+        console.log('Maureonix [BOT] is now active!');
+    });
+} else {
+    console.log(`✅ Server already listening on port ${PORT}`);
+}
 
 // reconnect attempt counter
 let _reconnectCount = 0;
