@@ -397,20 +397,36 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
 
             try {
-                const { selfChatAI, sendLongMessage, think, ALL_COMMANDS } = require('./lib/ai');
+                const { selfChatAI, sendLongMessage, ALL_COMMANDS } = require('./lib/ai');
 
-                // Use chain-of-thought for complex requests, fast path for simple ones
-                let result = await selfChatAI(userMessage, m.sender);
-
-                // If the AI is unsure (low confidence), make it think harder
-                if (result.source === 'llm' && result.type === 'text' && userMessage.length > 15) {
-                    const thought = await think(`The owner said: "${userMessage}". Should I execute a command or just chat?`, m.sender);
-                    if (thought.text.toLowerCase().includes('command') || thought.text.toLowerCase().includes('execute')) {
-                        // Re-parse with more context
-                        const reparse = await selfChatAI(`${userMessage} (execute this as a command)`, m.sender);
-                        if (reparse.type === 'function') result = reparse;
+                // Build conversation context from recent messages
+                const recentContext = [];
+                if (store?.messages?.[m.chat]?.array) {
+                    const msgs = store.messages[m.chat].array.slice(-6);
+                    for (const msg of msgs) {
+                        if (msg.key.id === m.key.id) continue; // skip current
+                        const role = msg.key.fromMe ? 'assistant' : 'user';
+                        const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                        if (content) recentContext.push({ role, content: content.substring(0, 200) });
                     }
                 }
+
+                // Detect active game modes
+                const activeModes = [];
+                if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) {
+                    activeModes.push('connect4');
+                }
+                if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) {
+                    activeModes.push('chess');
+                }
+                if (db.game?.akinator && db.game.akinator[m.sender]) {
+                    activeModes.push('akinator');
+                }
+                if (recentContext.some(t => /truth or dare/i.test(t.content))) {
+                    activeModes.push('truth_or_dare');
+                }
+
+                let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
 
                 // ── Pure conversation ──
                 if (result.type !== 'function' || !result.function) {
@@ -662,6 +678,235 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
             // If mode is 'off' or unrecognised, do nothing (and don't store message)
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  AUTO-AI AWAY ASSISTANT v3.0
+        //  Intelligent concierge when owner is unavailable
+        // ═══════════════════════════════════════════════════════════════
+        let autoAiHandled = false;
+
+        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+            // Owner messages bypass - they have self-chat above
+            if (!isCreator) {
+
+                // ── 1. COMPREHENSIVE GAME STATE CHECK ──
+                // If user is mid-game, DO NOT intercept - let game handlers below process it
+                const inGame = (() => {
+                    if (db.game?.connect4) {
+                        const c4 = Object.values(db.game.connect4).find(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender));
+                        if (c4) return { game: 'connect4' };
+                    }
+                    if (db.game?.chess?.[m.sender]) return { game: 'chess' };
+                    if (m.isGroup && db.game?.chess?.[m.chat]) return { game: 'chess' };
+                    if (db.game?.akinator?.[m.sender]) return { game: 'akinator' };
+                    if (db.game?.suit) {
+                        const suitRoom = Object.values(db.game.suit).find(r => r.id && r.status && [r.p, r.p2].includes(m.sender));
+                        if (suitRoom) return { game: 'suit' };
+                    }
+                    if (db.game?.tebakbom?.[m.sender]) return { game: 'tebakbom' };
+                    if (m.isGroup && db.game?.ulartangga?.[m.chat]) return { game: 'ulartangga' };
+                    
+                    const triviaGames = ['tekateki', 'tebaklirik', 'tebaklagu', 'tebakkata', 'kuismath', 'tebakkimia', 'caklontong', 'tebakangka', 'tebaknegara', 'tebakgambar', 'tebakbendera'];
+                    for (const gk of triviaGames) {
+                        if (db.game?.[gk]) {
+                            const id = m.chat + (m.quoted?.id || '');
+                            if (db.game[gk][id]?.jawaban) return { game: gk };
+                        }
+                    }
+                    if (m.isGroup && db.game?.family100?.[m.chat]?.jawaban) return { game: 'family100' };
+                    if (db.users?.[m.sender]) {
+                        const u = db.users[m.sender];
+                        if (u._trivia || u._math || u._anagram || u._gtn || u._pokemon || u._movieguess) return { game: 'mini' };
+                    }
+                    return null;
+                })();
+
+                // ── 2. CRISIS CHECK ──
+                // If crisis handler is managing this user, don't interfere
+                const inCrisis = db.crisisPending?.[m.sender] && ['awaiting_choice', 'talking'].includes(db.crisisPending[m.sender].state);
+
+                if (!inGame && !inCrisis) {
+                    autoAiHandled = true;
+
+                    // Rate limit: 1.5s cooldown per user
+                    const now = Date.now();
+                    if (!db.lastAutoReply) db.lastAutoReply = {};
+                    if (now - (db.lastAutoReply[m.sender] || 0) < 1500) {
+                        // Too fast - silently drop to avoid spam
+                    } else {
+                        db.lastAutoReply[m.sender] = now;
+
+                        // ── 3. SESSION MANAGEMENT ──
+                        if (!db.autoAiSessions) db.autoAiSessions = {};
+                        if (!db.autoAiSessions[m.sender]) {
+                            db.autoAiSessions[m.sender] = {
+                                started: now,
+                                messageCount: 0,
+                                lastActivity: now,
+                                context: [],
+                                notifiedOwner: false,
+                                language: 'en'
+                            };
+                        }
+                        const session = db.autoAiSessions[m.sender];
+                        session.messageCount++;
+                        session.lastActivity = now;
+                        session.context.push({ role: 'user', content: body || budy, time: now });
+                        if (session.context.length > 10) session.context.shift();
+
+                        // ── 4. STORE MESSAGE FOR OWNER ──
+                        if (!set.pendingMessages) set.pendingMessages = [];
+                        let entry = set.pendingMessages.find(e => e.from === m.sender);
+                        if (!entry) {
+                            entry = { from: m.sender, timestamp: now, messages: [] };
+                            set.pendingMessages.push(entry);
+                        }
+                        entry.messages.push({ time: now, body: body || budy });
+                        if (entry.messages.length > 50) entry.messages.shift();
+
+                        // Typing indicator
+                        if (set.autotyping) {
+                            await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
+                        }
+
+                        try {
+                            const { IntentEngine } = require('./lib/intentEngine');
+                            const { ultimateAI, sendLongMessage } = require('./lib/ai');
+
+                            const recentContext = session.context.slice(-6).map(c => ({
+                                role: c.role,
+                                content: c.content.substring(0, 200)
+                            }));
+
+                            // ── 5. INTENT PARSING ──
+                            let intent;
+                            try {
+                                const engine = new IntentEngine({
+                                    userId: m.sender,
+                                    context: recentContext,
+                                    activeModes: [],
+                                    model: 'deepseek-r1-distill-llama-70b'
+                                });
+                                intent = await engine.parse(body || budy);
+                            } catch (e) {
+                                intent = { type: 'text', confidence: 'uncertain' };
+                            }
+
+                            // ── 6. INTENT ROUTING ──
+
+                            // A) User clearly wants a command → suggest it
+                            if (intent.type === 'function' && intent.confidence === 'certain') {
+                                const argsStr = intent.args.length ? ' ' + intent.args.join(' ') : '';
+                                const suggested = `${prefix}${intent.function}${argsStr}`;
+                                await m.reply(`💡 I can help with that! Try this command:\n\n*${suggested}*\n\nOr just keep chatting with me naturally 😊`);
+                            }
+
+                            // B) User wants game content directly (truth/dare without prefix)
+                            else if (intent.type === 'game_topic' || (intent.type === 'game' && (intent.game === 'truth_or_dare' || intent.gameTopic === 'truth_or_dare'))) {
+                                const truths = [
+                                    "What's the last lie you told?",
+                                    "What's your biggest fear?",
+                                    "Who was your first crush?",
+                                    "What's the most embarrassing thing you've done?",
+                                    "Have you ever cheated on a test?",
+                                    "What's your guilty pleasure?",
+                                    "What's the worst gift you've ever received?",
+                                    "What's something you've never told your parents?",
+                                    "If you could switch lives with someone for a day, who would it be?",
+                                    "What's the weirdest dream you've ever had?"
+                                ];
+                                const dares = [
+                                    "Do 20 pushups right now! 💪",
+                                    "Sing a song for 30 seconds and send a voice note. 🎵",
+                                    "Dance without music for 1 minute. 💃",
+                                    "Send a voice note with your best animal impression. 🐵",
+                                    "Text your crush 'I think you're cute' and screenshot the reply. 😏",
+                                    "Eat a spoonful of something spicy. 🌶️",
+                                    "Let the group choose your profile picture for 1 hour. 📸",
+                                    "Speak in an accent for the next 5 messages. 🎭",
+                                    "Send a selfie with your eyes closed. 📷",
+                                    "Type your next message with your eyes closed. 👀"
+                                ];
+                                const isTruth = /\btruth\b/i.test(body || budy);
+                                const content = isTruth
+                                    ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}`
+                                    : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
+                                await m.reply(`${content}\n\n_Reply "truth" or "dare" for more!_\n_Use ${prefix}menu to see all commands_ 🎮`);
+                            }
+
+                            // C) Direct text response from engine
+                            else if (intent.type === 'text' && intent.text) {
+                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${intent.text}`, { quoted: m });
+                                session.context.push({ role: 'assistant', content: intent.text, time: Date.now() });
+                                if (session.context.length > 10) session.context.shift();
+                            }
+
+                            // D) General AI conversation
+                            else {
+                                const ownerNum = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
+                                const systemPrompt = `You are Maureonix, the AI assistant for Infinite Vybeflix. The owner is currently away.
+
+You are chatting with ${m.pushName || 'a user'} in ${m.isGroup ? 'a group' : 'private chat'}.
+Rules:
+- Be friendly, warm, and conversational. Use emojis.
+- If they want a bot feature, tell them the command with prefix ${prefix}
+- If they want games, suggest: ${prefix}trivia, ${prefix}slot, ${prefix}blackjack, ${prefix}rpg, ${prefix}pokemon, ${prefix}connect4
+- If they have info/requests for the owner, assure them it's saved and will be delivered
+- If they ask for the owner/creator/human/infinite/vybeflix, give them https://wa.me/${ownerNum} and offer to notify the owner
+- Keep responses under 300 words
+- Don't pretend to be the owner
+- If they seem distressed or in crisis, be extra kind and suggest talking to the owner directly
+- You can discuss any topic naturally`;
+
+                                const aiResult = await ultimateAI(body || budy, m.sender, 'deepseek', systemPrompt);
+                                let replyText = aiResult.text;
+
+                                // Owner handoff detection
+                                const wantsOwner = /(talk to (human|owner|creator)|real person|infinite|vybeflix|contact owner|i need the owner)/i.test(body || budy);
+                                if (wantsOwner && session.messageCount > 1) {
+                                    replyText += `\n\n👤 *Want to talk to the owner?*\nhttps://wa.me/${ownerNum}\n\nI'll let them know you reached out! 📬`;
+
+                                    if (!session.notifiedOwner) {
+                                        await nimesha.sendMessage(ownerNumber[0], {
+                                            text: `🚨 *User requesting owner contact*\n\nFrom: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLast: ${body || budy}\n\nUse ${prefix}pending to see all messages.`
+                                        }).catch(() => {});
+                                        session.notifiedOwner = true;
+                                    }
+                                }
+
+                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
+
+                                session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
+                                if (session.context.length > 10) session.context.shift();
+                            }
+
+                            // ── 7. PERIODIC OWNER NOTIFICATION ──
+                            if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
+                                const pendingCount = set.pendingMessages.find(p => p.from === m.sender)?.messages?.length || session.messageCount;
+                                const report = `📬 *Auto-AI Activity Report*\n\n` +
+                                    `User: ${m.sender}\n` +
+                                    `Name: ${m.pushName || 'unknown'}\n` +
+                                    `Messages: ${session.messageCount}\n` +
+                                    `Location: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\n` +
+                                    `Last: ${(body || budy).substring(0, 80)}...\n\n` +
+                                    `Use ${prefix}pending to review.\n` +
+                                    `Use ${prefix}autoai off to disable.`;
+                                await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
+                            }
+
+                        } catch (e) {
+                            console.error('[autoai away error]', e);
+                            // Silent fail - don't expose errors to user
+                        }
+                    }
+                }
+            }
+        }
+
+        if (autoAiHandled) return;
+        // ═══════════════════════════════════════════════════════════════
+        //  END AUTO-AI AWAY ASSISTANT
+        // ═══════════════════════════════════════════════════════════════
 
         // Private chat — block commands for non-owners
         if (!m.isGroup && !isCreator && isCmd) return;
