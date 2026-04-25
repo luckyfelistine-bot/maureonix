@@ -382,7 +382,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         // ========== SELF‑CHAT (OWNER, NO PREFIX) – INTELLIGENT COMMAND EXECUTION ==========
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
-            // === LOOP PREVENTION: ignore bot's own replies (2 sec cooldown) ===
+            // Ignore bot's own replies (prevent loops) – simple cooldown
             const now = Date.now();
             const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
             if (now - lastSelfReply < 2000) return;
@@ -392,7 +392,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
             const userMessage = body || budy;
             if (userMessage.trim().length === 0) return;
 
-            // Use enhancedAI to detect intent (command or plain chat)
             if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
             try {
                 const { enhancedAI, sendLongMessage } = require('./lib/ai');
@@ -400,22 +399,41 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
                 if (result.type === 'function') {
                     // === EXECUTE A REAL COMMAND ===
-                    const cmd = result.function;      // e.g., 'song', 'remindme', 'video', 'google'
+                    const cmd = result.function;      // e.g., 'song', 'remindme', 'video'
                     const args = result.args;         // array of arguments
                     const syntheticText = cmd + ' ' + args.join(' ');
-                    
-                    // Create a synthetic context to run the command
+
+                    // Build a synthetic context using the existing variables (not ctx!)
                     const syntheticCtx = {
-                        ...ctx,                       // copy all existing ctx (db, store, set, etc.)
-                        command: cmd,
-                        args: args,
-                        text: syntheticText,
-                        q: syntheticText,
-                        isCmd: true,                  // pretend it's a command
-                        prefix: prefix,
-                        fromMe: true,                 // mark as from owner
+                        // All required variables that nima_commands expects
+                        mess, isCmd: true, command: cmd, args, text: syntheticText,
+                        q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
+                        set, sewa, premium, db, store, botNumber,
+                        suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
+                        checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
+                        tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
+                        tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
+                        tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
+                        isVip, isBan, isLimit, isPremium, isNsfw,
+                        author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
+                        setv, fkontak, readmore, fileSha256, budy, body,
+                        AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
+                        RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
+                        slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+                        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
+                        daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+                        OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
+                        APISports, OddsAPI, ESPN,
+                        ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+                        twitterDownload, spotifyDownload, pinterestDownload,
+                        redditDownload, soundcloudDownload, threadsDownload,
+                        capcutDownload, likeeDownload, snapchatDownload,
+                        vimeoDownload, dailymotionDownload, mediafireDownload,
+                        gdriveDownload, apkDownload,
+                        toAudio, toPTT, toVideo, generateMenuImage,
+                        runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
+                        pickRandom, similarity, almost, cases, getBuffer, writeExif
                     };
-                    // Import and run the command handler
                     const handleCommand = require('./nima_commands');
                     await handleCommand(nimesha, m, syntheticCtx);
                 } else {
