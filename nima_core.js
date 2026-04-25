@@ -379,33 +379,170 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // Determine if this is a self‑chat (owner messaging own bot number)
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
+       
 
-        // ========== SELF‑CHAT (OWNER, NO PREFIX) – INTELLIGENT COMMAND EXECUTION ==========
+ // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – FULL CONTROL ==========
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
-            // Ignore bot's own replies (prevent loops) – simple cooldown
+            // Ignore bot's own replies (2-second cooldown prevents loops)
             const now = Date.now();
             const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
             if (now - lastSelfReply < 2000) return;
             if (!db.lastSelfReply) db.lastSelfReply = {};
             db.lastSelfReply[m.sender] = now;
 
-            const userMessage = body || budy;
-            if (userMessage.trim().length === 0) return;
+            const userMessage = (body || budy).trim();
+            if (userMessage.length === 0) return;
 
             if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+
             try {
+                // Use enhanced AI to detect both bot commands AND system actions
                 const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                const result = await enhancedAI(userMessage, m.sender, 'deepseek');
+                let result = await enhancedAI(userMessage, m.sender, 'deepseek');
 
+                // If enhancedAI could not classify, try a fallback direct intent detection
+                if (!result || (!result.type && !result.text)) {
+                    const { detectIntent } = require('./lib/ai');
+                    const intent = detectIntent(userMessage);
+                    if (intent) {
+                        result = { type: 'function', function: intent, args: [] };
+                    } else {
+                        result = { type: 'text', text: 'I am Maureonix, your AI assistant. How can I help?' };
+                    }
+                }
+
+                // Handle different response types
                 if (result.type === 'function') {
-                    // === EXECUTE A REAL COMMAND ===
-                    const cmd = result.function;      // e.g., 'song', 'remindme', 'video'
-                    const args = result.args;         // array of arguments
-                    const syntheticText = cmd + ' ' + args.join(' ');
+                    const cmd = result.function;
+                    const args = result.args || [];
 
-                    // Build a synthetic context using the existing variables (not ctx!)
+                    // ========== SYSTEM / ADMIN COMMANDS (not in normal bot commands) ==========
+                    // These are special actions that only the owner can invoke via self‑chat.
+                    let systemActionHandled = false;
+
+                    switch (cmd) {
+                        case 'sysinfo':
+                        case 'systeminfo':
+                            const os = require('os');
+                            const memUsage = (os.totalmem() - os.freemem()) / 1024 / 1024;
+                            const totalMem = os.totalmem() / 1024 / 1024;
+                            const info = `🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`;
+                            await m.reply(info);
+                            systemActionHandled = true;
+                            break;
+
+                        case 'restart':
+                        case 'reboot':
+                            await m.reply('🔄 Restarting bot...');
+                            setTimeout(() => { process.exit(0); }, 1000);
+                            systemActionHandled = true;
+                            break;
+
+                        case 'backup':
+                        case 'backupdb':
+                            const backupPath = path.join(__dirname, '../database', `backup_${Date.now()}.json`);
+                            try {
+                                fs.writeFileSync(backupPath, JSON.stringify(db, null, 2));
+                                await nimesha.sendMessage(m.chat, { document: { url: backupPath }, fileName: path.basename(backupPath) });
+                                fs.unlinkSync(backupPath);
+                                await m.reply('✅ Database backup sent.');
+                            } catch(e) { await m.reply(`❌ Backup failed: ${e.message}`); }
+                            systemActionHandled = true;
+                            break;
+
+                        case 'logs':
+                        case 'lastlog':
+                            const LOG_FILE = path.join(__dirname, '../logs/error.log'); // adjust path as needed
+                            if (fs.existsSync(LOG_FILE)) {
+                                const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
+                                await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 characters of error log*\n\n${logs}`, { quoted: m });
+                            } else {
+                                await m.reply('No log file found.');
+                            }
+                            systemActionHandled = true;
+                            break;
+
+                        case 'editconfig':
+                            // Usage: editconfig settings.js global.botname = "NewName"
+                            if (!args[0] || args[0].length < 3) {
+                                await m.reply('Usage: editconfig <key> = <value>\nExample: editconfig global.botname = "SuperBot"');
+                            } else {
+                                try {
+                                    const full = args.join(' ');
+                                    const eqIndex = full.indexOf('=');
+                                    if (eqIndex === -1) throw new Error('Missing "="');
+                                    const key = full.slice(0, eqIndex).trim();
+                                    const value = full.slice(eqIndex + 1).trim();
+                                    eval(key + ' = ' + value);
+                                    await m.reply(`✅ Updated ${key} = ${value}`);
+                                } catch(e) { await m.reply(`❌ Edit failed: ${e.message}`); }
+                            }
+                            systemActionHandled = true;
+                            break;
+
+                        case 'exec':
+                            // Direct shell command (extreme caution – only for owner)
+                            const commandLine = args.join(' ');
+                            if (!commandLine) {
+                                await m.reply('Usage: exec <shell command>');
+                            } else {
+                                const { exec } = require('child_process');
+                                exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
+                                    const output = stdout || stderr || (err && err.message);
+                                    m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
+                                });
+                            }
+                            systemActionHandled = true;
+                            break;
+
+                        case 'addprem':
+                        case 'removeprem':
+                            // Usage: addprem 254712345678
+                            const targetNum = (args[0] || '').replace(/[^0-9]/g, '');
+                            if (!targetNum) {
+                                await m.reply(`Usage: ${cmd} 254712345678`);
+                            } else {
+                                const jid = targetNum + '@s.whatsapp.net';
+                                const isAdd = cmd === 'addprem';
+                                const existing = db.premium.find(p => p.id === jid);
+                                if (isAdd && !existing) {
+                                    db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
+                                    await m.reply(`✅ Added premium for +${targetNum}`);
+                                } else if (!isAdd && existing) {
+                                    db.premium = db.premium.filter(p => p.id !== jid);
+                                    await m.reply(`❌ Removed premium for +${targetNum}`);
+                                } else {
+                                    await m.reply(isAdd ? 'Already premium' : 'Not premium');
+                                }
+                            }
+                            systemActionHandled = true;
+                            break;
+
+                        case 'ban':
+                        case 'unban':
+                            const banTarget = (args[0] || '').replace(/[^0-9]/g, '');
+                            if (!banTarget) {
+                                await m.reply(`Usage: ${cmd} 254712345678`);
+                            } else {
+                                const banJid = banTarget + '@s.whatsapp.net';
+                                if (!db.users[banJid]) db.users[banJid] = {};
+                                if (cmd === 'ban') db.users[banJid].ban = true;
+                                else delete db.users[banJid].ban;
+                                await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
+                            }
+                            systemActionHandled = true;
+                            break;
+                    }
+
+                    if (systemActionHandled) {
+                        // Already replied – exit
+                        return;
+                    }
+
+                    // If not a system action, treat as a normal bot command
+                    const syntheticText = cmd + ' ' + args.join(' ');
                     const syntheticCtx = {
-                        // All required variables that nima_commands expects
+                        // All context variables from the core (same as before)
                         mess, isCmd: true, command: cmd, args, text: syntheticText,
                         q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
                         set, sewa, premium, db, store, botNumber,
@@ -416,7 +553,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
                         isVip, isBan, isLimit, isPremium, isNsfw,
                         author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
-                        setv, fkontak, readmore, fileSha256, budy, body,
+                        setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
                         AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
                         RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
                         slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
@@ -437,16 +574,15 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     const handleCommand = require('./nima_commands');
                     await handleCommand(nimesha, m, syntheticCtx);
                 } else {
-                    // === PURE AI CONVERSATION ===
+                    // Pure AI conversation
                     await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
                 }
             } catch (e) {
                 console.error('[selfchat error]', e);
-                await m.reply(`❌ Error: ${e.message}`);
+                await m.reply(`❌ Error: ${e.message}\n\nPlease try again or use the command with prefix directly.`);
             }
             return;
         }
-
         // 2) Private message from a stranger (not owner, not group, not status)
         if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
             const mode = set.privatemode || 'off';
@@ -718,8 +854,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
 
-        // ========== 🧠 ENHANCED CRISIS INTERVENTION SYSTEM ==========
-        if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+        // ========== 🧠 ENHANCED CRISIS INTERVENTION SYSTEM (WITH SCOPE CONTROL) ==========
+        const crisisScope = db.set?.crisisScope || 'all';
+        let shouldProcessCrisis = false;
+
+        if (crisisScope === 'off') {
+            shouldProcessCrisis = false;
+        } else if (crisisScope === 'dm') {
+            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
+        } else if (crisisScope === 'groups') {
+            shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
+        } else { // 'all'
+            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
+        }
+
+        if (shouldProcessCrisis && (body || budy)) {
             const userMessage = body || budy;
             const crisis = AI.detectCrisis(userMessage);
             
@@ -739,7 +888,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const { verifyCrisisWithAI } = require('./lib/ai');
                         const verification = await verifyCrisisWithAI(userMessage, m.sender);
                         if (!verification.isDistress) {
-                            // Not a real crisis, just log and ignore
                             console.log(`[Crisis] AI overrode: ${userMessage} – reason: ${verification.reason}`);
                             verified = false;
                         }

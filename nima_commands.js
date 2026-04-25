@@ -784,7 +784,7 @@ module.exports = async (nimesha, m, ctx) => {
         break
 
         // ═══════════════════════════════════════════════════════════════
-        //  UNIVERSAL VIDEO DOWNLOADER — works across ALL platforms
+        //  UNIVERSAL DOWNLOADER — MAUREONIX ENGINE v5.3
         // ═══════════════════════════════════════════════════════════════
         case 'video':
         case 'vid':
@@ -793,21 +793,25 @@ module.exports = async (nimesha, m, ctx) => {
             if (!text) return m.reply(`🎬 *Usage:* ${prefix + command} <url or query>\nQuality: add a number (e.g., .video 720 https://... )`);
             let input = text.trim();
             let quality = 'best';
-            const qMatch = input.match(/^(2160|1440|1080|720|480|360|240)\s/);
+            const qMatch = input.match(/^(2160|1440|1080|720|480|360|240)\s+/);
             if (qMatch) { quality = qMatch[1]; input = input.slice(qMatch[0].length).trim(); }
             let url = input;
+            let searchMeta = null;
             if (!isUrl(url)) {
                 const yts = require('yt-search');
                 const sr = await yts(url);
                 if (!sr.videos?.length) return m.reply('❌ No results');
                 url = sr.videos[0].url;
+                searchMeta = sr.videos[0];
             }
-            const statusMsg = await m.reply(`⏳ Downloading video (${quality})...`);
+            const statusMsg = await m.reply(`⏳ Downloading video (${quality === 'best' ? 'best' : quality + 'p'})...`);
             try {
                 const files = await smartDownload(url, { audioOnly: false, quality, onProgress: (msg) => console.log(msg) });
                 for (const fp of files) {
                     const safe = await ensureUnderLimit(fp);
-                    const caption = `🎬 *Video* — ${getFileSizeMB(safe).to. Fixed(1)} MB`;
+                    const size = getFileSizeMB(safe);
+                    const title = searchMeta?.title || path.basename(safe);
+                    const caption = `🎬 *${title}*\n📦 ${size.toFixed(1)} MB`;
                     await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe), caption }, { quoted: m });
                     cleanupFile(fp);
                 }
@@ -818,95 +822,77 @@ module.exports = async (nimesha, m, ctx) => {
         }
         break
 
-        case 'song': case 'mp3': case 'ytmp3': case 'play': case 'play2': case 'ytmp3': case 'music': case 'audio': {
+        case 'song':
+        case 'mp3':
+        case 'ytmp3':
+        case 'play':
+        case 'music':
+        case 'audio': {
             if (!text) return m.reply(`🎵 *Universal Audio Downloader*\n\nUsage: ${prefix + command} <query or url>\n\nWorks with YouTube, SoundCloud, Bandcamp, Audiomack, Mixcloud, and more.`);
-
+            let url = text.trim();
+            let searchMeta = null;
+            if (!isUrl(url)) {
+                await m.reply(`🔍 Searching: *${text}*`);
+                const yts = require('yt-search');
+                const sr = await yts(text);
+                if (!sr.videos?.length) return m.reply('❌ No results found');
+                url = sr.videos[0].url;
+                searchMeta = sr.videos[0];
+            }
+            const statusMsg = await m.reply('🎵 Downloading audio...');
             try {
-                const { universalDownload } = require('./lib/downloader');
-                let url = text.trim();
-
-                // If not a URL, search YouTube
-                if (!url.startsWith('http')) {
-                    await m.reply(`🔍 Searching: *${text}*`);
-                    const yts = require('yt-search');
-                    const sr = await yts(text);
-                    if (!sr.videos?.length) throw new Error('No results found');
-                    url = sr.videos[0].url;
-                }
-
-                await m.reply(`🎵 Downloading audio...`);
-
-                const result = await universalDownload(url, { audio: true });
-
-                if (result.local) {
-                    const buffer = fs.readFileSync(result.url);
+                const files = await smartDownload(url, { audioOnly: true });
+                for (const fp of files) {
+                    const safe = await ensureUnderLimit(fp);
+                    const title = searchMeta?.title || path.basename(safe).replace(/\.[^.]+$/, '');
                     await nimesha.sendMessage(m.chat, {
-                        audio: buffer,
+                        audio: fs.readFileSync(safe),
                         mimetype: 'audio/mpeg',
-                        fileName: `${result.title}.mp3`,
+                        fileName: `${title}.mp3`,
                         ptt: false
                     }, { quoted: m });
-                    fs.unlinkSync(result.url);
-                } else {
-                    await nimesha.sendMessage(m.chat, {
-                        audio: { url: result.url },
-                        mimetype: 'audio/mpeg',
-                        fileName: `${result.title}.mp3`,
-                        ptt: false
-                    }, { quoted: m });
+                    cleanupFile(fp);
                 }
+                await nimesha.sendMessage(m.chat, { text: `✅ Audio sent! (${files.length} track${files.length > 1 ? 's' : ''})`, edit: statusMsg.key });
             } catch (e) {
-                m.reply(`❌ Audio download failed:\n${e.message}`);
+                await nimesha.sendMessage(m.chat, { text: `❌ ${e.message}`, edit: statusMsg.key });
             }
         }
         break
 
-        case 'play2': case 'yplay': {
+        case 'play2':
+        case 'yplay': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
-            await m.reply('🎵 *Searching & Downloading...*');
+            const statusMsg = await m.reply('🎵 *Searching & Downloading...*');
             try {
                 const yts = require('yt-search');
-                const { universalDownload } = require('./lib/downloader');
                 const sr = await yts(text);
                 if (!sr.videos?.length) throw new Error('No results');
                 const video = sr.videos[0];
-                const result = await universalDownload(video.url, { audio: true });
-
-                if (result.local) {
-                    const buffer = fs.readFileSync(result.url);
+                const files = await smartDownload(video.url, { audioOnly: true });
+                for (const fp of files) {
+                    const safe = await ensureUnderLimit(fp);
+                    const title = video.title || path.basename(safe).replace(/\.[^.]+$/, '');
                     await nimesha.sendMessage(m.chat, {
-                        audio: buffer,
+                        audio: fs.readFileSync(safe),
                         mimetype: 'audio/mpeg',
-                        fileName: `${result.title}.mp3`,
+                        fileName: `${title}.mp3`,
                         ptt: false,
                         contextInfo: {
                             externalAdReply: {
                                 title: video.title,
-                                body: video.author.name,
+                                body: video.author?.name || 'YouTube',
                                 thumbnailUrl: video.thumbnail,
-                                sourceUrl: video.url
+                                sourceUrl: video.url,
+                                mediaType: 2
                             }
                         }
                     }, { quoted: m });
-                    fs.unlinkSync(result.url);
-                } else {
-                    await nimesha.sendMessage(m.chat, {
-                        audio: { url: result.url },
-                        mimetype: 'audio/mpeg',
-                        fileName: `${result.title}.mp3`,
-                        ptt: false,
-                        contextInfo: {
-                            externalAdReply: {
-                                title: video.title,
-                                body: video.author.name,
-                                thumbnailUrl: video.thumbnail,
-                                sourceUrl: video.url
-                            }
-                        }
-                    }, { quoted: m });
+                    cleanupFile(fp);
                 }
+                await nimesha.sendMessage(m.chat, { text: `✅ *${video.title}* sent!`, edit: statusMsg.key });
             } catch (e) {
-                m.reply(`❌ ${e.message}`);
+                await nimesha.sendMessage(m.chat, { text: `❌ ${e.message}`, edit: statusMsg.key });
             }
         }
         break
@@ -915,17 +901,16 @@ module.exports = async (nimesha, m, ctx) => {
         case 'sp':
         case 'spot': {
             if (!text) return m.reply(`🟢 *Usage:* ${prefix + command} <track/album/playlist url>`);
+            if (!isUrl(text)) return m.reply('❌ Provide a valid Spotify URL');
             const statusMsg = await m.reply('🟢 Processing Spotify...');
-            const url = text.trim();
-            if (!isUrl(url)) return m.reply('❌ Provide a valid Spotify URL');
             try {
-                const files = await smartDownload(url, { audioOnly: true });
+                const files = await smartDownload(text.trim(), { audioOnly: true });
                 for (const fp of files) {
                     const safe = await ensureUnderLimit(fp);
                     await nimesha.sendMessage(m.chat, {
                         audio: fs.readFileSync(safe),
                         mimetype: 'audio/mpeg',
-                        fileName: path.basename(safe),
+                        fileName: path.basename(safe)
                     }, { quoted: m });
                     cleanupFile(fp);
                 }
@@ -941,10 +926,13 @@ module.exports = async (nimesha, m, ctx) => {
             const statusMsg = await m.reply('📱 Searching APK...');
             let url = text.trim();
             if (!isUrl(url)) {
-                // Simple search using fetchURLs (site:apkpure.com)
-                const found = await fetchURLs(url, { site: 'apkpure.com', count: 1 });
-                if (!found.length) return m.reply('❌ No APK found');
-                url = found[0];
+                try {
+                    const found = await fetchURLs(text, { site: 'apkpure.com', count: 3 });
+                    if (!found.length) return m.reply('❌ No APK found');
+                    url = found[0];
+                } catch (e) {
+                    return m.reply(`❌ Search failed: ${e.message}`);
+                }
             }
             try {
                 const files = await smartDownload(url);
@@ -953,7 +941,7 @@ module.exports = async (nimesha, m, ctx) => {
                     await nimesha.sendMessage(m.chat, {
                         document: fs.readFileSync(safe),
                         mimetype: 'application/vnd.android.package-archive',
-                        fileName: path.basename(safe),
+                        fileName: path.basename(safe)
                     }, { quoted: m });
                     cleanupFile(fp);
                 }
@@ -963,6 +951,7 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
+
         case 'dl':
         case 'download':
         case 'get': {
@@ -973,23 +962,29 @@ module.exports = async (nimesha, m, ctx) => {
             let input = text.trim();
             let audioOnly = false;
             let quality = 'best';
-            if (/^audio\s/i.test(input)) { audioOnly = true; input = input.slice(6).trim(); }
-            const qMatch = input.match(/^(2160|1440|1080|720|480|360|240)\s/);
+            if (/^audio\s+/i.test(input)) { audioOnly = true; input = input.slice(6).trim(); }
+            const qMatch = input.match(/^(2160|1440|1080|720|480|360|240)\s+/);
             if (qMatch) { quality = qMatch[1]; input = input.slice(qMatch[0].length).trim(); }
             const urls = extractURLs(input);
             if (!urls.length) return m.reply('❌ No valid URLs found.');
-            const statusMsg = await m.reply(urls.length > 1 ? `📦 Bulk download (${urls.length} URLs) queued...` : `⏳ Fetching ${urls[0].slice(0, 60)}...`);
+            const isBulk = urls.length > 1;
+            const statusMsg = await m.reply(isBulk ? `📦 Bulk download queued (${urls.length} URLs)...` : `⏳ Fetching ${urls[0].slice(0, 55)}...`);
             try {
-                if (urls.length === 1) {
+                if (!isBulk) {
                     const files = await smartDownload(urls[0], { audioOnly, quality });
                     for (const fp of files) {
                         const safe = await ensureUnderLimit(fp);
                         const mime = guessMime(safe);
                         const cap = `📥 ${getFileSizeMB(safe).toFixed(1)} MB`;
-                        if (mime === 'video') await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe), caption: cap }, { quoted: m });
-                        else if (mime === 'audio') await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
-                        else if (mime === 'photo') await nimesha.sendMessage(m.chat, { image: fs.readFileSync(safe), caption: cap }, { quoted: m });
-                        else await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                        if (mime.startsWith('video/')) {
+                            await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe), caption: cap }, { quoted: m });
+                        } else if (mime.startsWith('audio/')) {
+                            await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
+                        } else if (mime.startsWith('image/')) {
+                            await nimesha.sendMessage(m.chat, { image: fs.readFileSync(safe), caption: cap }, { quoted: m });
+                        } else {
+                            await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                        }
                         cleanupFile(fp);
                     }
                 } else {
@@ -998,9 +993,13 @@ module.exports = async (nimesha, m, ctx) => {
                         for (const fp of files) {
                             const safe = await ensureUnderLimit(fp);
                             const mime = guessMime(safe);
-                            if (mime === 'video') await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe) }, { quoted: m });
-                            else if (mime === 'audio') await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
-                            else await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                            if (mime.startsWith('video/')) {
+                                await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe) }, { quoted: m });
+                            } else if (mime.startsWith('audio/')) {
+                                await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
+                            } else {
+                                await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                            }
                             cleanupFile(fp);
                         }
                     }
@@ -1012,23 +1011,23 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
+
         case 'fetch':
         case 'search':
         case 'find': {
             if (!text) return m.reply('🔍 *Usage:* `.fetch <query>` — finds downloadable URLs\n`.fetch 20 cats` — limit to 20 URLs\n`.fetch site:youtube.com 5 lofi` — scoped');
             let count = 10;
             let query = text.trim();
-            const countMatch = query.match(/^(\d+)\s/);
+            const countMatch = query.match(/^(\d+)\s+/);
             if (countMatch) { count = Math.min(parseInt(countMatch[1], 10), 50); query = query.slice(countMatch[0].length).trim(); }
             let site = null;
-            const siteMatch = query.match(/^site:(\S+)\s/);
+            const siteMatch = query.match(/^site:(\S+)\s+/i);
             if (siteMatch) { site = siteMatch[1]; query = query.slice(siteMatch[0].length).trim(); }
             const statusMsg = await m.reply(`🔍 Searching for ${count} URLs: "${query}"...`);
             try {
                 const urls = await fetchURLs(query, { count, site });
                 if (!urls.length) return m.reply('❌ No URLs found.');
                 const list = urls.map((u, i) => `${i+1}. ${u.slice(0, 70)}`).join('\n');
-                // Store in db for later use with .dlall
                 if (!db.fetchedURLs) db.fetchedURLs = {};
                 db.fetchedURLs[m.sender] = urls;
                 await m.reply(`✅ Found ${urls.length} URLs:\n\n${list}\n\n_Send ${prefix}dlall to download all._`);
@@ -1037,6 +1036,7 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
+
         case 'dlall':
         case 'downloadall':
         case 'getall': {
@@ -1050,9 +1050,13 @@ module.exports = async (nimesha, m, ctx) => {
                     for (const fp of files) {
                         const safe = await ensureUnderLimit(fp);
                         const mime = guessMime(safe);
-                        if (mime === 'video') await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe) }, { quoted: m });
-                        else if (mime === 'audio') await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
-                        else await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                        if (mime.startsWith('video/')) {
+                            await nimesha.sendMessage(m.chat, { video: fs.readFileSync(safe) }, { quoted: m });
+                        } else if (mime.startsWith('audio/')) {
+                            await nimesha.sendMessage(m.chat, { audio: fs.readFileSync(safe), mimetype: 'audio/mpeg' }, { quoted: m });
+                        } else {
+                            await nimesha.sendMessage(m.chat, { document: fs.readFileSync(safe), fileName: path.basename(safe) }, { quoted: m });
+                        }
                         cleanupFile(fp);
                     }
                 }
@@ -1063,7 +1067,6 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
-
         // ===== SEARCH COMMANDS =====
         case 'google': case 'g': case 'search': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
@@ -4203,18 +4206,53 @@ JSON:`;
 
         case 'crisiscancel': {
             if (!isCreator) return m.reply(mess.owner);
-            const target = m.mentionedJid?.[0];
-            if (!target) return m.reply('Tag the user to cancel crisis mode.\nExample: `.crisiscancel @user`');
+            let target = m.mentionedJid?.[0];
+            // If no mention, try to get a phone number from args (without @)
+            if (!target && args[0]) {
+                let num = args[0].replace(/[^0-9]/g, '');
+                if (num.length >= 9) {
+                    target = num + '@s.whatsapp.net';
+                }
+            }
+            // Also check if a quoted message exists (then use its sender)
+            if (!target && m.quoted?.sender) {
+                target = m.quoted.sender;
+            }
+            if (!target) return m.reply('❌ Please tag the user, reply to their message, or provide their phone number.\nExample: `.crisiscancel @user` or `.crisiscancel 254712345678`');
+            
             if (db.crisisPending?.[target]) {
                 delete db.crisisPending[target];
                 await m.reply(`✅ Crisis mode cancelled for @${target.split('@')[0]}. They will now need prefix to talk to me.`, { mentions: [target] });
-                // Optionally send a message to the user
                 await nimesha.sendMessage(target, { text: '🕊️ *The crisis support session has ended.*\n\nIf you need help again, just type anything – I will listen. You are not alone.' }).catch(() => {});
             } else {
                 m.reply(`❌ No active crisis mode found for @${target.split('@')[0]}.`);
             }
         }
         break
+
+        case 'crisisscope': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!args[0]) {
+                const current = db.set?.crisisScope || 'all';
+                return m.reply(`🔍 *Crisis Detection Scope*\nCurrent: ${current}\n\nOptions:\n• dm - monitor only private chats (owner DMs)\n• groups - monitor only groups\n• all - monitor both (default)\n• off - disable entirely\n\nUsage: ${prefix}crisisscope <option>`);
+            }
+            const option = args[0].toLowerCase();
+            if (!['dm', 'groups', 'all', 'off'].includes(option)) {
+                return m.reply('❌ Invalid option. Choose: dm, groups, all, off');
+            }
+            if (!db.set) db.set = {};
+            db.set.crisisScope = option;
+            if (option === 'off') {
+                db.set.crisisDetection = false;
+                m.reply(`✅ Crisis detection set to OFF. No automatic monitoring will occur.`);
+            } else {
+                db.set.crisisDetection = true;
+                let description = option === 'dm' ? 'private messages (owner DMs)' : option === 'groups' ? 'groups' : 'both private chats and groups';
+                m.reply(`✅ Crisis detection scope set to *${option}*. I will monitor ${description}.`);
+            }
+        }
+        break
+
         // ===== MENU COMMANDS =====
         case 'menu': case 'help': case 'allmenu': {
             try {
