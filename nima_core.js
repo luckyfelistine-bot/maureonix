@@ -381,90 +381,90 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
        
 
- // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – FULL CONTROL ==========
+        // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
         if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
-            // Ignore bot's own replies (2-second cooldown prevents loops)
             const now = Date.now();
             const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
             if (now - lastSelfReply < 2000) return;
-            if (!db.lastSelfReply) db.lastSelfReply = {};
+            db.lastSelfReply = db.lastSelfReply || {};
             db.lastSelfReply[m.sender] = now;
 
             const userMessage = (body || budy).trim();
-            if (userMessage.length === 0) return;
+            if (!userMessage) return;
 
-            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+            if (set.autotyping) {
+                await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
+            }
 
             try {
-                // Use enhanced AI to detect both bot commands AND system actions
-                const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                let result = await enhancedAI(userMessage, m.sender, 'deepseek');
+                const { selfChatAI, sendLongMessage, think } = require('./lib/ai');
 
-                // If enhancedAI could not classify, try a fallback direct intent detection
-                if (!result || (!result.type && !result.text)) {
-                    const { detectIntent } = require('./lib/ai');
-                    const intent = detectIntent(userMessage);
-                    if (intent) {
-                        result = { type: 'function', function: intent, args: [] };
-                    } else {
-                        result = { type: 'text', text: 'I am Maureonix, your AI assistant. How can I help?' };
+                // Use chain-of-thought for complex requests, fast path for simple ones
+                let result = await selfChatAI(userMessage, m.sender);
+
+                // If the AI is unsure (low confidence), make it think harder
+                if (result.source === 'llm' && result.type === 'text' && userMessage.length > 15) {
+                    const thought = await think(`The owner said: "${userMessage}". Should I execute a command or just chat?`, m.sender);
+                    if (thought.text.toLowerCase().includes('command') || thought.text.toLowerCase().includes('execute')) {
+                        // Re-parse with more context
+                        const reparse = await selfChatAI(`${userMessage} (execute this as a command)`, m.sender);
+                        if (reparse.type === 'function') result = reparse;
                     }
                 }
 
-                // Handle different response types
-                if (result.type === 'function') {
-                    const cmd = result.function;
-                    const args = result.args || [];
+                // ── Pure conversation ──
+                if (result.type !== 'function' || !result.function) {
+                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text || '...'}`, { quoted: m });
+                    return;
+                }
 
-                    // ========== SYSTEM / ADMIN COMMANDS (not in normal bot commands) ==========
-                    // These are special actions that only the owner can invoke via self‑chat.
-                    let systemActionHandled = false;
+                const cmd = String(result.function).toLowerCase().trim();
+                const args = Array.isArray(result.args) ? result.args : [];
+                const syntheticText = [cmd, ...args].join(' ');
 
+                // ── SYSTEM COMMANDS (owner-only, never routed to nima_commands) ──
+                const systemHandled = await (async () => {
                     switch (cmd) {
                         case 'sysinfo':
-                        case 'systeminfo':
+                        case 'systeminfo': {
                             const os = require('os');
                             const memUsage = (os.totalmem() - os.freemem()) / 1024 / 1024;
                             const totalMem = os.totalmem() / 1024 / 1024;
-                            const info = `🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`;
-                            await m.reply(info);
-                            systemActionHandled = true;
-                            break;
-
+                            await m.reply(`🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`);
+                            return true;
+                        }
                         case 'restart':
-                        case 'reboot':
+                        case 'reboot': {
                             await m.reply('🔄 Restarting bot...');
-                            setTimeout(() => { process.exit(0); }, 1000);
-                            systemActionHandled = true;
-                            break;
-
+                            setTimeout(() => process.exit(0), 1000);
+                            return true;
+                        }
                         case 'backup':
-                        case 'backupdb':
+                        case 'backupdb': {
                             const backupPath = path.join(__dirname, '../database', `backup_${Date.now()}.json`);
                             try {
                                 fs.writeFileSync(backupPath, JSON.stringify(db, null, 2));
                                 await nimesha.sendMessage(m.chat, { document: { url: backupPath }, fileName: path.basename(backupPath) });
                                 fs.unlinkSync(backupPath);
                                 await m.reply('✅ Database backup sent.');
-                            } catch(e) { await m.reply(`❌ Backup failed: ${e.message}`); }
-                            systemActionHandled = true;
-                            break;
-
+                            } catch (e) {
+                                await m.reply(`❌ Backup failed: ${e.message}`);
+                            }
+                            return true;
+                        }
                         case 'logs':
-                        case 'lastlog':
-                            const LOG_FILE = path.join(__dirname, '../logs/error.log'); // adjust path as needed
+                        case 'lastlog': {
+                            const LOG_FILE = path.join(__dirname, '../logs/error.log');
                             if (fs.existsSync(LOG_FILE)) {
                                 const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
-                                await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 characters of error log*\n\n${logs}`, { quoted: m });
+                                await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 chars of error log*\n\n${logs}`, { quoted: m });
                             } else {
                                 await m.reply('No log file found.');
                             }
-                            systemActionHandled = true;
-                            break;
-
-                        case 'editconfig':
-                            // Usage: editconfig settings.js global.botname = "NewName"
-                            if (!args[0] || args[0].length < 3) {
+                            return true;
+                        }
+                        case 'editconfig': {
+                            if (!args[0]) {
                                 await m.reply('Usage: editconfig <key> = <value>\nExample: editconfig global.botname = "SuperBot"');
                             } else {
                                 try {
@@ -475,111 +475,130 @@ const coreHandler = async (nimesha, m, msg, store) => {
                                     const value = full.slice(eqIndex + 1).trim();
                                     eval(key + ' = ' + value);
                                     await m.reply(`✅ Updated ${key} = ${value}`);
-                                } catch(e) { await m.reply(`❌ Edit failed: ${e.message}`); }
+                                } catch (e) {
+                                    await m.reply(`❌ Edit failed: ${e.message}`);
+                                }
                             }
-                            systemActionHandled = true;
-                            break;
-
-                        case 'exec':
-                            // Direct shell command (extreme caution – only for owner)
+                            return true;
+                        }
+                        case 'exec': {
                             const commandLine = args.join(' ');
                             if (!commandLine) {
                                 await m.reply('Usage: exec <shell command>');
-                            } else {
-                                const { exec } = require('child_process');
-                                exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
-                                    const output = stdout || stderr || (err && err.message);
-                                    m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
-                                });
+                                return true;
                             }
-                            systemActionHandled = true;
-                            break;
-
+                            const { exec } = require('child_process');
+                            exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
+                                const output = stdout || stderr || (err && err.message);
+                                m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
+                            });
+                            return true;
+                        }
                         case 'addprem':
-                        case 'removeprem':
-                            // Usage: addprem 254712345678
+                        case 'removeprem': {
                             const targetNum = (args[0] || '').replace(/[^0-9]/g, '');
                             if (!targetNum) {
                                 await m.reply(`Usage: ${cmd} 254712345678`);
-                            } else {
-                                const jid = targetNum + '@s.whatsapp.net';
-                                const isAdd = cmd === 'addprem';
-                                const existing = db.premium.find(p => p.id === jid);
-                                if (isAdd && !existing) {
-                                    db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
-                                    await m.reply(`✅ Added premium for +${targetNum}`);
-                                } else if (!isAdd && existing) {
-                                    db.premium = db.premium.filter(p => p.id !== jid);
-                                    await m.reply(`❌ Removed premium for +${targetNum}`);
-                                } else {
-                                    await m.reply(isAdd ? 'Already premium' : 'Not premium');
-                                }
+                                return true;
                             }
-                            systemActionHandled = true;
-                            break;
-
+                            const jid = targetNum + '@s.whatsapp.net';
+                            const isAdd = cmd === 'addprem';
+                            const existing = db.premium.find(p => p.id === jid);
+                            if (isAdd && !existing) {
+                                db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
+                                await m.reply(`✅ Added premium for +${targetNum}`);
+                            } else if (!isAdd && existing) {
+                                db.premium = db.premium.filter(p => p.id !== jid);
+                                await m.reply(`❌ Removed premium for +${targetNum}`);
+                            } else {
+                                await m.reply(isAdd ? 'Already premium' : 'Not premium');
+                            }
+                            return true;
+                        }
                         case 'ban':
-                        case 'unban':
+                        case 'unban': {
                             const banTarget = (args[0] || '').replace(/[^0-9]/g, '');
                             if (!banTarget) {
                                 await m.reply(`Usage: ${cmd} 254712345678`);
-                            } else {
-                                const banJid = banTarget + '@s.whatsapp.net';
-                                if (!db.users[banJid]) db.users[banJid] = {};
-                                if (cmd === 'ban') db.users[banJid].ban = true;
-                                else delete db.users[banJid].ban;
-                                await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
+                                return true;
                             }
-                            systemActionHandled = true;
-                            break;
+                            const banJid = banTarget + '@s.whatsapp.net';
+                            if (!db.users[banJid]) db.users[banJid] = {};
+                            if (cmd === 'ban') db.users[banJid].ban = true;
+                            else delete db.users[banJid].ban;
+                            await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
+                            return true;
+                        }
                     }
+                    return false;
+                })();
 
-                    if (systemActionHandled) {
-                        // Already replied – exit
-                        return;
-                    }
+                if (systemHandled) return;
 
-                    // If not a system action, treat as a normal bot command
-                    const syntheticText = cmd + ' ' + args.join(' ');
-                    const syntheticCtx = {
-                        // All context variables from the core (same as before)
-                        mess, isCmd: true, command: cmd, args, text: syntheticText,
-                        q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
-                        set, sewa, premium, db, store, botNumber,
-                        suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
-                        checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
-                        tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
-                        tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
-                        tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
-                        isVip, isBan, isLimit, isPremium, isNsfw,
-                        author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
-                        setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
-                        AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
-                        RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
-                        slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-                        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
-                        daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
-                        OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
-                        APISports, OddsAPI, ESPN,
-                        ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
-                        twitterDownload, spotifyDownload, pinterestDownload,
-                        redditDownload, soundcloudDownload, threadsDownload,
-                        capcutDownload, likeeDownload, snapchatDownload,
-                        vimeoDownload, dailymotionDownload, mediafireDownload,
-                        gdriveDownload, apkDownload,
-                        toAudio, toPTT, toVideo, generateMenuImage,
-                        runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-                        pickRandom, similarity, almost, cases, getBuffer, writeExif
-                    };
-                    const handleCommand = require('./nima_commands');
-                    await handleCommand(nimesha, m, syntheticCtx);
-                } else {
-                    // Pure AI conversation
-                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                // ── COMMAND WHITELIST ──
+                const AI_ALLOWED = new Set(ALL_COMMANDS);
+                // Add aliases
+                ['s', 'vid', 'ytmp4', 'ytmp3', 'music', 'audio', 'sp', 'spot', 'c4',
+                 'bj', 'dep', 'with', 'pay', 'inv', 'h', 'linkgc', 'del', 'd',
+                 'blokir', 'unblokir', 'sched', 'cuaca', 'g', 'tr', 'aiimage',
+                 'draw', 'create', 'askai', 'coding', 'program', '8b', 'wouldyourather',
+                 'wyr', 'ss', 'clips', 'store', 'gamesearch', 'eps', 'ontv',
+                 'livescore', 'table', 'headtohead', 'prediction', 'betting',
+                 'sportsnews', 'scoreboard', 'clearinbox', 'clearme', 'addnote',
+                 'mynotes', 'delnote', 'addtodo', 'check', 'cleartodo', 'tags',
+                 'phrases', 'time', 'unit', 'readtime', 'setawaymsg', 'awaymsg',
+                 'inbox', 'pendingclear', 'clearreminders', 'autogpt', 'selfchat',
+                 'allmenu', 'botmenu', 'groupmenu', 'downloadmenu', 'aimenu',
+                 'gamemenu', 'funmenu', 'stickermenu', 'searchmenu', 'economymenu',
+                 'ownermenu', 'sportsmenu', 'moviesmenu', 'casinomenu', 'rpgmenu',
+                 'mastermenu', 'adminmenu', 'autosettings', 'docsask'].forEach(a => AI_ALLOWED.add(a));
+
+                if (!AI_ALLOWED.has(cmd)) {
+                    await m.reply(`⚠️ Command ".${cmd}" is not available via AI intent. Use the prefix directly.`);
+                    return;
                 }
+
+                // ── BUILD SYNTHETIC CONTEXT ──
+                const syntheticCtx = {
+                    mess, isCmd: true, command: cmd, args, text: syntheticText,
+                    q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
+                    set, sewa, premium, db, store, botNumber,
+                    suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
+                    checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
+                    tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
+                    tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
+                    tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
+                    isVip, isBan, isLimit, isPremium, isNsfw,
+                    author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
+                    setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
+                    AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
+                    RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
+                    slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+                    gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
+                    daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+                    OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
+                    APISports, OddsAPI, ESPN,
+                    ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+                    twitterDownload, spotifyDownload, pinterestDownload,
+                    redditDownload, soundcloudDownload, threadsDownload,
+                    capcutDownload, likeeDownload, snapchatDownload,
+                    vimeoDownload, dailymotionDownload, mediafireDownload,
+                    gdriveDownload, apkDownload,
+                    toAudio, toPTT, toVideo, generateMenuImage,
+                    runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
+                    pickRandom, similarity, almost, cases, getBuffer, writeExif
+                };
+
+                const handleCommand = require('./nima_commands');
+                if (typeof handleCommand !== 'function') {
+                    throw new Error('Command handler is not a function — possible require cache corruption.');
+                }
+
+                await handleCommand(nimesha, m, syntheticCtx);
+
             } catch (e) {
-                console.error('[selfchat error]', e);
-                await m.reply(`❌ Error: ${e.message}\n\nPlease try again or use the command with prefix directly.`);
+                console.error('[SELF-CHAT FATAL]', e);
+                await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
             }
             return;
         }

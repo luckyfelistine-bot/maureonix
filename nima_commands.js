@@ -17,6 +17,7 @@ const {
     getFileSizeMB,
     cleanupFile,
     DL_DIR,
+    fetchRelated,
 } = require('./lib/downloader');
 
 module.exports = async (nimesha, m, ctx) => {
@@ -49,6 +50,26 @@ module.exports = async (nimesha, m, ctx) => {
         runtime, clockString, sleep, isUrl, generateProfilePicture,
         pickRandom, similarity, almost, cases
     } = ctx;
+
+    // Helper: send a downloaded file to WhatsApp
+    async function sendFile(filePath, captionExtra = '') {
+        const safe = await ensureUnderLimit(filePath);
+        const mime = guessMime(safe);
+        const sizeMB = getFileSizeMB(safe).toFixed(1);
+        const caption = captionExtra ? `${captionExtra} — ${sizeMB} MB` : `📥 ${sizeMB} MB`;
+        const buffer = fs.readFileSync(safe);
+        if (mime === 'video') {
+            await nimesha.sendMessage(m.chat, { video: buffer, caption }, { quoted: m });
+        } else if (mime === 'audio') {
+            await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg' }, { quoted: m });
+        } else if (mime === 'image') {
+            await nimesha.sendMessage(m.chat, { image: buffer, caption }, { quoted: m });
+        } else {
+            await nimesha.sendMessage(m.chat, { document: buffer, fileName: path.basename(safe), caption }, { quoted: m });
+        }
+        cleanupFile(filePath);
+    }
+
 
     // Only process if it's a command or fileSha256 media
     if (!isCmd && !fileSha256) return;
@@ -1067,6 +1088,229 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
+        case 'tiktok':
+        case 'tt':
+        case 'tik': {
+            let audioOnly = /^audio\s/i.test(text);
+            let inputText = audioOnly ? text.slice(6).trim() : text;
+            const urls = extractURLs(inputText);
+            if (!urls.length) {
+                return m.reply(
+                    '🎵 *TikTok Downloader*\n' +
+                    '`' + prefix + 'tt <url>` — video (no watermark)\n' +
+                    '`' + prefix + 'tt audio <url>` — audio only\n' +
+                    '`' + prefix + 'tt <url1> <url2>…` — bulk'
+                );
+            }
+            const statusMsg = await m.reply(`⏳ TikTok download${urls.length > 1 ? ` ×${urls.length}` : ''}…`);
+            let sent = 0, failed = [];
+            for (const url of urls) {
+                try {
+                    const files = await smartDownload(url, {
+                        audioOnly,
+                        onProgress: async (msg) => {
+                            await nimesha.sendMessage(m.chat, { text: `⏳ ${msg.slice(0, 100)}`, edit: statusMsg.key }).catch(() => {});
+                        },
+                    });
+                    for (const fp of files) {
+                        await sendFile(fp, `🎵 TikTok`);
+                        sent++;
+                    }
+                } catch (e) {
+                    failed.push({ url, error: e.message });
+                }
+            }
+            await nimesha.sendMessage(m.chat, { text: `✅ ${sent} file(s) sent${failed.length ? ` · ${failed.length} failed` : ''}`, edit: statusMsg.key }).catch(() => {});
+            if (failed.length) await m.reply(`❌ Failed:\n${failed.map(f => f.error.slice(0, 80)).join('\n')}`);
+        }
+        break
+        case 'instagram':
+        case 'ig':
+        case 'insta':
+        case 'reel': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('📸 *Usage:* `' + prefix + 'ig <url>` — reels, posts, carousels, stories');
+            const statusMsg = await m.reply(`📸 Fetching Instagram (${urls.length} URL${urls.length > 1 ? 's' : ''})…`);
+            let sent = 0, failed = [];
+            for (const url of urls) {
+                try {
+                    const files = await smartDownload(url, {
+                        onProgress: async (msg) => {
+                            await nimesha.sendMessage(m.chat, { text: `📸 ${msg.slice(0, 100)}`, edit: statusMsg.key }).catch(() => {});
+                        },
+                    });
+                    for (const fp of files) {
+                        await sendFile(fp, `📸 Instagram`);
+                        sent++;
+                    }
+                } catch (e) {
+                    failed.push({ url, error: e.message });
+                }
+            }
+            await nimesha.sendMessage(m.chat, { text: `✅ ${sent} sent${failed.length ? ` · ${failed.length} failed` : ''}`, edit: statusMsg.key }).catch(() => {});
+            if (failed.length) await m.reply(`❌ ${failed.map(f => f.error.slice(0, 80)).join('\n')}`);
+        }
+        break
+        case 'twitter':
+        case 'tw':
+        case 'x': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('🐦 *Usage:* `' + prefix + 'tw <url>`');
+            const statusMsg = await m.reply('🐦 Twitter/X media…');
+            let sent = 0, failed = [];
+            for (const url of urls) {
+                try {
+                    const files = await smartDownload(url, {
+                        onProgress: async (msg) => {
+                            await nimesha.sendMessage(m.chat, { text: `🐦 ${msg.slice(0, 100)}`, edit: statusMsg.key }).catch(() => {});
+                        },
+                    });
+                    for (const fp of files) {
+                        await sendFile(fp, `🐦 Twitter/X`);
+                        sent++;
+                    }
+                } catch (e) {
+                    failed.push({ url, error: e.message });
+                }
+            }
+            await nimesha.sendMessage(m.chat, { text: `✅ ${sent} sent${failed.length ? ` · ${failed.length} failed` : ''}`, edit: statusMsg.key }).catch(() => {});
+            if (failed.length) await m.reply(`❌ ${failed.map(f => f.error.slice(0, 80)).join('\n')}`);
+        }
+        break
+        case 'facebook':
+        case 'fb': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('👤 *Usage:* `' + prefix + 'fb <url>`');
+            const statusMsg = await m.reply('👤 Facebook video…');
+            let sent = 0, failed = [];
+            for (const url of urls) {
+                try {
+                    const files = await smartDownload(url, {
+                        onProgress: async (msg) => {
+                            await nimesha.sendMessage(m.chat, { text: `👤 ${msg.slice(0, 100)}`, edit: statusMsg.key }).catch(() => {});
+                        },
+                    });
+                    for (const fp of files) {
+                        await sendFile(fp, `👤 Facebook`);
+                        sent++;
+                    }
+                } catch (e) {
+                    failed.push({ url, error: e.message });
+                }
+            }
+            await nimesha.sendMessage(m.chat, { text: `✅ ${sent} sent${failed.length ? ` · ${failed.length} failed` : ''}`, edit: statusMsg.key }).catch(() => {});
+            if (failed.length) await m.reply(`❌ ${failed.map(f => f.error.slice(0, 80)).join('\n')}`);
+        }
+        break
+        case 'sc':
+        case 'soundcloud': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('🔊 *Usage:* `' + prefix + 'sc <url>` — track or playlist');
+            const statusMsg = await m.reply('🔊 SoundCloud…');
+            let sent = 0, failed = [];
+            for (const url of urls) {
+                try {
+                    const files = await smartDownload(url, {
+                        audioOnly: true,
+                        onProgress: async (msg) => {
+                            await nimesha.sendMessage(m.chat, { text: `🔊 ${msg.slice(0, 100)}`, edit: statusMsg.key }).catch(() => {});
+                        },
+                    });
+                    for (const fp of files) {
+                        await sendFile(fp, `🔊 SoundCloud`);
+                        sent++;
+                    }
+                } catch (e) {
+                    failed.push({ url, error: e.message });
+                }
+            }
+            await nimesha.sendMessage(m.chat, { text: `✅ ${sent} sent${failed.length ? ` · ${failed.length} failed` : ''}`, edit: statusMsg.key }).catch(() => {});
+            if (failed.length) await m.reply(`❌ ${failed.map(f => f.error.slice(0, 80)).join('\n')}`);
+        }
+        break
+        case 'gdrive':
+        case 'gd': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('📁 *Usage:* `' + prefix + 'gd <url>`');
+            const statusMsg = await m.reply('📁 Google Drive…');
+            try {
+                const files = await smartDownload(urls[0]);
+                for (const fp of files) {
+                    await sendFile(fp, `📁 GDrive`);
+                }
+                await nimesha.sendMessage(m.chat, { text: '✅ Done!', edit: statusMsg.key }).catch(() => {});
+            } catch (err) {
+                await nimesha.sendMessage(m.chat, { text: `❌ ${err.message.slice(0, 200)}`, edit: statusMsg.key }).catch(() => {});
+            }
+        }
+        break
+        case 'mediafire':
+        case 'mf': {
+            const urls = extractURLs(text);
+            if (!urls.length) return m.reply('📦 *Usage:* `' + prefix + 'mf <url>`');
+            const statusMsg = await m.reply('📦 MediaFire…');
+            try {
+                const files = await smartDownload(urls[0]);
+                for (const fp of files) {
+                    await sendFile(fp, `📦 MediaFire`);
+                }
+                await nimesha.sendMessage(m.chat, { text: '✅ Done!', edit: statusMsg.key }).catch(() => {});
+            } catch (err) {
+                await nimesha.sendMessage(m.chat, { text: `❌ ${err.message.slice(0, 200)}`, edit: statusMsg.key }).catch(() => {});
+            }
+        }
+        break
+        case 'related':
+        case 'similar':
+        case 'like': {
+            if (!text) {
+                return m.reply(
+                    '🔗 *Find Related Content*\n\n' +
+                    '`' + prefix + 'related <url>` — find 10 similar\n' +
+                    '`' + prefix + 'related 20 <url>` — find 20 similar\n' +
+                    '`' + prefix + 'related 15 <url> amapiano` — with extra keywords\n\n' +
+                    '_Works on TikTok, YouTube, SoundCloud, Instagram, and any site._\n' +
+                    '_After fetching, send ' + prefix + 'dlall to download them all._'
+                );
+            }
+            let count = 10;
+            let inputText = text;
+            let extraQuery = '';
+            const countMatch = inputText.match(/^(\d+)\s+/);
+            if (countMatch) {
+                count = Math.min(parseInt(countMatch[1], 10), 50);
+                inputText = inputText.slice(countMatch[0].length).trim();
+            }
+            const exampleURLs = extractURLs(inputText);
+            if (!exampleURLs.length) {
+                return m.reply('❌ Please include a URL as the example.\n_e.g. `' + prefix + 'related https://tiktok.com/…`_');
+            }
+            const exampleURL = exampleURLs[0];
+            const afterURL = inputText.replace(exampleURL, '').trim();
+            if (afterURL) extraQuery = afterURL;
+            const statusMsg = await m.reply(`🔗 Analysing example and searching for *${count}* similar…`);
+            try {
+                const { fetchRelated: fr } = require('./lib/downloader');
+                const { platform, query, urls } = await fr(exampleURL, { count, extraQuery });
+                if (!urls.length) {
+                    return nimesha.sendMessage(m.chat, { text: '❌ Could not find related content. Try `' + prefix + 'related <url> <extra keywords>`', edit: statusMsg.key }).catch(() => {});
+                }
+                if (!db.fetchedURLs) db.fetchedURLs = {};
+                db.fetchedURLs[m.sender] = urls;
+                const listText = urls.map((u, i) => `${i + 1}. \`${u.slice(0, 65)}\``).join('\n');
+                await nimesha.sendMessage(m.chat, {
+                    text: `🔗 *${urls.length} related found* \\[${platform}\\]\n` +
+                          `_Query used: "${query.slice(0, 60)}"_\n\n` +
+                          `${listText}\n\n` +
+                          `_Send ${prefix}dlall to download all of them_`,
+                    edit: statusMsg.key,
+                }).catch(() => m.reply(`🔗 Found ${urls.length} related URLs on ${platform}.\nSend ${prefix}dlall to download.`));
+            } catch (err) {
+                await nimesha.sendMessage(m.chat, { text: `❌ Related search failed: ${err.message.slice(0, 200)}`, edit: statusMsg.key }).catch(() => {});
+            }
+        }
+        break
+
         // ===== SEARCH COMMANDS =====
         case 'google': case 'g': case 'search': {
             if (!text) return m.reply(`Example: ${prefix + command} <query>`);
