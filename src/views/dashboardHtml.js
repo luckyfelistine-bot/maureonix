@@ -11,7 +11,13 @@ module.exports = function getDashboardHtml(pkg) {
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
 <style>
-:root{--void:#000;--deep:#02040a;--panel:rgba(4,10,24,0.88);--panel-solid:#040a18;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.22);--cyan:#00f0ff;--blue:#0066ff;--green:#00ff88;--fox:#ff7b2c;--text:#eef6ff;--text-dim:#8a9bb8;--danger:#ff2a6d;--warning:#ffb020;--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease-out-expo:cubic-bezier(0.16,1,0.3,1)}
+:root{--void:#000;--deep:#02040a;--panel:rgba(4,10,24,0.88);--panel-solid:#040a18;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.22);--cyan:#00f0ff;--blue:#0066ff;--green:#00ff88;--fox:#ff7b2c;--text:#eef6ff;--text-dim:#8a9bb8;--danger:#ff2a6d;--warning:#ffb020;--glow:rgba(0,240,255,0.12);--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease-out-expo:cubic-bezier(0.16,1,0.3,1)}
+/* ═══ THEME ENGINE v2.0 ═══ */
+[data-theme="solar"]{--cyan:#ffb020;--blue:#ff6600;--green:#ffaa00;--fox:#ff4400;--text:#fff8f0;--text-dim:#c4a882;--danger:#ff4444;--warning:#ff8800;--glow:rgba(255,176,32,0.15)}
+[data-theme="matrix"]{--cyan:#00ff50;--blue:#00cc00;--green:#00ff88;--fox:#55ff55;--text:#e0ffe0;--text-dim:#55aa55;--danger:#ff3333;--warning:#ffff00;--glow:rgba(0,255,80,0.15)}
+[data-theme="abyss"]{--cyan:#e000ff;--blue:#7700ff;--green:#cc00ff;--fox:#ff00ff;--text:#f0e0ff;--text-dim:#aa77cc;--danger:#ff0055;--warning:#ff00aa;--glow:rgba(200,0,255,0.15)}
+[data-theme="ghost"]{--cyan:#b4c0d4;--blue:#8899aa;--green:#aaccbb;--fox:#ddeeff;--text:#f0f4f8;--text-dim:#99aabb;--danger:#ff6666;--warning:#ffcc88;--glow:rgba(180,192,212,0.15)}
+[data-theme="inferno"]{--cyan:#ff4444;--blue:#ff2200;--green:#ff8800;--fox:#ffaa00;--text:#fff0e0;--text-dim:#cc9988;--danger:#ff0000;--warning:#ffcc00;--glow:rgba(255,68,68,0.15)}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--border) var(--void)}
 body{background:var(--void);color:var(--text);font-family:var(--font-main);overflow-x:hidden;min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -285,9 +291,9 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 @keyframes drawInfinity{to{stroke-dashoffset:0}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* NEURAL COMMAND CENTER v6.0 — Chat & Feedback */
-.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease-out-expo);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite}
-.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg);box-shadow:0 0 50px var(--glow)}
+/* ═══ NEURAL COMMAND CENTER v7.0 — Chat & Feedback ═══ */
+.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease-out-expo);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite;transform:translateZ(0)}
+.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg) translateZ(0);box-shadow:0 0 50px var(--glow)}
 .chat-toggle-btn::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--cyan);opacity:0;transition:opacity 0.3s}
 .chat-toggle-btn:hover::before{opacity:0.4;animation:ringPulse 2s infinite}
 .chat-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:0.65rem;font-weight:700;width:22px;height:22px;border-radius:50%;display:none;place-items:center;border:2px solid var(--void);font-family:var(--font-mono);box-shadow:0 0 10px var(--danger)}
@@ -319,8 +325,12 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 .chat-typing .dot{width:6px;height:6px;background:var(--cyan);border-radius:50%;animation:typingBounce 1.4s infinite ease-in-out both;box-shadow:0 0 8px var(--cyan)}
 .chat-typing .dot:nth-child(2){animation-delay:-0.32s}.chat-typing .dot:nth-child(3){animation-delay:-0.16s}.chat-typing .dot:nth-child(4){animation-delay:0s}
 @keyframes typingBounce{0%,80%,100%{transform:scale(0);opacity:0.3}40%{transform:scale(1);opacity:1}}
-.neural-chips{display:flex;gap:0.5rem;padding:0 1.25rem 0.75rem;flex-wrap:wrap;z-index:3;position:relative}
-.neural-chip{background:rgba(0,240,255,0.05);border:1px solid var(--border);color:var(--text-dim);padding:0.35rem 0.75rem;border-radius:999px;font-size:0.75rem;cursor:pointer;transition:all 0.2s}
+.neural-chips{display:flex;overflow:hidden;padding:0.5rem 1.25rem;position:relative;z-index:3;height:44px;align-items:center}
+.neural-chips.hidden{display:none !important}
+.chips-track{display:flex;gap:0.5rem;animation:chipMarquee 16s linear infinite;width:max-content}
+.neural-chips:hover .chips-track{animation-play-state:paused}
+@keyframes chipMarquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.neural-chip{background:rgba(0,240,255,0.05);border:1px solid var(--border);color:var(--text-dim);padding:0.35rem 0.75rem;border-radius:999px;font-size:0.75rem;cursor:pointer;transition:all 0.2s;white-space:nowrap;user-select:none}
 .neural-chip:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,240,255,0.1);transform:translateY(-1px)}
 .chat-input-area{display:flex;gap:0.5rem;padding:0.875rem 1.25rem;border-top:1px solid var(--border);background:rgba(0,0,0,0.35);position:relative;z-index:5;align-items:flex-end}
 .neural-textarea-wrap{flex:1;position:relative}
@@ -344,6 +354,17 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 .cyber-modal .btn-row button:hover{transform:translateY(-2px);box-shadow:0 8px 25px var(--glow)}
 .cyber-modal .btn-row .ghost-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
 .cyber-modal .btn-row .ghost-btn:hover{border-color:var(--danger);color:var(--danger);box-shadow:none}
+/* Rating Popup Styles */
+.rating-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(16px);z-index:10005;display:none;align-items:center;justify-content:center;padding:1rem;opacity:0;transition:opacity 0.4s ease}
+.rating-popup-overlay.active{display:flex;opacity:1}
+.rating-popup{background:var(--panel-solid);border:1px solid var(--border-bright);border-radius:1.5rem;padding:2.5rem;max-width:420px;width:100%;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,0.8);animation:fadeUp 0.5s var(--ease-out-expo)}
+.rating-popup .popup-icon{font-size:3rem;margin-bottom:1rem}
+.rating-popup h3{font-family:var(--font-display);font-size:1.4rem;color:var(--cyan);margin-bottom:0.5rem}
+.rating-popup p{color:var(--text-dim);font-size:0.9rem;margin-bottom:1.5rem;line-height:1.6}
+.rating-popup .thank-you{display:none}
+.rating-popup .thank-you.visible{display:block;animation:fadeUp 0.5s var(--ease-out-expo)}
+.rating-popup .suggestion-box{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:1rem;padding:0.75rem;color:var(--text);font-family:var(--font-main);margin:1rem 0;outline:none;font-size:0.9rem;resize:vertical;min-height:60px}
+.rating-popup .suggestion-box:focus{border-color:var(--cyan);box-shadow:0 0 12px var(--glow)}
 @media(max-width:768px){.hero-grid{grid-template-columns:1fr;gap:2rem}.hero-visual{height:420px;order:-1}.holo-prism{max-width:300px}.stats-bar{grid-template-columns:repeat(2,1fr)}.pair-steps{flex-direction:column}.steps-matrix{margin:0 0.5rem 2rem}.detail-grid{grid-template-columns:1fr}.footer-inner{flex-direction:column;text-align:center}}
 @media(max-width:480px){.chat-panel{right:12px;bottom:80px;width:calc(100vw - 24px);height:60vh;border-radius:16px}.chat-toggle-btn{width:52px;height:52px;font-size:1.3rem;bottom:16px;right:16px}.cyber-modal{padding:1.25rem}}
 </style>
@@ -469,13 +490,49 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
   <div class="btn-row"><button id="submitFeedback">Transmit Feedback</button><button class="ghost-btn" id="closeFeedback">Cancel</button></div>
 </div></div>
 
-<button class="chat-toggle-btn" id="chatToggle" aria-label="Open Neural Assistant" aria-expanded="false">🧠</button>
+<button class="chat-toggle-btn" id="chatToggle" aria-label="Open Neural Assistant" aria-expanded="false">🦊</button>
 <div class="chat-panel" id="chatPanel" role="dialog" aria-label="Neural Assistant" aria-hidden="true">
-  <div class="chat-header"><span><span class="neural-status"></span> Neural Assistant</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
+  <div class="chat-header"><span><span class="neural-status"></span> MAUREONIX AI</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
   <div class="chat-messages" id="chatMessages" aria-live="polite" aria-atomic="false"></div>
   <div class="chat-typing" id="chatTyping" aria-hidden="true"><span>Neural pathways connecting</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-  <div class="neural-chips"><span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair Device</span><span class="neural-chip" onclick="sendQuick('List all AI commands')">🤖 AI Commands</span><span class="neural-chip" onclick="sendQuick('What is Maureonix?')">❓ About</span><span class="neural-chip" onclick="sendQuick('Show bot status')">📊 Status</span></div>
-  <div class="chat-input-area"><div class="neural-textarea-wrap"><textarea id="chatInput" placeholder="Ask Maureonix anything..." aria-label="Message input" oninput="autoResize(this)" onkeydown="handleChatKey(event)"></textarea></div><button id="chatSend" onclick="sendChatMessage()" aria-label="Send message">➤</button></div>
+  <div class="neural-chips" id="floatChips"><div class="chips-track">
+    <span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair Device</span>
+    <span class="neural-chip" onclick="sendQuick('List all AI commands')">🤖 AI Commands</span>
+    <span class="neural-chip" onclick="sendQuick('What is Maureonix?')">❓ About</span>
+    <span class="neural-chip" onclick="sendQuick('Show bot status')">📊 Status</span>
+    <span class="neural-chip" onclick="sendQuick('Scroll to features')">✨ Features</span>
+    <span class="neural-chip" onclick="sendQuick('Scroll to pairing')">🔗 Pairing</span>
+    <span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair Device</span>
+    <span class="neural-chip" onclick="sendQuick('List all AI commands')">🤖 AI Commands</span>
+  </div></div>
+  <div class="chat-input-area"><div class="neural-textarea-wrap"><textarea id="chatInput" placeholder="Ask Maureonix anything..." aria-label="Message input" oninput="autoResize(this);checkChips()" onkeydown="handleChatKey(event)"></textarea></div><button id="chatSend" onclick="sendChatMessage()" aria-label="Send message">➤</button></div>
+</div>
+
+<!-- ═══ Post-Visit Rating Popup ═══ -->
+<div class="rating-popup-overlay" id="ratingPopupOverlay">
+  <div class="rating-popup" id="ratingPopup">
+    <div class="popup-icon">⭐</div>
+    <h3>How was your experience?</h3>
+    <p>Your feedback helps us evolve the neural network.</p>
+    <div class="star-rating" id="popupStarRating" role="radiogroup" aria-label="Rate your experience">
+      <span data-value="1" role="radio" aria-checked="false" tabindex="0">★</span>
+      <span data-value="2" role="radio" aria-checked="false" tabindex="0">★</span>
+      <span data-value="3" role="radio" aria-checked="false" tabindex="0">★</span>
+      <span data-value="4" role="radio" aria-checked="false" tabindex="0">★</span>
+      <span data-value="5" role="radio" aria-checked="false" tabindex="0">★</span>
+    </div>
+    <textarea class="suggestion-box" id="popupSuggestion" placeholder="Any suggestions? (optional)"></textarea>
+    <div class="btn-row" id="popupBtnRow">
+      <button onclick="submitRating()">Submit Rating</button>
+      <button class="ghost-btn" onclick="dismissRating()">Maybe Later</button>
+    </div>
+    <div class="thank-you" id="ratingThankYou">
+      <div class="popup-icon">🙏</div>
+      <h3>Thank you!</h3>
+      <p>Your feedback has been transmitted to the neural core.</p>
+      <p style="color:var(--text-dim);font-size:0.8rem;margin-top:0.5rem">Welcome back to MAUREONIX anytime.</p>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -487,7 +544,7 @@ const prefersReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)')
 const isTouchDevice=window.matchMedia('(hover: none)').matches;
 function safeImage(id,onError){const el=document.getElementById(id);if(!el)return;el.addEventListener('error',function handler(){el.style.display='none';if(onError)onError(el);el.removeEventListener('error',handler);});}
 safeImage('gateLogo');safeImage('navLogo',el=>{const s=el.nextElementSibling;if(s&&s.tagName==='SPAN')s.textContent='🦊 '+s.textContent;});safeImage('posterImg');safeImage('footerLogo');
-const categories=[{id:'core',icon:'🤖',title:'Core Bot',count:'15+',desc:'Multi-device connectivity & intelligent session management',features:['Multi-Device WhatsApp via Baileys','Pairing Code / QR Login','Interactive Carousel Menu','Fallback Image & Text Menus','Customizable Prefix (., !, #)','Public / Private Mode','Self-Mode Detection','Runtime & Uptime Tracking','Profile & Stats System','Message Counting & Leaderboard','Bot Info Command','Interactive Quick Replies']},{id:'auto',icon:'⚡',title:'Automation',count:'50+',desc:'Owner-controlled neural toggles with persistent database storage',features:['Auto-View Status','Auto-Like Status','Auto-React Mention','Auto-Reply Mention','Auto-Read Messages','Auto-Typing Indicator','Auto-Recording Indicator','Auto-Bio Update (10min)','Auto-Backup Daily','Auto-Join Groups','Auto-Download Status','Auto-Forward Messages','Auto-Sticker Conversion','Auto-Translate','Auto-Delete Messages','Auto-React Emoji','Auto-Block Keywords','Auto-Kick Keywords','Auto-Mute Keywords','Auto-Welcome','Auto-Goodbye']},{id:'group',icon:'👥',title:'Group Control',count:'25+',desc:'Military-precision group administration and moderation',features:['Add / Kick / Promote / Demote','Warning System (4-Strike Auto-Kick)','Group Open/Close','Disappearing Messages','Anti-Link / Anti-Virtex','Anti-Delete / Anti-Toxic','Anti-HideTag / Anti-TagSw','Tagall / Hidetag / Totag','Set Name / Description / PPGC','Link Group / Revoke','Pin / Unpin Messages','List Online Members','Join Requests Accept/Reject']},{id:'ai',icon:'🧠',title:'AI Engine',count:'20+',desc:'Multi-model artificial intelligence with contextual memory',features:['GPT-4 Integration','Google Gemini','Llama 3 via Groq','DeepSeek AI','AI Image Generation (Pollinations)','Auto Language Detection','Translation (Sinhala Support)','Text-to-Speech (Google TTS)','Text Summarization','Code Generation','AI Roast Engine','AI Rizz Generator','Brainrot Mode (Gen Z)','Contextual Memory (20 msg)','Memory Clear Command']},{id:'dl',icon:'📥',title:'Downloaders',count:'20+',desc:'Multi-API fallback chains across every major platform',features:['YouTube MP3/MP4','TikTok (HD Watermark-Free)','Instagram Posts/Reels/Stories','Facebook Videos','Twitter/X Media','Spotify Audio','Pinterest','Reddit','SoundCloud','Threads','CapCut Templates','Likee','Snapchat','Vimeo','Dailymotion','MediaFire','Google Drive','APK Downloader']},{id:'search',icon:'🔍',title:'Intelligence',count:'15+',desc:'Global data retrieval and real-time information systems',features:['Google Search','Wikipedia','GitHub Lookup','NPM Registry','Urban Dictionary','Weather (Open-Meteo)','RSS News Feed','COVID-19 Statistics','Crypto (CoinGecko)','Forex Rates','IP Lookup / Geolocation','WHOIS / DNS Lookup','QR Code Generator','URL Shortener']},{id:'media',icon:'🎨',title:'Media Lab',count:'12+',desc:'Advanced media manipulation and creative tools',features:['Sticker Maker (WebP)','Sticker to Image','Animated Text Sticker (ATTP)','Background Removal','Image Blur','Quote Canvas','Brat Style Generator','Sticker Meme Overlay','View-Once Revealer','Metallic / Neon / Glitch Text','Fire / Ice Effects','Meme Overlays (20+)']},{id:'fun',icon:'😂',title:'Entertainment',count:'30+',desc:'Neural recreation and social interaction modules',features:['Jokes / Memes / Facts','Magic 8-Ball','Roast / Compliment','Ship Calculator','Would You Rather','Truth or Dare','Yes/No Divination','Dice Roll / Coin Flip','Anime Reaction GIFs','Neko / Waifu Generator','Hug / Kiss / Pat / Cry / Slap','Text Effects (20+ Styles)','Meme Generators (Oogway, Tweet, YT Comment)']},{id:'games',icon:'🎮',title:'Game Core',count:'25+',desc:'Multiplayer arenas, casino systems, and RPG adventures',features:['Connect Four','Suit / Chess','Slot Machine','Roulette','Crash Game','Dice / Coinflip / RPS','Blackjack','Tic-Tac-Toe','Snakes & Ladders','RPG Fight / Heal / Spawn','Trivia Engine','Math Puzzles','Anagram Solver','Guess Number','Pokemon Guessing','Song Quiz','Family 100','Cak Lontong','RAWG Game Database']},{id:'cinema',icon:'🎬',title:'Cinema & Anime',count:'10+',desc:'Complete entertainment database access',features:['Movie Search (IMDb)','Movie Ratings','Movie Quotes','TV Series Info','Episode Guides','TV Schedule','Anime Search (AniList/Jikan)','Manga Lookup','Trending Anime','Top Anime Charts']},{id:'sports',icon:'⚽',title:'SportsNet',count:'8+',desc:'Real-time athletic data and predictive analytics',features:['Football Leagues','Live Fixtures','Match Standings','Team Profiles','Player Stats','Head-to-Head','Match Predictions','Betting Odds','ESPN News Feed']},{id:'eco',icon:'💰',title:'Economy',count:'8+',desc:'Persistent virtual economy with banking and trade',features:['Daily Income','Work Commands','Rob System','Bank Balance','Deposit / Withdraw','Transfer Funds','Item Shop','Inventory System','Leaderboard']},{id:'prod',icon:'📅',title:'Productivity',count:'12+',desc:'Personal organization and life management tools',features:['Persistent Reminders','Notes System','To-Do Lists','Habit Tracker','Mood Logging','Mood Graphs','Water Intake','Expense Tracker','Grocery Lists','Timer / Alarm','Sleep Cycle Calculator']},{id:'health',icon:'💪',title:'Health & Fit',count:'10+',desc:'Biometric calculators and wellness planning',features:['BMI Calculator','BMR Calculator','TDEE Calculator','Macro Calculator','Water Calculator','Sleep Cycle','Heart Rate Zones','One-Rep Max','Body Fat %','Workout Plans','Yoga Guides']},{id:'dev',icon:'💻',title:'DevTools',count:'10+',desc:'Essential utilities for software engineers',features:['UUID Generator','Password Generator','JSON Formatter','Regex Tester','Base64 Encode/Decode','Lorem Ipsum','Color Palette','Checksum Calculator']},{id:'owner',icon:'👑',title:'Owner CMD',count:'20+',desc:'God-tier control panel for system administrators',features:['Block / Unblock Users','Ban / Unban System','Premium Management','Join / Leave Groups','Clear Chat','Backup Database','Shutdown Bot','Set Profile Picture','Delete Profile Picture','Session Management','Case System','Set Bot Name','Set Pack/Author','Rental Group Manager','Status Upload','JadiBot Control']}];
+const categories=[{id:'core',icon:'🤖',title:'Core Bot',count:'15+',desc:'Multi-device connectivity & intelligent session management',features:['Multi-Device WhatsApp via @whiskeysockets/baileys','Pairing Code / QR Login','Interactive Carousel Menu','Fallback Image & Text Menus','Customizable Prefix (., !, #)','Public / Private Mode','Self-Mode Detection','Runtime & Uptime Tracking','Profile & Stats System','Message Counting & Leaderboard','Bot Info Command','Interactive Quick Replies']},{id:'auto',icon:'⚡',title:'Automation',count:'50+',desc:'Owner-controlled neural toggles with persistent database storage',features:['Auto-View Status','Auto-Like Status','Auto-React Mention','Auto-Reply Mention','Auto-Read Messages','Auto-Typing Indicator','Auto-Recording Indicator','Auto-Bio Update (10min)','Auto-Backup Daily','Auto-Join Groups','Auto-Download Status','Auto-Forward Messages','Auto-Sticker Conversion','Auto-Translate','Auto-Delete Messages','Auto-React Emoji','Auto-Block Keywords','Auto-Kick Keywords','Auto-Mute Keywords','Auto-Welcome','Auto-Goodbye']},{id:'group',icon:'👥',title:'Group Control',count:'25+',desc:'Military-precision group administration and moderation',features:['Add / Kick / Promote / Demote','Warning System (4-Strike Auto-Kick)','Group Open/Close','Disappearing Messages','Anti-Link / Anti-Virtex','Anti-Delete / Anti-Toxic','Anti-HideTag / Anti-TagSw','Tagall / Hidetag / Totag','Set Name / Description / PPGC','Link Group / Revoke','Pin / Unpin Messages','List Online Members','Join Requests Accept/Reject']},{id:'ai',icon:'🧠',title:'AI Engine',count:'20+',desc:'Multi-model artificial intelligence with contextual memory',features:['GPT-4 Integration','Google Gemini','Llama 3 via Groq','DeepSeek AI','AI Image Generation (Pollinations)','Auto Language Detection','Translation (Sinhala Support)','Text-to-Speech (Google TTS)','Text Summarization','Code Generation','AI Roast Engine','AI Rizz Generator','Brainrot Mode (Gen Z)','Contextual Memory (20 msg)','Memory Clear Command']},{id:'dl',icon:'📥',title:'Downloaders',count:'20+',desc:'Multi-API fallback chains across every major platform',features:['YouTube MP3/MP4','TikTok (HD Watermark-Free)','Instagram Posts/Reels/Stories','Facebook Videos','Twitter/X Media','Spotify Audio','Pinterest','Reddit','SoundCloud','Threads','CapCut Templates','Likee','Snapchat','Vimeo','Dailymotion','MediaFire','Google Drive','APK Downloader']},{id:'search',icon:'🔍',title:'Intelligence',count:'15+',desc:'Global data retrieval and real-time information systems',features:['Google Search','Wikipedia','GitHub Lookup','NPM Registry','Urban Dictionary','Weather (Open-Meteo)','RSS News Feed','COVID-19 Statistics','Crypto (CoinGecko)','Forex Rates','IP Lookup / Geolocation','WHOIS / DNS Lookup','QR Code Generator','URL Shortener']},{id:'media',icon:'🎨',title:'Media Lab',count:'12+',desc:'Advanced media manipulation and creative tools',features:['Sticker Maker (WebP)','Sticker to Image','Animated Text Sticker (ATTP)','Background Removal','Image Blur','Quote Canvas','Brat Style Generator','Sticker Meme Overlay','View-Once Revealer','Metallic / Neon / Glitch Text','Fire / Ice Effects','Meme Overlays (20+)']},{id:'fun',icon:'😂',title:'Entertainment',count:'30+',desc:'Neural recreation and social interaction modules',features:['Jokes / Memes / Facts','Magic 8-Ball','Roast / Compliment','Ship Calculator','Would You Rather','Truth or Dare','Yes/No Divination','Dice Roll / Coin Flip','Anime Reaction GIFs','Neko / Waifu Generator','Hug / Kiss / Pat / Cry / Slap','Text Effects (20+ Styles)','Meme Generators (Oogway, Tweet, YT Comment)']},{id:'games',icon:'🎮',title:'Game Core',count:'25+',desc:'Multiplayer arenas, casino systems, and RPG adventures',features:['Connect Four','Suit / Chess','Slot Machine','Roulette','Crash Game','Dice / Coinflip / RPS','Blackjack','Tic-Tac-Toe','Snakes & Ladders','RPG Fight / Heal / Spawn','Trivia Engine','Math Puzzles','Anagram Solver','Guess Number','Pokemon Guessing','Song Quiz','Family 100','Cak Lontong','RAWG Game Database']},{id:'cinema',icon:'🎬',title:'Cinema & Anime',count:'10+',desc:'Complete entertainment database access',features:['Movie Search (IMDb)','Movie Ratings','Movie Quotes','TV Series Info','Episode Guides','TV Schedule','Anime Search (AniList/Jikan)','Manga Lookup','Trending Anime','Top Anime Charts']},{id:'sports',icon:'⚽',title:'SportsNet',count:'8+',desc:'Real-time athletic data and predictive analytics',features:['Football Leagues','Live Fixtures','Match Standings','Team Profiles','Player Stats','Head-to-Head','Match Predictions','Betting Odds','ESPN News Feed']},{id:'eco',icon:'💰',title:'Economy',count:'8+',desc:'Persistent virtual economy with banking and trade',features:['Daily Income','Work Commands','Rob System','Bank Balance','Deposit / Withdraw','Transfer Funds','Item Shop','Inventory System','Leaderboard']},{id:'prod',icon:'📅',title:'Productivity',count:'12+',desc:'Personal organization and life management tools',features:['Persistent Reminders','Notes System','To-Do Lists','Habit Tracker','Mood Logging','Mood Graphs','Water Intake','Expense Tracker','Grocery Lists','Timer / Alarm','Sleep Cycle Calculator']},{id:'health',icon:'💪',title:'Health & Fit',count:'10+',desc:'Biometric calculators and wellness planning',features:['BMI Calculator','BMR Calculator','TDEE Calculator','Macro Calculator','Water Calculator','Sleep Cycle','Heart Rate Zones','One-Rep Max','Body Fat %','Workout Plans','Yoga Guides']},{id:'dev',icon:'💻',title:'DevTools',count:'10+',desc:'Essential utilities for software engineers',features:['UUID Generator','Password Generator','JSON Formatter','Regex Tester','Base64 Encode/Decode','Lorem Ipsum','Color Palette','Checksum Calculator']},{id:'owner',icon:'👑',title:'Owner CMD',count:'20+',desc:'God-tier control panel for system administrators',features:['Block / Unblock Users','Ban / Unban System','Premium Management','Join / Leave Groups','Clear Chat','Backup Database','Shutdown Bot','Set Profile Picture','Delete Profile Picture','Session Management','Case System','Set Bot Name','Set Pack/Author','Rental Group Manager','Status Upload','JadiBot Control']}];
 function renderMarquee(){const t1=$('#track1'),t2=$('#track2');if(!t1||!t2)return;const half=Math.ceil(categories.length/2);const row1=categories.slice(0,half),row2=categories.slice(half);const cardsHTML=(list)=>list.map(c=>'<div class="cat-card" data-id="'+c.id+'" role="button" tabindex="0" aria-label="'+c.title+' module, '+c.count+' commands"><span class="cat-icon" aria-hidden="true">'+c.icon+'</span><div class="cat-title">'+c.title+'</div><div class="cat-desc">'+c.desc+'</div><div class="cat-meta"><span class="cat-count">'+c.count+' cmds</span><span class="cat-arrow" aria-hidden="true">→</span></div></div>').join('');t1.innerHTML=cardsHTML(row1)+cardsHTML(row1);t2.innerHTML=cardsHTML(row2)+cardsHTML(row2);}
 renderMarquee();
 function openDetail(id){const cat=categories.find(c=>c.id===id);if(!cat)return;$$('.cat-card').forEach(c=>c.classList.remove('active'));$$('.cat-card[data-id="'+id+'"]').forEach(c=>c.classList.add('active'));$('#detailIcon').textContent=cat.icon;$('#detailTitle').textContent=cat.title;$('#detailDesc').textContent=cat.desc;$('#detailGrid').innerHTML=cat.features.map(f=>'<div class="detail-item">'+f+'</div>').join('');const panel=$('#detailPanel');panel.classList.add('open');setTimeout(()=>panel.scrollIntoView({behavior:prefersReducedMotion?'auto':'smooth',block:'nearest'}),120);}
@@ -496,9 +553,62 @@ function setTheme(theme){document.documentElement.setAttribute('data-theme',them
 $$('.theme-dot').forEach(dot=>{dot.addEventListener('click',()=>setTheme(dot.dataset.theme));dot.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setTheme(dot.dataset.theme);}});});
 try{const saved=localStorage.getItem('maureonix-theme');if(saved)setTheme(saved);}catch(e){}
 let musicCtx,musicGain,musicInterval,isMusicPlaying=false,musicStarted=false;
-function initMusic(){if(musicCtx){if(musicCtx.state==='suspended')musicCtx.resume();return;}try{const AC=window.AudioContext||window.webkitAudioContext;musicCtx=new AC();musicGain=musicCtx.createGain();musicGain.gain.value=0.12;const convolver=musicCtx.createConvolver();const rate=musicCtx.sampleRate;const length=rate*1.5;const impulse=musicCtx.createBuffer(2,length,rate);for(let c=0;c<2;c++){const ch=impulse.getChannelData(c);for(let i=0;i<length;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,2);}convolver.buffer=impulse;const revGain=musicCtx.createGain();revGain.gain.value=0.35;musicGain.connect(convolver);convolver.connect(revGain);revGain.connect(musicCtx.destination);const delay=musicCtx.createDelay();delay.delayTime.value=0.375;const dGain=musicCtx.createGain();dGain.gain.value=0.25;musicGain.connect(delay);delay.connect(dGain);dGain.connect(delay);dGain.connect(musicCtx.destination);musicGain.connect(musicCtx.destination);const scale=[130.81,155.56,174.61,196.00,233.08,261.63,311.13,349.23];const bassScale=[65.41,73.42,82.41,98.00];function playNote(){if(!musicCtx||musicCtx.state==='closed')return;const freq=scale[Math.floor(Math.random()*scale.length)]*(Math.random()>0.75?0.5:1);const osc=musicCtx.createOscillator();const g=musicCtx.createGain();osc.type=Math.random()>0.55?'sine':'triangle';osc.frequency.value=freq;g.gain.setValueAtTime(0,musicCtx.currentTime);g.gain.linearRampToValueAtTime(0.025+Math.random()*0.015,musicCtx.currentTime+0.08);g.gain.exponentialRampToValueAtTime(0.001,musicCtx.currentTime+1.5+Math.random());osc.connect(g);g.connect(musicGain);osc.start();osc.stop(musicCtx.currentTime+2.5);if(Math.random()>0.65){const bass=musicCtx.createOscillator();const bg=musicCtx.createGain();bass.type='sine';bass.frequency.value=bassScale[Math.floor(Math.random()*bassScale.length)];bg.gain.setValueAtTime(0,musicCtx.currentTime);bg.gain.linearRampToValueAtTime(0.05,musicCtx.currentTime+0.4);bg.gain.exponentialRampToValueAtTime(0.001,musicCtx.currentTime+1.8);bass.connect(bg);bg.connect(musicGain);bass.start();bass.stop(musicCtx.currentTime+2.2);}}musicInterval=setInterval(playNote,280);isMusicPlaying=true;}catch(e){console.warn('Music init failed',e);}}
+function initMusic(){
+  if(musicCtx){if(musicCtx.state==='suspended')musicCtx.resume();return;}
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    musicCtx=new AC();
+    musicGain=musicCtx.createGain();musicGain.gain.value=0.12;
+    const convolver=musicCtx.createConvolver();
+    const rate=musicCtx.sampleRate;const length=rate*1.5;
+    const impulse=musicCtx.createBuffer(2,length,rate);
+    for(let c=0;c<2;c++){const ch=impulse.getChannelData(c);for(let i=0;i<length;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,2);}
+    convolver.buffer=impulse;
+    const revGain=musicCtx.createGain();revGain.gain.value=0.35;
+    musicGain.connect(convolver);convolver.connect(revGain);revGain.connect(musicCtx.destination);
+    const delay=musicCtx.createDelay();delay.delayTime.value=0.375;
+    const dGain=musicCtx.createGain();dGain.gain.value=0.25;
+    musicGain.connect(delay);delay.connect(dGain);dGain.connect(delay);dGain.connect(musicCtx.destination);
+    musicGain.connect(musicCtx.destination);
+    const scale=[130.81,155.56,174.61,196.00,233.08,261.63,311.13,349.23];
+    const bassScale=[65.41,73.42,82.41,98.00];
+    function playNote(){
+      if(!musicCtx||musicCtx.state==='closed')return;
+      const freq=scale[Math.floor(Math.random()*scale.length)]*(Math.random()>0.75?0.5:1);
+      const osc=musicCtx.createOscillator();const g=musicCtx.createGain();
+      osc.type=Math.random()>0.55?'sine':'triangle';osc.frequency.value=freq;
+      g.gain.setValueAtTime(0,musicCtx.currentTime);
+      g.gain.linearRampToValueAtTime(0.025+Math.random()*0.015,musicCtx.currentTime+0.08);
+      g.gain.exponentialRampToValueAtTime(0.001,musicCtx.currentTime+1.5+Math.random());
+      osc.connect(g);g.connect(musicGain);osc.start();osc.stop(musicCtx.currentTime+2.5);
+      if(Math.random()>0.65){
+        const bass=musicCtx.createOscillator();const bg=musicCtx.createGain();
+        bass.type='sine';bass.frequency.value=bassScale[Math.floor(Math.random()*bassScale.length)];
+        bg.gain.setValueAtTime(0,musicCtx.currentTime);bg.gain.linearRampToValueAtTime(0.05,musicCtx.currentTime+0.4);
+        bg.gain.exponentialRampToValueAtTime(0.001,musicCtx.currentTime+1.8);
+        bass.connect(bg);bg.connect(musicGain);bass.start();bass.stop(musicCtx.currentTime+2.2);
+      }
+    }
+    musicInterval=setInterval(playNote,280);isMusicPlaying=true;
+  }catch(e){console.warn('Music init failed',e);}
+}
 function stopMusic(){if(musicInterval)clearInterval(musicInterval);if(musicCtx){musicCtx.close();musicCtx=null;musicGain=null;}isMusicPlaying=false;}
-function toggleAudio(){const btn=$('#audioToggle');if(!musicStarted){musicStarted=true;initMusic();btn.textContent='🔊';btn.classList.remove('muted');btn.setAttribute('aria-pressed','true');return;}if(!musicCtx)return;if(musicCtx.state==='suspended')musicCtx.resume();if(isMusicPlaying){musicGain.gain.cancelScheduledValues(musicCtx.currentTime);musicGain.gain.linearRampToValueAtTime(0,musicCtx.currentTime+0.3);setTimeout(stopMusic,350);btn.textContent='🔇';btn.classList.add('muted');btn.setAttribute('aria-pressed','false');isMusicPlaying=false;}else{initMusic();btn.textContent='🔊';btn.classList.remove('muted');btn.setAttribute('aria-pressed','true');}}
+function toggleAudio(){
+  const btn=$('#audioToggle');
+  if(!btn)return;
+  // Initialize audio context on first user gesture if needed
+  if(!musicStarted){
+    musicStarted=true;
+    try{initMusic();}catch(e){}
+    btn.textContent='🔊';btn.classList.remove('muted');btn.setAttribute('aria-pressed','true');
+    showToast('Ambient neural soundscape activated','success');
+    return;
+  }
+  if(!musicCtx)return;
+  if(musicCtx.state==='suspended'){musicCtx.resume();btn.textContent='🔊';btn.classList.remove('muted');btn.setAttribute('aria-pressed','true');isMusicPlaying=true;return;}
+  if(isMusicPlaying){musicGain.gain.cancelScheduledValues(musicCtx.currentTime);musicGain.gain.linearRampToValueAtTime(0,musicCtx.currentTime+0.3);setTimeout(stopMusic,350);btn.textContent='🔇';btn.classList.add('muted');btn.setAttribute('aria-pressed','false');isMusicPlaying=false;showToast('Soundscape paused','info');}
+  else{initMusic();btn.textContent='🔊';btn.classList.remove('muted');btn.setAttribute('aria-pressed','true');showToast('Soundscape resumed','success');}
+}
 const gateCanvas=$('#gateCanvas');const gCtx=gateCanvas?gateCanvas.getContext('2d'):null;let gateNodes=[];let gateAnimId;function resizeGateCanvas(){if(!gateCanvas)return;gateCanvas.width=window.innerWidth;gateCanvas.height=window.innerHeight;}window.addEventListener('resize',resizeGateCanvas);resizeGateCanvas();const nodeCount=isTouchDevice?30:60;for(let i=0;i<nodeCount;i++){gateNodes.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,size:Math.random()*1.5+0.5});}function drawGateNodes(){if(!gCtx||document.hidden){gateAnimId=requestAnimationFrame(drawGateNodes);return;}gCtx.clearRect(0,0,gateCanvas.width,gateCanvas.height);gateNodes.forEach((n,i)=>{n.x+=n.vx;n.y+=n.vy;if(n.x<0)n.x=gateCanvas.width;if(n.x>gateCanvas.width)n.x=0;if(n.y<0)n.y=gateCanvas.height;if(n.y>gateCanvas.height)n.y=0;gCtx.beginPath();gCtx.arc(n.x,n.y,n.size,0,Math.PI*2);gCtx.fillStyle='rgba(0,240,255,'+(n.size/3)+')';gCtx.fill();for(let j=i+1;j<gateNodes.length;j++){const n2=gateNodes[j],dx=n.x-n2.x,dy=n.y-n2.y,d=Math.sqrt(dx*dx+dy*dy);if(d<120){gCtx.beginPath();gCtx.moveTo(n.x,n.y);gCtx.lineTo(n2.x,n2.y);gCtx.strokeStyle='rgba(0,240,255,'+(0.08*(1-d/120))+')';gCtx.lineWidth=0.4;gCtx.stroke();}}});gateAnimId=requestAnimationFrame(drawGateNodes);}if(!prefersReducedMotion)drawGateNodes();
 const gateContent=$('#gateContent');if(gateContent&&!isTouchDevice){let tiltRaf;gateContent.addEventListener('mousemove',(e)=>{cancelAnimationFrame(tiltRaf);tiltRaf=requestAnimationFrame(()=>{const rect=gateContent.getBoundingClientRect();const x=(e.clientX-rect.left)/rect.width-0.5;const y=(e.clientY-rect.top)/rect.height-0.5;gateContent.style.transform='scale(1.03) translateZ(20px) perspective(1000px) rotateY('+(x*10)+'deg) rotateX('+(-y*10)+'deg)';});});gateContent.addEventListener('mouseleave',()=>{cancelAnimationFrame(tiltRaf);gateContent.style.transform='';});}
 const bootTexts=['Initializing neural core...','Loading synaptic protocols...','Establishing secure handshake...','System ready.'];let bootIdx=0,bootChar=0;function runBootSequence(){const el=$('#bootSequence');if(!el)return;function type(){if(bootIdx>=bootTexts.length){const hint=$('#gateHint');if(hint)hint.style.opacity='1';return;}const txt=bootTexts[bootIdx];let html='';for(let b=0;b<bootIdx;b++)html+='<span class="boot-line">[OK] '+bootTexts[b]+'</span>';html+='<span class="boot-line">[..] '+txt.substring(0,bootChar+1)+'</span>';el.innerHTML=html;bootChar++;if(bootChar===txt.length){bootIdx++;bootChar=0;setTimeout(type,400);}else{setTimeout(type,30+Math.random()*40);}}setTimeout(type,600);}runBootSequence();
@@ -523,28 +633,295 @@ function animateCounters(){$$('[data-target]').forEach(el=>{const target=parseIn
 const scrollProgress=$('#scrollProgress');const backToTop=$('#backToTop');function onScroll(){const scrollTop=window.scrollY;const docHeight=document.documentElement.scrollHeight-window.innerHeight;const progress=docHeight>0?(scrollTop/docHeight)*100:0;if(scrollProgress){scrollProgress.style.width=progress+'%';scrollProgress.setAttribute('aria-valuenow',Math.round(progress));}if(backToTop){backToTop.classList.toggle('visible',scrollTop>500);}}window.addEventListener('scroll',onScroll,{passive:true});onScroll();
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(gateAnimId)cancelAnimationFrame(gateAnimId);if(particleAnimId)cancelAnimationFrame(particleAnimId);}else{if(!prefersReducedMotion){if(gateCanvas)drawGateNodes();if(canvas)drawParticles();}}});
 
-/* CHAT WIDGET v6.0 */
-const CHAT_SESSION_KEY='maureonix-chat-session';const CHAT_HISTORY_KEY='maureonix-chat-history';let chatSessionId='';let chatHistory=[];let isChatOpen=false;let audioCtx=null;
+/* ═══ CHAT WIDGET v7.0 — Smart Neural Assistant ═══ */
+const CHAT_SESSION_KEY='maureonix-chat-session';const CHAT_HISTORY_KEY='maureonix-chat-history';
+let chatSessionId='';let chatHistory=[];let isChatOpen=false;let audioCtx=null;let isAdmin=false;
+
 function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
-function playSound(type){if(!audioCtx)return;const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();if(type==='send'){osc.frequency.value=880;gain.gain.value=0.025;}else if(type==='receive'){osc.frequency.value=660;gain.gain.value=0.02;}else{osc.frequency.value=440;gain.gain.value=0.015;}osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+0.06);}
+function playSound(type){if(!audioCtx)return;try{const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();if(type==='send'){osc.frequency.value=880;gain.gain.value=0.025;}else if(type==='receive'){osc.frequency.value=660;gain.gain.value=0.02;}else{osc.frequency.value=440;gain.gain.value=0.015;}osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+0.06);}catch(e){}}
 function generateSessionId(){return'sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);}
-function initChatSession(){try{chatSessionId=localStorage.getItem(CHAT_SESSION_KEY)||generateSessionId();localStorage.setItem(CHAT_SESSION_KEY,chatSessionId);const raw=localStorage.getItem(CHAT_HISTORY_KEY);chatHistory=raw?JSON.parse(raw):[];renderChatHistory();if(!chatHistory.length){appendChatBubble('assistant','Welcome to the **Neural Command Center**.\\n\\nI am Maureonix. Ask me about commands, pairing, or anything.',Date.now(),true);}}catch(e){chatSessionId=generateSessionId();}}
+
+function initChatSession(){
+  try{
+    chatSessionId=localStorage.getItem(CHAT_SESSION_KEY)||generateSessionId();
+    localStorage.setItem(CHAT_SESSION_KEY,chatSessionId);
+    const raw=localStorage.getItem(CHAT_HISTORY_KEY);
+    chatHistory=raw?JSON.parse(raw):[];
+    renderChatHistory();
+    if(!chatHistory.length){
+      const greeting=isAdmin?'Welcome back, **Administrator**. I am MAUREONIX. I can navigate, research, verify numbers, and execute commands for you.':'Welcome to the **Neural Command Center**.\n\nI am MAUREONIX. Ask me about commands, pairing, or anything.';
+      appendChatBubble('assistant',greeting,Date.now(),true);
+    }
+  }catch(e){chatSessionId=generateSessionId();}
+}
+
 function saveChatHistory(){try{localStorage.setItem(CHAT_HISTORY_KEY,JSON.stringify(chatHistory.slice(-50)));}catch(e){}}
 function renderChatHistory(){const container=$('#chatMessages');if(!container)return;container.innerHTML='';chatHistory.forEach(msg=>appendChatBubble(msg.role,msg.text,msg.ts,false));scrollChatToBottom();}
-function parseMarkdown(text){var html=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');var tick=String.fromCharCode(96);var parts=html.split(tick+tick+tick);for(var i=1;i<parts.length;i+=2){var block=parts[i];var nl=block.indexOf('\\n');var code=nl>-1?block.substring(nl+1):block;parts[i]='<pre><button class="copy-code-btn" onclick="copyCode(this)">COPY</button><code>'+code.trim()+'</code></pre>';}html=parts.join('');var parts2=html.split(tick);for(var j=1;j<parts2.length;j+=2){parts2[j]='<code>'+parts2[j]+'</code>';}html=parts2.join('');html=html.replace(/\\*\\*([^*]+)\\*\\*/g,'<strong>$1</strong>');html=html.replace(/\\*([^*]+)\\*/g,'<em>$1</em>');html=html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');html=html.replace(/\\n/g,'<br>');return html;}
+
+function parseMarkdown(text){
+  let html=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tick=String.fromCharCode(96);
+  let parts=html.split(tick+tick+tick);
+  for(let i=1;i<parts.length;i+=2){
+    let block=parts[i];
+    let nl=block.indexOf('\n');
+    let code=nl>-1?block.substring(nl+1):block;
+    parts[i]='<pre><button class="copy-code-btn" onclick="copyCode(this)">COPY</button><code>'+code.trim()+'</code></pre>';
+  }
+  html=parts.join('');
+  let parts2=html.split(tick);
+  for(let j=1;j<parts2.length;j+=2){parts2[j]='<code>'+parts2[j]+'</code>';}
+  html=parts2.join('');
+  html=html.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  html=html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html=html.replace(/\n/g,'<br>');
+  return html;
+}
+
 function copyCode(btn){const code=btn.parentElement.querySelector('code').innerText;navigator.clipboard.writeText(code).then(()=>{btn.textContent='COPIED';setTimeout(()=>btn.textContent='COPY',2000);});}
-function appendChatBubble(role,text,ts,save){const container=$('#chatMessages');if(!container)return;const bubble=document.createElement('div');bubble.className='chat-bubble '+role;const timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';const parsed=role==='assistant'?parseMarkdown(text):text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');bubble.innerHTML=parsed+'<span class="ts">'+timeStr+'</span>';container.appendChild(bubble);if(save){chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory();}scrollChatToBottom();}
+
+function appendChatBubble(role,text,ts,save){
+  const container=$('#chatMessages');if(!container)return;
+  const bubble=document.createElement('div');bubble.className='chat-bubble '+role;
+  const timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+  const parsed=role==='assistant'?parseMarkdown(text):text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  bubble.innerHTML=parsed+'<span class="ts">'+timeStr+'</span>';
+  container.appendChild(bubble);
+  if(save){chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory();}
+  scrollChatToBottom();
+}
+
 function scrollChatToBottom(){const container=$('#chatMessages');if(container)container.scrollTop=container.scrollHeight;}
+
 function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
 function handleChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}}
-function sendQuick(text){const ta=$('#chatInput');ta.value=text;autoResize(ta);sendChatMessage();}
-async function sendChatMessage(){initAudio();const ta=$('#chatInput');const btn=$('#chatSend');const text=ta.value.trim();if(!text)return;ta.value='';autoResize(ta);appendChatBubble('user',text,Date.now(),true);playSound('send');$('#chatTyping').style.display='flex';btn.disabled=true;try{const res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text})});const data=await res.json();if(data.text){appendChatBubble('assistant',data.text,Date.now(),true);playSound('receive');if(data.actions&&Array.isArray(data.actions)){data.actions.forEach(act=>{if(act.type==='scrollTo'){const t=document.getElementById(act.target);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});}});}}else{appendChatBubble('assistant','⚠️ Neural link interrupted. Please retry.',Date.now(),true);}}catch(e){appendChatBubble('assistant','❌ Connection failed. The neural network is unreachable.',Date.now(),true);}$('#chatTyping').style.display='none';btn.disabled=false;ta.focus();}
-function toggleChat(){initAudio();const panel=$('#chatPanel');const btn=$('#chatToggle');isChatOpen=!isChatOpen;panel.style.display=isChatOpen?'flex':'none';panel.setAttribute('aria-hidden',String(!isChatOpen));btn.setAttribute('aria-expanded',String(isChatOpen));if(isChatOpen){$('#chatInput').focus();scrollChatToBottom();}}
-let currentRating=0;function openFeedbackModal(){const modal=$('#feedbackModal');if(modal){modal.style.display='flex';currentRating=0;updateStars(0);}}function closeFeedbackModal(){const modal=$('#feedbackModal');if(modal)modal.style.display='none';}function updateStars(hoverVal){const stars=$$('#starRating span');stars.forEach((s,i)=>{const val=i+1;s.classList.toggle('active',val<=currentRating);s.classList.toggle('hovered',hoverVal>0&&val<=hoverVal);s.setAttribute('aria-checked',String(val===currentRating));});}
-async function submitFeedback(){const comment=$('#feedbackComment').value.trim();const contact=$('#feedbackContact').value.trim();if(currentRating===0){showToast('Please select a star rating','error');return;}try{const res=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating:currentRating,comment,contact,page:location.href})});const data=await res.json();if(data.success){showToast('Feedback transmitted. Thank you! 🙏','success');closeFeedbackModal();$('#feedbackComment').value='';$('#feedbackContact').value='';currentRating=0;updateStars(0);}else{showToast(data.message||'Failed to send feedback','error');}}catch(e){showToast('Network error. Please retry.','error');}}
-document.addEventListener('click',(e)=>{if(e.target.closest('#chatToggle'))toggleChat();if(e.target.closest('#chatClose'))toggleChat();if(e.target.closest('#chatSend'))sendChatMessage();if(e.target.closest('#feedbackToggle'))openFeedbackModal();if(e.target.closest('#closeFeedback'))closeFeedbackModal();if(e.target.closest('#submitFeedback'))submitFeedback();});
-document.addEventListener('keydown',(e)=>{if(e.key==='Escape'){const fm=$('#feedbackModal');if(fm&&fm.style.display==='flex'){closeFeedbackModal();return;}if(isChatOpen)toggleChat();}});
-const starRating=$('#starRating');if(starRating){starRating.addEventListener('click',(e)=>{const star=e.target.closest('span');if(star){currentRating=parseInt(star.dataset.value);updateStars(0);}});starRating.addEventListener('mouseover',(e)=>{const star=e.target.closest('span');if(star)updateStars(parseInt(star.dataset.value));});starRating.addEventListener('mouseleave',()=>updateStars(0));}
+function checkChips(){const ta=$('#chatInput');const hasText=ta&&ta.value.trim().length>0;const chips=$('#floatChips');if(chips)chips.classList.toggle('hidden',hasText);}
+
+function sendQuick(text){const ta=$('#chatInput');if(ta){ta.value=text;autoResize(ta);checkChips();}sendChatMessage();}
+
+/* ── Smart Intent Parser ── */
+function parseIntent(text){
+  const lower=text.toLowerCase();
+  const intents=[];
+  
+  // Navigation / Scrolling
+  if(/scroll to|go to|navigate to|show me|take me to|open|jump to/.test(lower)){
+    if(/pair|connect|link|code|whatsapp/.test(lower))intents.push({type:'scrollTo',target:'pairing'});
+    else if(/feature|module|command|capability/.test(lower))intents.push({type:'scrollTo',target:'features'});
+    else if(/terminal|quote|wisdom/.test(lower))intents.push({type:'scrollTo',target:'mainContent'});
+    else if(/stat|metric|number|count/.test(lower))intents.push({type:'scrollTo',target:'stats'});
+    else intents.push({type:'scrollTo',target:'mainContent'});
+  }
+  
+  // Click actions
+  if(/click|press|tap|hit|activate/.test(lower)){
+    if(/init|connect|start|begin|pair/.test(lower))intents.push({type:'click',target:'btnInitConnect'});
+    else if(/explore|feature|discover/.test(lower))intents.push({type:'click',target:'btnExplore'});
+    else if(/feedback|rate|review|star/.test(lower))intents.push({type:'click',target:'feedbackToggle'});
+  }
+  
+  // Phone verification
+  const phoneMatch=text.match(/(?:\+?254|0)?\d{9,12}/);
+  if(phoneMatch){
+    const num=phoneMatch[0].replace(/^0/,'254').replace(/^\+/,'');
+    if(/verify|check|validate|confirm|is.*correct/.test(lower))intents.push({type:'verifyPhone',number:num});
+    else if(/pair|code|link|connect.*number/.test(lower))intents.push({type:'requestPair',number:num});
+  }
+  
+  // Research / Info
+  if(/research|search|find|look up|what is|who is|how to|explain|tell me about/.test(lower)){
+    intents.push({type:'research',query:text});
+  }
+  
+  // Status check
+  if(/status|health|online|alive|running|working/.test(lower)){
+    intents.push({type:'statusCheck'});
+  }
+  
+  return intents;
+}
+
+function executeIntent(intent){
+  switch(intent.type){
+    case 'scrollTo':
+      const el=document.getElementById(intent.target);
+      if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return true;}
+      return false;
+    case 'click':
+      const btn=document.getElementById(intent.target);
+      if(btn){btn.click();return true;}
+      return false;
+    case 'verifyPhone':
+      const valid=/^254\d{9}$/.test(intent.number);
+      return valid?'✅ **'+intent.number+'** is a valid Kenyan format number.':'⚠️ **'+intent.number+'** does not appear to be a valid format. Use format: 254XXXXXXXXX';
+    case 'requestPair':
+      const input=$('#phoneInput');
+      if(input){input.value=intent.number;getPairCode();return true;}
+      return false;
+    case 'statusCheck':
+      return '🟢 **MAUREONIX** is online. Uptime: '+($('#uptimeVal')?$('#uptimeVal').textContent:'—')+'. All systems nominal.';
+    default:return false;
+  }
+}
+
+async function sendChatMessage(){
+  initAudio();
+  const ta=$('#chatInput');const btn=$('#chatSend');
+  const text=ta.value.trim();if(!text)return;
+  ta.value='';autoResize(ta);checkChips();
+  appendChatBubble('user',text,Date.now(),true);playSound('send');
+  $('#chatTyping').style.display='flex';btn.disabled=true;
+  
+  // Parse intents first
+  const intents=parseIntent(text);
+  let intentHandled=false;
+  let intentResponse=[];
+  
+  for(const intent of intents){
+    if(intent.type==='research')continue; // Let server handle research
+    const result=executeIntent(intent);
+    if(result===true){intentHandled=true;}
+    else if(typeof result==='string'){intentResponse.push(result);intentHandled=true;}
+  }
+  
+  if(intentHandled&&intentResponse.length>0){
+    setTimeout(()=>{
+      appendChatBubble('assistant',intentResponse.join('\n\n'),Date.now(),true);playSound('receive');
+      $('#chatTyping').style.display='none';btn.disabled=false;ta.focus();
+    },600);
+    return;
+  }
+  
+  try{
+    const res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text,context:{page:'dashboard',isAdmin:isAdmin}})});
+    const data=await res.json();
+    if(data.text){
+      appendChatBubble('assistant',data.text,Date.now(),true);playSound('receive');
+      if(data.actions&&Array.isArray(data.actions)){
+        data.actions.forEach(act=>{
+          if(act.type==='scrollTo'){const t=document.getElementById(act.target);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});}
+          if(act.type==='highlight'){const t=document.getElementById(act.target);if(t){t.style.transition='box-shadow 0.5s';t.style.boxShadow='0 0 40px var(--cyan)';setTimeout(()=>t.style.boxShadow='',2000);}}
+        });
+      }
+    }else{
+      appendChatBubble('assistant','⚠️ Neural link interrupted. Please retry.',Date.now(),true);
+    }
+  }catch(e){
+    appendChatBubble('assistant','❌ Connection failed. The neural network is unreachable.',Date.now(),true);
+  }
+  $('#chatTyping').style.display='none';btn.disabled=false;ta.focus();
+}
+
+function toggleChat(){
+  initAudio();
+  const panel=$('#chatPanel');const btn=$('#chatToggle');
+  isChatOpen=!isChatOpen;
+  panel.style.display=isChatOpen?'flex':'none';
+  panel.setAttribute('aria-hidden',String(!isChatOpen));
+  btn.setAttribute('aria-expanded',String(isChatOpen));
+  if(isChatOpen){
+    $('#chatInput').focus();scrollChatToBottom();
+    adjustChatForViewport();
+  }
+}
+
+// Visual Viewport API for keyboard handling
+function adjustChatForViewport(){
+  const panel=$('#chatPanel');
+  if(!panel||panel.style.display!=='flex')return;
+  if(window.visualViewport){
+    const vv=window.visualViewport;
+    const h=Math.min(600,vv.height-130);
+    panel.style.height=h+'px';
+    panel.style.maxHeight=h+'px';
+    const bottomOffset=window.innerHeight-vv.height;
+    panel.style.bottom=(bottomOffset+90)+'px';
+  }
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',adjustChatForViewport);
+  window.visualViewport.addEventListener('scroll',adjustChatForViewport);
+}
+
+// Rating Popup Logic
+let popupRating=0;
+function showRatingPopup(){
+  const overlay=$('#ratingPopupOverlay');
+  if(!overlay)return;
+  overlay.classList.add('active');
+}
+function dismissRating(){
+  const overlay=$('#ratingPopupOverlay');
+  if(overlay)overlay.classList.remove('active');
+  localStorage.setItem('maureonix-rating-dismissed','1');
+}
+function submitRating(){
+  if(popupRating===0){showToast('Please select a star rating','error');return;}
+  const suggestion=$('#popupSuggestion').value.trim();
+  fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating:popupRating,comment:suggestion||'Post-visit rating',page:location.href})})
+    .then(()=>{
+      $('#popupBtnRow').style.display='none';
+      $('#popupStarRating').style.display='none';
+      $('#popupSuggestion').style.display='none';
+      $('#ratingPopup').querySelector('h3').textContent='Thank you!';
+      $('#ratingPopup').querySelector('p').textContent='Your feedback powers the neural network.';
+      document.getElementById('ratingThankYou').classList.add('visible');
+      localStorage.setItem('maureonix-rating-submitted','1');
+      setTimeout(dismissRating,4000);
+    }).catch(()=>showToast('Failed to submit. Please retry.','error'));
+}
+
+// Init popup after 90s
+setTimeout(()=>{
+  if(!localStorage.getItem('maureonix-rating-submitted')&&!localStorage.getItem('maureonix-rating-dismissed')){
+    showRatingPopup();
+  }
+},90000);
+
+// Popup star rating
+const popupStars=$('#popupStarRating');
+if(popupStars){
+  popupStars.addEventListener('click',(e)=>{
+    const star=e.target.closest('span');
+    if(star){popupRating=parseInt(star.dataset.value);updatePopupStars();}
+  });
+  popupStars.addEventListener('mouseover',(e)=>{
+    const star=e.target.closest('span');
+    if(star)updatePopupStars(parseInt(star.dataset.value));
+  });
+  popupStars.addEventListener('mouseleave',()=>updatePopupStars());
+}
+function updatePopupStars(hoverVal){
+  const stars=$$('#popupStarRating span');
+  stars.forEach((s,i)=>{
+    const val=i+1;
+    s.classList.toggle('active',val<=popupRating);
+    s.classList.toggle('hovered',hoverVal>0&&val<=hoverVal);
+  });
+}
+
+document.addEventListener('click',(e)=>{
+  if(e.target.closest('#chatToggle'))toggleChat();
+  if(e.target.closest('#chatClose'))toggleChat();
+  if(e.target.closest('#chatSend'))sendChatMessage();
+  if(e.target.closest('#feedbackToggle'))openFeedbackModal();
+  if(e.target.closest('#closeFeedback'))closeFeedbackModal();
+  if(e.target.closest('#submitFeedback'))submitFeedback();
+});
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    const fm=$('#feedbackModal');if(fm&&fm.style.display==='flex'){closeFeedbackModal();return;}
+    if(isChatOpen)toggleChat();
+  }
+});
+
+// Fix audio init on first interaction
+document.body.addEventListener('click',function initAudioOnFirstClick(){
+  if(!audioCtx)initAudio();
+  document.body.removeEventListener('click',initAudioOnFirstClick);
+},{once:true});
+
 initChatSession();
 })();
 </script>

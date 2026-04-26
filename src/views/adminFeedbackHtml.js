@@ -16,7 +16,7 @@ module.exports = function getAdminFeedbackHtml(isDefaultSecret) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
-:root{--void:#000;--deep:#020408;--panel:rgba(4,10,24,0.92);--panel-solid:#040a18;--panel-elevated:#0a1525;--cyan:#00f0ff;--cyan-dim:rgba(0,240,255,0.08);--blue:#0066ff;--green:#00ff88;--green-dim:rgba(0,255,136,0.08);--danger:#ff2a6d;--danger-dim:rgba(255,42,109,0.08);--warning:#ffb020;--warning-dim:rgba(255,176,32,0.08);--text:#eef6ff;--text-dim:#8a9bb8;--text-muted:#475569;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.18);--glow:rgba(0,240,255,0.12);--shadow:0 20px 60px rgba(0,0,0,0.6);--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono','Fira Code',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease:cubic-bezier(0.16,1,0.3,1)}
+:root{--void:#000;--deep:#020408;--panel:rgba(4,10,24,0.92);--panel-solid:#040a18;--panel-elevated:#0a1525;--cyan:#00f0ff;--cyan-dim:rgba(0,240,255,0.08);--blue:#0066ff;--green:#00ff88;--green-dim:rgba(0,255,136,0.08);--danger:#ff2a6d;--danger-dim:rgba(255,42,109,0.08);--warning:#ffb020;--warning-dim:rgba(255,176,32,0.08);--text:#eef6ff;--text-dim:#8a9bb8;--text-muted:#475569;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.18);--glow:rgba(0,240,255,0.12);--shadow:0 20px 60px rgba(0,0,0,0.6);--fox:#ff7b2c;--glow:rgba(0,240,255,0.12);--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono','Fira Code',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease:cubic-bezier(0.16,1,0.3,1)}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scrollbar-width:thin;scrollbar-color:var(--border) var(--void)}
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -148,29 +148,37 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 .btn-danger-solid:hover{box-shadow:0 0 20px rgba(255,42,109,0.3);transform:translateY(-1px)}
 .admin-footer{text-align:center;padding:3rem 0 1.5rem;color:var(--text-muted);font-size:0.75rem;letter-spacing:0.1em}
 .admin-footer b{color:var(--cyan);font-weight:600}
-.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.5rem;cursor:pointer;z-index:10003;box-shadow:0 4px 20px var(--glow);transition:transform 0.3s var(--ease),box-shadow 0.3s;display:grid;place-items:center}
-.chat-toggle-btn:hover{transform:scale(1.12) rotate(8deg);box-shadow:0 8px 30px var(--glow)}
-.chat-panel{position:fixed;bottom:90px;right:24px;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 120px);background:var(--panel-solid);border:1px solid var(--border);border-radius:16px;display:none;flex-direction:column;z-index:10003;box-shadow:0 25px 80px rgba(0,0,0,0.7);overflow:hidden;animation:fadeUp 0.4s var(--ease)}
-.chat-header{padding:0.75rem 1rem;background:rgba(0,0,0,0.45);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-family:var(--font-display);font-weight:700;color:var(--cyan);font-size:0.95rem;flex-shrink:0}
+.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite;transform:translateZ(0)}
+.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg) translateZ(0);box-shadow:0 0 50px var(--glow)}
+.chat-panel{position:fixed;bottom:96px;right:24px;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 130px);background:var(--panel-solid);border:1px solid var(--border-bright);border-radius:20px;display:none;flex-direction:column;z-index:10003;box-shadow:0 30px 100px rgba(0,0,0,0.8),inset 0 0 60px rgba(0,240,255,0.02);overflow:hidden;animation:panelIn 0.5s var(--ease);backdrop-filter:blur(40px);transform:translateZ(0)}
+@keyframes panelIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.chat-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);z-index:10}
+.chat-header{padding:0.75rem 1rem;background:rgba(0,0,0,0.45);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-family:var(--font-display);font-weight:700;color:var(--cyan);font-size:0.95rem;flex-shrink:0;position:relative;z-index:5}
 .chat-header button{background:transparent;border:none;color:var(--text-dim);font-size:1.4rem;cursor:pointer;line-height:1;transition:color 0.2s;width:32px;height:32px;display:grid;place-items:center;border-radius:50%}
 .chat-header button:hover{color:var(--danger);background:rgba(255,42,109,0.1)}
-.chat-messages{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;scroll-behavior:smooth}
-.chat-bubble{max-width:88%;padding:0.75rem 1rem;border-radius:12px;font-size:0.85rem;line-height:1.55;word-break:break-word;animation:fadeUp 0.35s var(--ease)}
+.chat-messages{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;scroll-behavior:smooth;position:relative;z-index:3}
+.chat-bubble{max-width:88%;padding:0.75rem 1rem;border-radius:12px;font-size:0.85rem;line-height:1.55;word-break:break-word;animation:msgIn 0.35s var(--ease)}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-bubble.user{align-self:flex-end;background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--void);border-bottom-right-radius:4px;font-weight:500}
 .chat-bubble.assistant{align-self:flex-start;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
 .chat-bubble .ts{font-size:0.6rem;opacity:0.5;margin-top:4px;display:block;font-family:var(--font-mono)}
-.chat-typing{padding:0 1rem 0.5rem;font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono);display:none;align-items:center;gap:4px}
+.chat-typing{padding:0 1rem 0.5rem;font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono);display:none;align-items:center;gap:4px;position:relative;z-index:3}
 .chat-typing .dot{width:5px;height:5px;background:var(--cyan);border-radius:50%;animation:typingBounce 1.4s infinite ease-in-out both}
 .chat-typing .dot:nth-child(1){animation-delay:-0.32s}.chat-typing .dot:nth-child(2){animation-delay:-0.16s}
 @keyframes typingBounce{0%,80%,100%{transform:scale(0);opacity:0.3}40%{transform:scale(1);opacity:1}}
-.chat-input-area{display:flex;gap:0.5rem;padding:0.75rem 1rem;border-top:1px solid var(--border);background:rgba(0,0,0,0.3);flex-shrink:0}
+.chat-input-area{display:flex;gap:0.5rem;padding:0.75rem 1rem;border-top:1px solid var(--border);background:rgba(0,0,0,0.3);flex-shrink:0;position:relative;z-index:5}
 .chat-input-area input{flex:1;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:999px;padding:0.5rem 1rem;color:var(--text);font-family:var(--font-main);outline:none;font-size:0.9rem}
 .chat-input-area input:focus{border-color:var(--cyan);box-shadow:0 0 10px var(--glow)}
 .chat-input-area input::placeholder{color:var(--text-dim);opacity:0.4}
 .chat-input-area button{width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--void);cursor:pointer;display:grid;place-items:center;transition:transform 0.2s,box-shadow 0.2s;font-size:1rem;flex-shrink:0}
 .chat-input-area button:hover{transform:scale(1.1);box-shadow:0 0 15px var(--glow)}
 .chat-input-area button:disabled{opacity:0.4;cursor:not-allowed;transform:none}
-@media(max-width:768px){.dashboard{padding:1rem}.header{flex-direction:column;align-items:flex-start}.stats-grid{grid-template-columns:repeat(2,1fr);gap:0.875rem}.toolbar{flex-direction:column;align-items:stretch}.search-box{max-width:none}th,td{padding:0.75rem}.cell-comment{max-width:140px}.toast-container{right:12px;top:12px}}
+/* Admin Welcome */
+.admin-banner{background:linear-gradient(90deg,rgba(0,240,255,0.08),rgba(0,255,136,0.04));border:1px solid var(--border-bright);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.875rem}
+.admin-banner .admin-icon{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:grid;place-items:center;font-size:1.2rem}
+.admin-banner .admin-info strong{color:var(--cyan);font-family:var(--font-display)}
+.admin-banner .admin-info span{display:block;font-size:0.75rem;color:var(--text-dim);margin-top:2px}
+@media(max-width:768px){.dashboard{padding:1rem}.header{flex-direction:column;align-items:flex-start}.stats-grid{grid-template-columns:repeat(2,1fr);gap:0.875rem}.toolbar{flex-direction:column;align-items:stretch}.search-box{max-width:none}th,td{padding:0.75rem}.cell-comment{max-width:140px}.toast-container{right:12px;top:12px}.chat-panel{right:12px;bottom:80px;width:calc(100vw - 24px);height:60vh}}
 @media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}.stat-value{font-size:1.4rem}.login-card{padding:2rem 1.5rem}}
 .hidden{display:none !important}
 </style>
@@ -185,6 +193,7 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
   <button class="btn" onclick="doLogin()">AUTHENTICATE</button>
 </div></div>
 <div id="dashboard" class="dashboard">
+<div class="admin-banner" id="adminBanner" style="display:none;"><div class="admin-icon">👑</div><div class="admin-info"><strong>System Administrator</strong><span>Neural link established. Full access granted.</span></div></div>
   <div class="header">
     <div class="header-left"><h1><img src="https://i.ibb.co/fVD4078t/maureonix-logo.png" alt="" onerror="this.style.display='none'"> FEEDBACK COMMAND CENTER</h1><p>Neural feedback administration interface</p></div>
     <div class="header-actions">
@@ -215,7 +224,13 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 </div>
 <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeModal()"><div class="cyber-modal"><div class="modal-icon">🗑</div><h3>Purge Feedback</h3><p>Permanently delete this feedback? This cannot be undone.</p><div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-danger-solid" onclick="confirmDelete()">Purge</button></div></div></div>
 <button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant">🧠</button>
-<div class="chat-panel" id="chatPanel"><div class="chat-header"><span>🧠 Neural Assistant</span><button onclick="toggleChat()" title="Close">×</button></div><div class="chat-messages" id="chatMessages"></div><div class="chat-typing" id="chatTyping"><span>Thinking</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="chat-input-area"><input type="text" id="chatInput" placeholder="Ask Maureonix anything..." onkeypress="if(event.key==='Enter')sendChatMessage()"><button id="chatSend" onclick="sendChatMessage()">➤</button></div></div>
+<button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant" aria-label="Open Neural Assistant">🦊</button>
+<div class="chat-panel" id="chatPanel" role="dialog" aria-label="Neural Assistant" aria-hidden="true">
+  <div class="chat-header"><span>🦊 MAUREONIX AI</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-typing" id="chatTyping"><span>Thinking</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  <div class="chat-input-area"><input type="text" id="chatInput" placeholder="Ask Maureonix anything..." onkeypress="if(event.key==='Enter')sendChatMessage()"><button id="chatSend" onclick="sendChatMessage()">➤</button></div>
+</div>
 <script>
 var ADMIN_KEY='maureonix-admin-secret';var secret=localStorage.getItem(ADMIN_KEY)||'';var allFeedback=[];var filteredFeedback=[];var deleteTargetId=null;var autoRefresh=true;var refreshTimer=null;var sortCol='timestamp';var sortDir='desc';var deferredPrompt=null;var isChatOpen=false;
 if(secret)doLogin();
@@ -224,7 +239,7 @@ if('serviceWorker' in navigator){try{navigator.serviceWorker.register(URL.create
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;var btn=document.getElementById('installBtn');if(btn)btn.classList.add('visible');});
 function installPWA(){if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt.userChoice.then(function(){deferredPrompt=null;});var btn=document.getElementById('installBtn');if(btn)btn.classList.remove('visible');}
 function showToast(msg,type){var container=document.getElementById('toastContainer');var toast=document.createElement('div');toast.className='toast toast-'+(type||'info');var icon=type==='success'?'✓':type==='error'?'✕':'ℹ';toast.innerHTML='<span class="toast-icon">'+icon+'</span><span>'+msg+'</span>';container.appendChild(toast);requestAnimationFrame(function(){toast.classList.add('show');});setTimeout(function(){toast.classList.remove('show');setTimeout(function(){toast.remove();},400);},4000);}
-async function doLogin(){if(!secret)secret=document.getElementById('secretInput').value.trim();if(!secret)return;try{var r=await fetch('/api/feedback/list?secret='+encodeURIComponent(secret));if(!r.ok)throw new Error('Unauthorized');var data=await r.json();localStorage.setItem(ADMIN_KEY,secret);document.getElementById('loginScreen').classList.add('hidden');var dash=document.getElementById('dashboard');dash.classList.remove('hidden');dash.classList.add('visible');allFeedback=data.feedback||[];applySortAndFilter();showToast('Neural link established. Welcome, Admin.','success');startAutoRefresh();initChatSession();}catch(e){showToast('Authentication failed. Invalid secret key.','error');secret='';localStorage.removeItem(ADMIN_KEY);var card=document.getElementById('loginCard');card.classList.add('shake');setTimeout(function(){card.classList.remove('shake');},500);}}
+async function doLogin(){if(!secret)secret=document.getElementById('secretInput').value.trim();if(!secret)return;try{var r=await fetch('/api/feedback/list?secret='+encodeURIComponent(secret));if(!r.ok)throw new Error('Unauthorized');var data=await r.json();localStorage.setItem(ADMIN_KEY,secret);document.getElementById('loginScreen').classList.add('hidden');var dash=document.getElementById('dashboard');dash.classList.remove('hidden');dash.classList.add('visible');allFeedback=data.feedback||[];applySortAndFilter();showToast('Neural link established. Welcome, Admin.','success');checkAdminIdentity();startAutoRefresh();initChatSession();}catch(e){showToast('Authentication failed. Invalid secret key.','error');secret='';localStorage.removeItem(ADMIN_KEY);var card=document.getElementById('loginCard');card.classList.add('shake');setTimeout(function(){card.classList.remove('shake');},500);}}
 function logout(){secret='';localStorage.removeItem(ADMIN_KEY);stopAutoRefresh();document.getElementById('loginScreen').classList.remove('hidden');var dash=document.getElementById('dashboard');dash.classList.add('hidden');dash.classList.remove('visible');document.getElementById('secretInput').value='';showToast('Session terminated. Goodbye.','info');}
 function applySortAndFilter(){var query=document.getElementById('searchInput').value.toLowerCase().trim();var list=allFeedback;if(query){list=list.filter(function(f){return(f.comment&&f.comment.toLowerCase().indexOf(query)!==-1)||(f.contact&&f.contact.toLowerCase().indexOf(query)!==-1)||(f.page&&f.page.toLowerCase().indexOf(query)!==-1)||(f.ip&&f.ip.toLowerCase().indexOf(query)!==-1)||String(f.id).toLowerCase().indexOf(query)!==-1;});}list=list.slice().sort(function(a,b){var av=a[sortCol],bv=b[sortCol];if(sortCol==='timestamp'){av=new Date(av).getTime();bv=new Date(bv).getTime();}else if(sortCol==='rating'){av=parseInt(av)||0;bv=parseInt(bv)||0;}else if(sortCol==='seen'){av=av?1:0;bv=bv?1:0;}else{av=String(av||'').toLowerCase();bv=String(bv||'').toLowerCase();}if(av<bv)return sortDir==='asc'?-1:1;if(av>bv)return sortDir==='asc'?1:-1;return 0;});filteredFeedback=list;render(list);}
 function render(list){var total=allFeedback.length;var avg=total?(allFeedback.reduce(function(s,f){return s+f.rating;},0)/total).toFixed(1):'0.0';var unseen=allFeedback.filter(function(f){return!f.seen;}).length;var seenRate=total?Math.round((total-unseen)/total*100):0;document.getElementById('statTotal').textContent=total.toLocaleString();document.getElementById('statAvg').textContent=avg+' ★';document.getElementById('statUnseen').textContent=unseen.toLocaleString();document.getElementById('statSeenRate').textContent=seenRate+'%';document.getElementById('showingCount').textContent='Showing '+list.length+' of '+total;document.getElementById('lastUpdated').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});var tbody=document.getElementById('tableBody');if(!list.length){tbody.innerHTML='<tr><td colspan="9" class="empty-cell"><div class="empty-state"><div class="empty-icon">📭</div><h3>No feedback found</h3><p>Submissions will appear here in real-time</p></div></td></tr>';return;}tbody.innerHTML=list.map(function(f,i){var date=new Date(f.timestamp);var dateStr=date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});var timeStr=date.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});var unseenClass=f.seen?'':'unseen';var seenDot=f.seen?'<span class="seen-dot seen-yes"></span>':'<span class="seen-dot seen-no"></span>';var shortId=String(f.id).slice(-8).toUpperCase();var comment=f.comment?escapeHtml(f.comment):'<span style="color:var(--text-muted);font-style:italic;">No comment</span>';var pageTag=f.page?'<span class="page-tag">'+escapeHtml(f.page)+'</span>':'<span style="color:var(--text-muted);">-</span>';return'<tr class="'+unseenClass+'" style="animation-delay:'+(i*0.025)+'s"><td class="cell-id"><span class="id-hash">#</span>'+shortId+'</td><td class="cell-time"><div>'+dateStr+'</div><div class="cell-time-sub">'+timeStr+'</div></td><td class="cell-rating">'+'★'.repeat(f.rating)+'<span class="rating-empty">'+'☆'.repeat(5-f.rating)+'</span></td><td class="cell-comment" title="'+escapeHtml(f.comment||'')+'">'+comment+'</td><td class="cell-contact">'+(f.contact?escapeHtml(f.contact):'<span style="color:var(--text-muted);">-</span>')+'</td><td>'+pageTag+'</td><td><span class="ip-badge">'+(f.ip||'-')+'</span></td><td class="cell-seen">'+seenDot+'</td><td class="cell-action"><button class="btn-delete" onclick="openDeleteModal(\\''+f.id+'\\')"><span>🗑</span> Delete</button></td></tr>';}).join('');document.querySelectorAll('.sort-indicator').forEach(function(el){var col=el.dataset.col;if(col===sortCol){el.textContent=sortDir==='asc'?'▲':'▼';el.style.opacity='1';}else{el.textContent='⇅';el.style.opacity='0.3';}});}
@@ -243,20 +258,180 @@ function toggleAutoRefresh(){autoRefresh=!autoRefresh;if(autoRefresh){startAutoR
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();if(e.key==='Enter'&&document.activeElement.id==='secretInput')doLogin();});
 (function(){var canvas=document.getElementById('particleCanvas');if(!canvas)return;var ctx=canvas.getContext('2d');var particles=[];function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}window.addEventListener('resize',resize);resize();for(var i=0;i<55;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,size:Math.random()*1.5+0.5});}function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(function(p,i){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle='rgba(0,240,255,'+(p.size/4)+')';ctx.fill();for(var j=i+1;j<particles.length;j++){var p2=particles[j],dx=p.x-p2.x,dy=p.y-p2.y,d=Math.sqrt(dx*dx+dy*dy);if(d<130){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(0,240,255,'+(0.035*(1-d/130))+')';ctx.lineWidth=0.5;ctx.stroke();}}});requestAnimationFrame(draw);}draw();})();
 
-/* Chat */
-var CHAT_SESSION_KEY='maureonix-chat-session';var CHAT_HISTORY_KEY='maureonix-chat-history';var chatSessionId='';var chatHistory=[];
+/* ═══ Chat v7.0 — Smart Admin Assistant ═══ */
+var CHAT_SESSION_KEY='maureonix-chat-session';var CHAT_HISTORY_KEY='maureonix-chat-history';
+var chatSessionId='';var chatHistory=[];var isChatOpen=false;var adminIdentity=null;
+
 function generateSessionId(){return'sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);}
-function initChatSession(){try{chatSessionId=localStorage.getItem(CHAT_SESSION_KEY)||generateSessionId();localStorage.setItem(CHAT_SESSION_KEY,chatSessionId);var raw=localStorage.getItem(CHAT_HISTORY_KEY);chatHistory=raw?JSON.parse(raw):[];renderChatHistory();}catch(e){chatSessionId=generateSessionId();}}
+
+function initChatSession(){
+  try{
+    chatSessionId=localStorage.getItem(CHAT_SESSION_KEY)||generateSessionId();
+    localStorage.setItem(CHAT_SESSION_KEY,chatSessionId);
+    var raw=localStorage.getItem(CHAT_HISTORY_KEY);
+    chatHistory=raw?JSON.parse(raw):[];
+    renderChatHistory();
+    if(!chatHistory.length){
+      var greeting=adminIdentity?'Welcome back, **Administrator**. I can check feedback, verify numbers, export data, and execute any command.':'Welcome to the **Neural Command Center**.\n\nI am MAUREONIX. Ask me about feedback, pairing, or anything.';
+      appendChatBubble('assistant',greeting,Date.now(),true);
+    }
+  }catch(e){chatSessionId=generateSessionId();}
+}
+
 function saveChatHistory(){try{localStorage.setItem(CHAT_HISTORY_KEY,JSON.stringify(chatHistory.slice(-40)));}catch(e){}}
-function renderChatHistory(){var container=document.getElementById('chatMessages');if(!container)return;container.innerHTML='';chatHistory.forEach(function(msg){appendChatBubble(msg.role,msg.text,msg.ts,false);});scrollChatToBottom();}
-function appendChatBubble(role,text,ts,save){var container=document.getElementById('chatMessages');if(!container)return;var bubble=document.createElement('div');bubble.className='chat-bubble '+role;var timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';bubble.innerHTML=text.replace(/\\n/g,'<br>')+(timeStr?'<span class="ts">'+timeStr+'</span>':'');container.appendChild(bubble);if(save){chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory();}scrollChatToBottom();}
+
+function renderChatHistory(){
+  var container=document.getElementById('chatMessages');
+  if(!container)return;
+  container.innerHTML='';
+  chatHistory.forEach(function(msg){appendChatBubble(msg.role,msg.text,msg.ts,false);});
+  scrollChatToBottom();
+}
+
+function appendChatBubble(role,text,ts,save){
+  var container=document.getElementById('chatMessages');
+  if(!container)return;
+  var bubble=document.createElement('div');
+  bubble.className='chat-bubble '+role;
+  var timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+  var displayText=text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  bubble.innerHTML=displayText+'<span class="ts">'+timeStr+'</span>';
+  container.appendChild(bubble);
+  if(save){chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory();}
+  scrollChatToBottom();
+}
+
 function scrollChatToBottom(){var container=document.getElementById('chatMessages');if(container)container.scrollTop=container.scrollHeight;}
+
 function setChatTyping(show){var el=document.getElementById('chatTyping');if(el)el.style.display=show?'flex':'none';}
-async function sendChatMessage(){var input=document.getElementById('chatInput');var btn=document.getElementById('chatSend');var text=input.value.trim();if(!text)return;input.value='';appendChatBubble('user',text,Date.now(),true);setChatTyping(true);btn.disabled=true;try{var res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text})});var data=await res.json();if(data.text){appendChatBubble('assistant',data.text,Date.now(),true);}else{appendChatBubble('assistant','⚠️ Neural link interrupted. Please retry.',Date.now(),true);}}catch(e){appendChatBubble('assistant','❌ Connection failed. The neural network is unreachable.',Date.now(),true);}setChatTyping(false);btn.disabled=false;input.focus();}
-function toggleChat(){var panel=document.getElementById('chatPanel');var btn=document.getElementById('chatToggle');if(!panel)return;isChatOpen=!isChatOpen;panel.style.display=isChatOpen?'flex':'none';if(isChatOpen){document.getElementById('chatInput').focus();scrollChatToBottom();}}
-document.addEventListener('click',function(e){if(e.target.closest('#chatToggle'))toggleChat();if(e.target.closest('#chatClose'))toggleChat();if(e.target.closest('#chatSend'))sendChatMessage();});
-document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.activeElement===document.getElementById('chatInput')){e.preventDefault();sendChatMessage();}if(e.key==='Escape'){if(isChatOpen)toggleChat();}});
+
+/* ── Smart Intent Parser ── */
+function parseIntent(text){
+  var lower=text.toLowerCase();
+  var intents=[];
+  if(/show.*unseen|unseen.*feedback|new.*feedback/.test(lower))intents.push({type:'action',action:'filterUnseen'});
+  if(/mark.*seen|mark.*all|clear.*all.*seen/.test(lower))intents.push({type:'action',action:'markAllSeen'});
+  if(/export|download.*csv/.test(lower))intents.push({type:'action',action:'exportCSV'});
+  if(/delete.*all|clear.*all|purge.*all/.test(lower))intents.push({type:'action',action:'deleteAll'});
+  if(/verify.*number|check.*number|validate.*phone/.test(lower)){
+    var m=text.match(/(?:\+?254|0)?\d{9,12}/);
+    if(m)intents.push({type:'verifyPhone',number:m[0].replace(/^0/,'254').replace(/^\+/,'')});
+  }
+  if(/refresh|reload|update.*data/.test(lower))intents.push({type:'action',action:'refresh'});
+  if(/scroll.*top|go.*top|back.*top/.test(lower))intents.push({type:'scrollTo',target:'loginScreen'});
+  return intents;
+}
+
+function executeIntent(intent){
+  switch(intent.type){
+    case 'action':
+      if(intent.action==='markAllSeen'){markAllSeen();return true;}
+      if(intent.action==='exportCSV'){exportCSV();return true;}
+      if(intent.action==='deleteAll'){deleteAll();return true;}
+      if(intent.action==='refresh'){doLogin();return true;}
+      if(intent.action==='filterUnseen'){document.getElementById('searchInput').value='unseen';filterTable();return true;}
+      return false;
+    case 'verifyPhone':
+      var valid=/^254\d{9}$/.test(intent.number);
+      return valid?'✅ **'+intent.number+'** is valid Kenyan format.':'⚠️ **'+intent.number+'** is invalid. Use 254XXXXXXXXX';
+    case 'scrollTo':
+      var el=document.getElementById(intent.target);
+      if(el){el.scrollIntoView({behavior:'smooth'});return true;}
+      return false;
+    default:return false;
+  }
+}
+
+async function sendChatMessage(){
+  var input=document.getElementById('chatInput');
+  var btn=document.getElementById('chatSend');
+  var text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  appendChatBubble('user',text,Date.now(),true);
+  setChatTyping(true);btn.disabled=true;
+  
+  var intents=parseIntent(text);
+  var intentHandled=false;var intentResponse=[];
+  for(var i=0;i<intents.length;i++){
+    var result=executeIntent(intents[i]);
+    if(result===true)intentHandled=true;
+    else if(typeof result==='string'){intentResponse.push(result);intentHandled=true;}
+  }
+  if(intentHandled&&intentResponse.length>0){
+    setTimeout(function(){
+      appendChatBubble('assistant',intentResponse.join('\n\n'),Date.now(),true);
+      setChatTyping(false);btn.disabled=false;input.focus();
+    },500);
+    return;
+  }
+  
+  try{
+    var res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text,context:{page:'admin-feedback',isAdmin:true}})});
+    var data=await res.json();
+    if(data.text){appendChatBubble('assistant',data.text,Date.now(),true);}
+    else{appendChatBubble('assistant','⚠️ Neural link interrupted. Please retry.',Date.now(),true);}
+  }catch(e){
+    appendChatBubble('assistant','❌ Connection failed. The neural network is unreachable.',Date.now(),true);
+  }
+  setChatTyping(false);btn.disabled=false;input.focus();
+}
+
+function toggleChat(){
+  var panel=document.getElementById('chatPanel');
+  var btn=document.getElementById('chatToggle');
+  if(!panel)return;
+  isChatOpen=!isChatOpen;
+  panel.style.display=isChatOpen?'flex':'none';
+  if(isChatOpen){
+    document.getElementById('chatInput').focus();
+    scrollChatToBottom();
+    adjustChatForViewport();
+  }
+}
+
+// Visual Viewport API
+function adjustChatForViewport(){
+  var panel=document.getElementById('chatPanel');
+  if(!panel||panel.style.display!=='flex')return;
+  if(window.visualViewport){
+    var vv=window.visualViewport;
+    var h=Math.min(520,vv.height-130);
+    panel.style.height=h+'px';
+    panel.style.maxHeight=h+'px';
+    var bottomOffset=window.innerHeight-vv.height;
+    panel.style.bottom=(bottomOffset+90)+'px';
+  }
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',adjustChatForViewport);
+  window.visualViewport.addEventListener('scroll',adjustChatForViewport);
+}
+
+document.addEventListener('click',function(e){
+  if(e.target.closest('#chatToggle'))toggleChat();
+  if(e.target.closest('#chatClose'))toggleChat();
+  if(e.target.closest('#chatSend'))sendChatMessage();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.activeElement===document.getElementById('chatInput')){e.preventDefault();sendChatMessage();}
+  if(e.key==='Escape'){if(isChatOpen)toggleChat();}
+});
+
+/* ── Admin Identity ── */
+async function checkAdminIdentity(){
+  try{
+    var r=await fetch('/api/admin/identity?secret='+encodeURIComponent(secret));
+    if(r.ok){
+      adminIdentity=await r.json();
+      var banner=document.getElementById('adminBanner');
+      if(banner){banner.style.display='flex';}
+    }
+  }catch(e){}
+}
+
 initChatSession();
+
 </script>
 </body>
 </html>`;

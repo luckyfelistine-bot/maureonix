@@ -20,8 +20,11 @@ function recordPairAttempt(ip) {
 }
 
 async function generatePairCode(number) {
-  const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
+  const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('@whiskeysockets/baileys');
   const pino = require('pino');
+  const path = require('path');
+  const fs = require('fs');
+  const os = require('os');
 
   const cleanNumber = number.replace(/[^0-9]/g, '');
   if (cleanNumber.length < 9) throw new Error('Invalid phone number. Include country code.');
@@ -49,13 +52,17 @@ async function generatePairCode(number) {
 
     try {
       const { state } = await useMultiFileAuthState(tempDir);
+
+      // ── Robust version fetch with fallback ──
       let version;
       try {
         version = (await fetchLatestWaWebVersion()).version;
       } catch (e) {
         console.warn('[PAIR] Could not fetch latest WA version, using fallback. Error:', e.message);
-        version = [2, 3000, 1017531287]; // stable fallback version
-      }      sock = makeWASocket({
+        version = [2, 3000, 1017531287]; // stable fallback
+      }
+
+      sock = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
         auth: state,
@@ -81,17 +88,25 @@ async function generatePairCode(number) {
           codeResolved = true;
           clearTimeout(timeout);
           cleanup();
-          reject(err);
+          let msg = err?.message || 'Unknown error';
+          if (msg.includes('Connection closed')) msg = 'Connection closed by WhatsApp. Please try again.';
+          else if (msg.includes('timed out')) msg = 'Request timed out. Check your internet and try again.';
+          reject(new Error(msg));
         }
       });
 
       sock.ev.on('connection.update', (update) => {
         if (update.connection === 'close' && !codeResolved) {
-          const error = update.lastDisconnect?.error?.message || 'Connection closed';
+          const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+          const reason = update.lastDisconnect?.error?.message || 'Connection closed unexpectedly';
+          let userMessage = `WhatsApp disconnected: ${reason}`;
+          if (statusCode === 401) userMessage = 'Phone number not registered on WhatsApp. Check the number and try again.';
+          else if (statusCode === 403) userMessage = 'Access denied. Try again later.';
+          else if (reason.includes('timed out')) userMessage = 'Connection timed out. Please try again.';
           codeResolved = true;
           clearTimeout(timeout);
           cleanup();
-          reject(new Error(`WhatsApp connection error: ${error}`));
+          reject(new Error(userMessage));
         }
       });
     } catch (err) {

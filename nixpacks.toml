@@ -1,11 +1,18 @@
-[phases.setup]
-nixPkgs = ["ffmpeg", "python312", "python312Packages.pip"]
+phases.setup]
+nixPkgs = [
+  "nodejs",
+  "npm",
+  "ffmpeg",
+  "python310",
+  "python310Packages.pip",
+  "tesseract",
+  "gcc",
+  "pkg-config"
+]
 
 [phases.install]
 cmds = [
+  "python3 --version",
   "pip install yt-dlp spotdl gallery-dl --break-system-packages",
   "npm ci"
 ]
-
-[start]
-cmd = "npm start"

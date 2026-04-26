@@ -70,6 +70,19 @@ module.exports = async (nimesha, m, ctx) => {
         cleanupFile(filePath);
     }
 
+    // Universal media extractor – uses lib/extract.js
+    async function extractQuotedContent(quoted, nimesha) {
+        if (!quoted) return { text: '', type: 'none', error: 'No quoted message' };
+        const type = quoted.type;
+        const mime = (quoted.mimetype || '').toLowerCase();
+        const buffer = await quoted.download().catch(e => null);
+        if (!buffer) return { text: '', type: type, error: 'Failed to download' };
+        const filename = quoted.filename || '';
+        const { extractText } = require('./lib/extract');
+        const text = await extractText(buffer, mime, filename);
+        return { text, type: type === 'documentMessage' ? 'document' : type };
+    }
+
 
     // Only process if it's a command or fileSha256 media
     if (!isCmd && !fileSha256) return;
@@ -639,65 +652,120 @@ module.exports = async (nimesha, m, ctx) => {
         break
         case 'tts': {
             if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
-            const lang = args[0]?.length === 2 ? args.shift() : 'en';
-            const txt = args.join(' ') || text;
+
+            let lang = args[0]?.length === 2 ? args.shift() : 'en';
+            let txt = args.join(' ') || text;
+
             await m.reply('🔊 *Generating voice...*');
 
-            let audioBuffer = null;
-            const tmpDir = path.join(require('os').tmpdir());
+            let oggBuffer = null;
+            const tmpDir = require('os').tmpdir();
+            const path = require('path');
+            const fs = require('fs');
+            const { exec } = require('child_process');
+            const util = require('util');
+            const execPromise = util.promisify(exec);
 
-            const isValidAudio = (buf) => {
-                if (!buf || buf.length < 100) return false;
-                if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true;
-                if (buf.slice(0, 4).toString() === 'OggS') return true;
-                return false;
-            };
+            const isValidAudio = (buf) => buf && buf.length > 500;
 
-            // 1. gTTS (most reliable, works offline after first run)
+            // 1. Try gTTS → MP3 → Opus OGG
             try {
                 const gTTS = require('gtts');
-                const tempFile = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
                 await new Promise((resolve, reject) => {
                     const tts = new gTTS(txt, lang);
-                    tts.save(tempFile, (err) => {
+                    tts.save(tempMp3, (err) => {
                         if (err) reject(err);
                         else resolve();
                     });
                 });
-                const buf = fs.readFileSync(tempFile);
-                fs.unlinkSync(tempFile);
-                if (isValidAudio(buf)) audioBuffer = buf;
+                const mp3Buffer = fs.readFileSync(tempMp3);
+                fs.unlinkSync(tempMp3);
+                if (isValidAudio(mp3Buffer)) {
+                    const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+                    await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
+                    oggBuffer = fs.readFileSync(tempOgg);
+                    fs.unlinkSync(tempOgg);
+                }
             } catch (e) {
-                console.log('gTTS failed:', e.message);
+                console.log('[gTTS failed]', e.message);
             }
 
-            // 2. Google Translate TTS via axios
-            if (!audioBuffer) {
+            // 2. Fallback: Google Translate TTS
+            if (!oggBuffer) {
                 try {
+                    const axios = require('axios');
                     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
                     const res = await axios.get(url, {
                         responseType: 'arraybuffer',
-                        headers: { 
+                        headers: {
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                             'Referer': 'https://translate.google.com/'
                         },
                         timeout: 15000
                     });
-                    const buf = Buffer.from(res.data);
-                    if (isValidAudio(buf)) audioBuffer = buf;
+                    const mp3Buffer = Buffer.from(res.data);
+                    if (isValidAudio(mp3Buffer)) {
+                        const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                        fs.writeFileSync(tempMp3, mp3Buffer);
+                        const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+                        await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
+                        oggBuffer = fs.readFileSync(tempOgg);
+                        fs.unlinkSync(tempMp3);
+                        fs.unlinkSync(tempOgg);
+                    }
                 } catch (e) {
-                    console.log('Google TTS failed:', e.message);
+                    console.log('[Google TTS fallback failed]', e.message);
                 }
             }
 
-            if (audioBuffer) {
+            // 3. Send as voice note
+            if (oggBuffer) {
                 await nimesha.sendMessage(m.chat, {
-                    audio: audioBuffer,
-                    mimetype: 'audio/mpeg',
+                    audio: oggBuffer,
+                    mimetype: 'audio/ogg; codecs=opus',
                     ptt: true
                 }, { quoted: m });
             } else {
-                m.reply('❌ TTS failed. Make sure `gtts` is installed: npm install gtts');
+                // Ultimate fallback: send raw MP3 as normal audio
+                try {
+                    const gTTS = require('gtts');
+                    const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                    await new Promise((resolve, reject) => {
+                        const tts = new gTTS(txt, lang);
+                        tts.save(tempMp3, (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        });
+                    });
+                    const mp3Buffer = fs.readFileSync(tempMp3);
+                    fs.unlinkSync(tempMp3);
+                    await nimesha.sendMessage(m.chat, {
+                        audio: mp3Buffer,
+                        mimetype: 'audio/mpeg',
+                        ptt: false
+                    }, { quoted: m });
+                } catch (finalErr) {
+                    m.reply(`❌ TTS failed: ${finalErr.message}`);
+                }
+            }
+        }
+        break
+        case 'stt':
+        case 'transcribe':
+        case 'speech2text': {
+            if (!m.quoted || !/audio|voice|ptt/.test(m.quoted.type)) {
+                return m.reply('🎤 Reply to a voice note to transcribe it.');
+            }
+            await m.reply('🎤 *Transcribing audio...*');
+            try {
+                const audioBuffer = await m.quoted.download();
+                const { transcribeAudio } = require('./lib/audioTranscribe');
+                const text = await transcribeAudio(audioBuffer);
+                await m.reply(`📝 *Transcription:*\n\n${text || '(No speech detected)'}`);
+            } catch (err) {
+                console.error('[STT error]', err);
+                await m.reply(`❌ Transcription failed: ${err.message}`);
             }
         }
         break
@@ -787,7 +855,27 @@ module.exports = async (nimesha, m, ctx) => {
             }
         }
         break
-
+        case 'askmedia':
+        case 'analyze':
+        case 'processfile': {
+            if (!m.quoted) return m.reply(`📎 *Universal Media AI*\n\nReply to any file with:\n${prefix}askmedia [your question]\n\nSupports: images, audio, video, PDF, Word, Excel, PowerPoint, archives, ebooks, code, and more.`);
+            let userQuestion = text || 'Please summarise the content of this file.';
+            await m.reply('🧠 *Analyzing file with AI...*');
+            try {
+                const extracted = await extractQuotedContent(m.quoted, nimesha);
+                if (!extracted.text && extracted.type !== 'sticker') {
+                    return m.reply(`❌ Could not extract text from this ${extracted.type || 'file'}.${extracted.error ? `\nError: ${extracted.error}` : ''}`);
+                }
+                let prompt = extracted.type === 'sticker' 
+                    ? `User: "${userQuestion}"\n(Sticker – no text)`
+                    : `File type: ${extracted.type}\nContent:\n"""\n${extracted.text.slice(0, 4000)}\n"""\n\nQuestion: ${userQuestion}\nAnswer based on the content.`;
+                const aiResult = await AI.ultimateAI(prompt, m.sender, 'deepseek');
+                await m.reply(`📎 *${extracted.type.toUpperCase()} Analysis*\n\n${aiResult.text}`);
+            } catch (e) {
+                await m.reply(`❌ Failed: ${e.message}`);
+            }
+        }
+        break
         case 'clearmemory': {
             AI.clearMemory(m.sender);
             await m.reply('🧹 AI memory cleared');
@@ -3902,28 +3990,23 @@ JSON:`;
 
         case 'clearchat': {
             if (!isCreator) return m.reply(mess.owner);
-            const statusMsg = await m.reply('🗑️ *Clearing chat...*');
-            let deletedCount = 0;
-            try {
-                const storedMsgs = global.store?.messages?.[m.chat]?.array || [];
-                const chunks = [];
-                for (let i = 0; i < storedMsgs.length; i += 10) chunks.push(storedMsgs.slice(i, i + 10));
-                for (const chunk of chunks) {
-                    await Promise.all(chunk.map(async (msg) => {
-                        try {
-                            await nimesha.sendMessage(m.chat, { delete: msg.key });
-                            deletedCount++;
-                        } catch {}
-                    }));
-                    await sleep(200);
-                }
-                await nimesha.sendMessage(m.chat, { text: `✅ *Cleared ${deletedCount} messages*`, edit: statusMsg.key });
-            } catch {
-                m.reply('❌ Failed to clear chat');
+            await m.reply('⚠️ *Clearing chat...* This may take a while.');
+            let deleted = 0;
+            const messages = store?.messages?.[m.chat]?.array || [];
+            if (messages.length === 0) return m.reply('No messages to delete.');
+            for (let i = 0; i < messages.length; i += 20) {
+                const batch = messages.slice(i, i + 20);
+                await Promise.all(batch.map(async (msg) => {
+                    try {
+                        await nimesha.sendMessage(m.chat, { delete: msg.key });
+                        deleted++;
+                    } catch (e) {}
+                }));
+                await sleep(300);
             }
+            await m.reply(`✅ *Deleted ${deleted} messages* from this chat.`);
         }
         break
-
         case 'backup': {
             if (!isCreator) return m.reply(mess.owner);
             switch (args[0]) {

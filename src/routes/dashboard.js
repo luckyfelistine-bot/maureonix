@@ -9,7 +9,8 @@ module.exports = function mountDashboardRoute(app, packageInfo) {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-      'X-DNS-Prefetch-Control': 'on'
+      'X-DNS-Prefetch-Control': 'on',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     });
     res.send(getDashboardHtml(packageInfo));
   });
