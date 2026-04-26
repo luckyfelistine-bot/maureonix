@@ -1596,18 +1596,17 @@ module.exports = async (nimesha, m, ctx) => {
             try {
                 const { ultimateAI } = require('./lib/ai');
                 const now = new Date();
-                const prompt = `Extract the reminder datetime (ISO 8601 format, in Africa/Nairobi timezone) and message from this user request.
+                const localNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }));
+                const prompt = `Extract the reminder datetime (UNIX timestamp in milliseconds, in Africa/Nairobi timezone) and message from this user request.
 Return ONLY a JSON object with "due" (timestamp in milliseconds) and "text" (the reminder message). If you can't determine a date/time, set "due" to null.
-Current time: ${now.toISOString()} (Nairobi: ${now.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })})
+Current time in Nairobi: ${localNow.toISOString()} (${localNow.toString()})
 User request: "${text}"
 JSON:`;
                 const res = await ultimateAI(prompt, m.sender, 'deepseek');
-                // Try to extract JSON from response
                 let parsed;
                 try {
                     parsed = JSON.parse(res.text);
                 } catch {
-                    // maybe the response has extra text, find JSON object
                     const match = res.text.match(/\{[\s\S]*\}/);
                     if (!match) throw new Error('No JSON found');
                     parsed = JSON.parse(match[0]);
@@ -1616,7 +1615,6 @@ JSON:`;
                     return m.reply('❌ Could not extract a valid time from your request. Please be more specific.\nExample: "remind me to buy milk at 5pm"');
                 }
                 const dueMs = parsed.due;
-                // Don't allow past reminders
                 if (dueMs <= Date.now()) {
                     return m.reply('❌ The time you mentioned is in the past. Please use a future time.');
                 }
@@ -3787,6 +3785,18 @@ JSON:`;
         case 'delete': case 'del': case 'd': {
             if (!m.quoted) return m.reply('Reply to the message you want to delete');
             await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: m.isBotAdmin ? false : true, id: m.quoted.id, participant: m.quoted.sender }});
+        }
+        break
+        case 'edit': {
+            if (!isCreator) return m.reply(mess.owner);
+            if (!m.quoted) return m.reply('Reply to a message you want to edit.');
+            if (!text) return m.reply('Provide the new text content.');
+            try {
+                await nimesha.sendMessage(m.chat, { text: text, edit: m.quoted.key });
+                await m.reply('✅ Message edited successfully.');
+            } catch (e) {
+                m.reply(`❌ Failed to edit: ${e.message}`);
+            }
         }
         break
 
