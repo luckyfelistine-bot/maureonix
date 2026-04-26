@@ -1,6 +1,6 @@
 const path = require('path');
 
-module.exports = function getAdminCommandHtml(pkg) {
+module.exports = function getAdminCommandHtml(pkg, isDefaultSecret) {
   const manifestObj = {
     name: 'Maureonix Command Center',
     short_name: 'MX Command',
@@ -250,7 +250,7 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 <div class="toast-container" id="toastContainer"></div>
 <div id="loginScreen" class="login-screen"><div class="login-card" id="loginCard">
   <div class="brand"><img src="https://i.ibb.co/fVD4078t/maureonix-logo.png" alt="" class="brand-logo" onerror="this.style.display='none'"><h1>MAUREONIX</h1><p>Command Center</p></div>
-  <div class="input-group"><label>Admin Secret Key</label><input type="password" id="secretInput" placeholder="Enter neural key..." autocomplete="off" onkeypress="if(event.key==='Enter')doLogin()"></div>
+    <div class="input-group"><label>Admin Secret Key</label><input type="password" id="secretInput" placeholder="Enter neural key..." autocomplete="off" onkeypress="if(event.key==='Enter')doLogin()">${isDefaultSecret ? '<small style="color:#8a9bb8;display:block;margin-top:6px;font-size:0.75rem;">Default secret: <code style="background:rgba(0,240,255,0.08);padding:2px 6px;border-radius:4px;">maureonix_secret_key</code></small>' : ''}</div>
   <button class="btn" onclick="doLogin()">AUTHENTICATE</button>
 </div></div>
 <div id="appShell" class="app-shell">

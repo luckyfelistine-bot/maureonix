@@ -35,20 +35,7 @@ module.exports = function mountApiRoutes(app, packageInfo) {
     res.json({ status: 200, mess: 'Not yet implemented' });
   });
 
-  // ═══ DEBUG: verify what secret the server expects ═══
-  app.get('/api/admin/debug', (req, res) => {
-    const expected = ADMIN_SECRET;
-    res.json({
-      ok: true,
-      hint: 'Expected secret starts with: ' + expected.substring(0, 3) + '***',
-      length: expected.length,
-      envVarSet: !!process.env.MAUREONIX_ADMIN_SECRET,
-      usingDefault: expected === 'maureonix_secret_key',
-      tryThis: expected === 'maureonix_secret_key' ? 'Use default: maureonix_secret_key' : 'Use your Railway env var value'
-    });
-  });
-
-  // ═══ AI Chat with Dashboard Navigation System Prompt ═══
+  // ═══ AI Chat — powered by dashboardAiChat (session memory + smart actions) ═══
   app.post('/api/ai/chat', async (req, res) => {
     try {
       const { sessionId, message } = req.body;
@@ -59,58 +46,9 @@ module.exports = function mountApiRoutes(app, packageInfo) {
         return res.status(400).json({ error: 'Invalid message (max 2000 chars)' });
       }
 
-      const systemPrompt = `You are Maureonix Neural Assistant, the AI guide for the Maureonix Dashboard.
-You help users navigate the dashboard, understand features, and use bot commands.
-
-AVAILABLE DASHBOARD SECTIONS:
-- #features — Feature Matrix showing all 16 bot modules (Core, AI, Games, Downloaders, etc.)
-- #pairing — WhatsApp pairing / 8-digit code generator
-- #stats — Live statistics (commands, uptime, platforms)
-- #terminal — Neural Terminal with inspirational quotes
-
-RULES:
-1. NEVER tell users to restart, shutdown, or run dangerous system commands.
-2. NEVER reveal admin secrets or internal paths.
-3. If the user wants to navigate, include an action block: [ACTION: {"type":"scrollTo","target":"pairing"}]
-4. If they ask about pairing, guide them to #pairing.
-5. If they ask about commands/features, guide them to #features.
-6. Be concise, friendly, cyberpunk-themed. Use emojis occasionally.
-7. If you don't know something, say so honestly.`;
-
-      const history = [];
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ];
-
-      const fetch = require('node-fetch');
-      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${require('../config/constants').GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages,
-          temperature: 0.7,
-          max_tokens: 1024
-        })
-      });
-
-      if (!apiRes.ok) throw new Error(`Groq HTTP ${apiRes.status}`);
-      const data = await apiRes.json();
-      let text = data.choices?.[0]?.message?.content || 'No response';
-
-      // Extract actions
-      const actions = [];
-      const actionRegex = /\[ACTION:\s*(\{.*?\})\]/gs;
-      text = text.replace(actionRegex, (match, jsonStr) => {
-        try { actions.push(JSON.parse(jsonStr)); } catch {}
-        return '';
-      }).trim();
-
-      res.json({ text, actions });
+      const { dashboardAiChat } = require('../modules/aiChat');
+      const result = await dashboardAiChat(sessionId, message);
+      res.json(result);
     } catch (e) {
       console.error('AI chat error:', e.message);
       res.status(500).json({ error: 'Neural assistant offline', details: e.message });
@@ -133,8 +71,8 @@ RULES:
         ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown',
         seen: false
       };
-      const recent = feedback.filter(f => f.ip === entry.ip && Date.now() - new Date(f.timestamp).getTime() < 5000);
-      if (recent.length > 0) return res.status(429).json({ success: false, message: 'Please wait before submitting again' });
+      const recent = feedback.filter(f => f.ip === entry.ip && Date.now() - new Date(f.timestamp).getTime() < 30000);
+      if (recent.length > 0) return res.status(429).json({ success: false, message: 'You recently submitted feedback. Please wait 30 seconds before trying again.' });
       feedback.unshift(entry);
       if (feedback.length > 1000) feedback.splice(1000);
       saveFeedback(feedback);
@@ -210,18 +148,30 @@ RULES:
       res.json({ visitors: getVisitors() });
     } catch (e) { res.status(500).json({ error: 'Server error' }); }
   });
-  // Debug: verify auth config without exposing secret
-  app.get('/api/admin/check', (req, res) => {
+  // ═══ Health endpoint (safe for production) ═══
+  app.get('/api/admin/debug', (req, res) => {
+    const { secret } = req.query;
+    if (!secret || secret !== ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
     res.json({
-      hasMaureonixSecret: !!process.env.MAUREONIX_ADMIN_SECRET,
-      hasAdminSecret: !!process.env.ADMIN_SECRET,
-      usingFallback: ADMIN_SECRET === 'maureonix_secret_key',
-      secretLength: ADMIN_SECRET.length,
-      envKeys: Object.keys(process.env).filter(k => 
-        k.toLowerCase().includes('secret') || 
-        k.toLowerCase().includes('admin') ||
-        k.toLowerCase().includes('maureonix')
-      )
+      authenticated: true,
+      secretConfigured: ADMIN_SECRET !== 'maureonix_secret_key',
+      uptime: process.uptime().toFixed(0) + 's'
+    });
+  });
+
+  // ═══ Configuration status (safe) ═══
+  app.get('/api/admin/check', (req, res) => {
+    const { secret } = req.query;
+    if (!secret || secret !== ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    res.json({
+      secretSet: ADMIN_SECRET !== 'maureonix_secret_key',
+      groqKeySet: !!process.env.GROQ_API_KEY,
+      nodeVersion: process.version,
+      memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024)
     });
   });
 };
