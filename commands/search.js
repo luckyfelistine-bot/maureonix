@@ -188,27 +188,6 @@ module.exports = {
             await m.reply(result);
         } catch (e) { m.reply('❌ COVID data failed: ' + e.message); }
     },
-    crypto: async (nimesha, m, { args, Tools }) => {
-        const coin = args[0]?.toLowerCase() || 'bitcoin';
-        try {
-            const fetch = require('node-fetch');
-            const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coin}&vs_currencies=usd,eur,gbp&include_24hr_change=true&include_market_cap=true`;
-            const res = await fetch(url);
-            const json = await res.json();
-            if (json[coin]) {
-                const data = json[coin];
-                const result = `💰 *${coin.charAt(0).toUpperCase() + coin.slice(1)} Price*\n\n💵 USD: $${data.usd?.toLocaleString()}\n💶 EUR: €${data.eur?.toLocaleString()}\n💷 GBP: £${data.gbp?.toLocaleString()}\n📈 24h Change: ${data.usd_24h_change?.toFixed(2) || 'N/A'}%\n🏦 Market Cap: $${data.usd_market_cap?.toLocaleString()}`;
-                await m.reply(result);
-            } else throw new Error('Cryptocurrency not found');
-        } catch (e) {
-            try {
-                const res = await Tools.cryptoPrice(coin);
-                await m.reply(res);
-            } catch (e2) { m.reply('❌ Crypto lookup failed: ' + e.message); }
-        }
-    },
-    bitcoin: async (nimesha, m, ctx) => { await module.exports.crypto(nimesha, m, { ...ctx, args: ['bitcoin'] }); },
-    eth: async (nimesha, m, ctx) => { await module.exports.crypto(nimesha, m, { ...ctx, args: ['ethereum'] }); },
     forex: async (nimesha, m, { args, Tools, prefix, command }) => {
         if (args.length < 2) return m.reply(`Example: ${prefix + command} USD EUR`);
         try {
