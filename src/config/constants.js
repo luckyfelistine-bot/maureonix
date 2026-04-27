@@ -21,8 +21,12 @@ console.log('[AUTH] Secret length:', ADMIN_SECRET.length, 'chars');
 module.exports = {
   PORT: process.env.PORT || process.env.SERVER_PORT || 3000,
   ADMIN_SECRET,
-  GROQ_API_KEY: process.env.GROQ_API_KEY || (() => {
-    try { return require('../../config').groqApiKey; } catch { return ''; }
+  GROQ_API_KEY: (() => {
+    if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY;
+    try { 
+      const cfg = require('../../config');
+      return cfg.groqApiKey || cfg.GROQ_API_KEY || '';
+    } catch { return ''; }
   })(),
   AI_MODEL: 'llama-3.3-70b-versatile',
   GROQ_BASE: 'https://api.groq.com/openai/v1/chat/completions',

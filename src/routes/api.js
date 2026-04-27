@@ -46,7 +46,6 @@ module.exports = function mountApiRoutes(app, packageInfo) {
         return res.status(400).json({ error: 'Invalid message (max 2000 chars)' });
       }
 
-      const { dashboardAiChat } = require('../modules/aiChat');
       const result = await dashboardAiChat(sessionId, message, context || {});
       
       // Inject action hints based on message content for client-side routing

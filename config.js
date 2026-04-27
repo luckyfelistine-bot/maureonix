@@ -93,7 +93,6 @@ const SecureConfig = {
     "COBALT_API": "https://api.cobalt.tools",
     "DL_DIR": "/tmp/maureonix_dl",
     "DL_CONCURRENCY": "5",
-    "YTDLP_BIN": "yt-dlp",
     "FFMPEG_BIN": "ffmpeg",
     "GALLERYDL_BIN": "gallery-dl",
     "SPOTDL_BIN": "spotdl",

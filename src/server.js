@@ -16,6 +16,9 @@ const { generateMenuCards } = require('./modules/menuCards');
 const { trackVisitor } = require('./modules/visitors');
 
 // Ensure directories exist
+const { FEEDBACK_FILE } = require('./config/constants');
+const feedbackDir = path.dirname(FEEDBACK_FILE);
+if (!fs.existsSync(feedbackDir)) fs.mkdirSync(feedbackDir, { recursive: true });
 if (!fs.existsSync(MENU_CARDS_DIR)) fs.mkdirSync(MENU_CARDS_DIR, { recursive: true });
 
 // Generate fallback menu cards once at startup

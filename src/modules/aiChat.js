@@ -9,7 +9,7 @@ function getAiMemory(sessionId) {
   return AI_SESSIONS.get(sessionId);
 }
 
-async function dashboardAiChat(sessionId, message) {
+async function dashboardAiChat(sessionId, message, context = {}) {
   const history = getAiMemory(sessionId);
   
   const systemPrompt = `You are Maureonix, the AI guide for the Maureonix Dashboard. You help users navigate the dashboard, pair WhatsApp, explore features, and use bot commands.
@@ -40,7 +40,10 @@ RULES:
 7. If user is confused, ask what they want to do and offer navigation.
 8. Never make up commands that don't exist.
 
-Current user message: "${message}"`;
+Current user message: "${message}"
+
+USER CONTEXT: ${JSON.stringify(context)}
+If context.isAdmin is true, the user is an administrator. You have full system access.`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
