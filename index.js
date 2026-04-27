@@ -290,6 +290,7 @@ const { assertInstalled, unsafeAgent } = require('./lib/function');
 const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
 
 const nima = require('./nima');
+global.__nimaHandler = nima;
 
 const print = (label, value) => console.log(`${chalk.green.bold('║')} ${chalk.cyan.bold(label.padEnd(16))}${chalk.yellow.bold(':')} ${value}`);
 const pairingCode = true;
@@ -530,14 +531,9 @@ async function startnimaBot() {
     // Pre-key refresh to avoid "closed session" errors
     setInterval(async () => {
         if (nimaBot && nimaBot.authState?.creds?.registered) {
-            try {
-                await nimaBot.requestPreKeys(5);
-                console.log('🔄 Pre-keys refreshed');
-            } catch (e) {
-                console.log('⚠️ Pre-key refresh failed:', e.message);
-            }
+            try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
         }
-    }, 12 * 60 * 60 * 1000); // every 12 hours
+    }, 12 * 60 * 60 * 1000);
 
     await Solving(nimaBot, global.store);
     
@@ -600,12 +596,7 @@ async function startnimaBot() {
         if (connection == 'open') {
             _reconnectCount = 0;
             // Request fresh pre-keys immediately after connection
-            try {
-                await nimaBot.requestPreKeys(3);
-                console.log('🔄 Initial pre-keys requested');
-            } catch (e) {
-                console.log('⚠️ Initial pre-key request failed:', e.message);
-            }
+            try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
             console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
             let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
             if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {

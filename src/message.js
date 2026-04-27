@@ -7,7 +7,6 @@ const chalk = require('chalk');
 const crypto = require('crypto');
 const FileType = require('file-type');
 const PhoneNumber = require('awesome-phonenumber');
-const coreHandler = require('../nima');
 
 const groupMetadataTimers = {};
 const { checkStatus } = require('../lib/database');
@@ -376,7 +375,8 @@ async function MessagesUpsert(nimesha, message, store) {
 
             const type = msg.message ? (getContentType(msg.message) || Object.keys(msg.message)[0]) : '';
             const m = await Serialize(nimesha, msg, store);
-            await coreHandler(nimesha, m, msg, store).catch(e => console.error('[nima error]', e?.message || e));
+            const handler = global.__nimaHandler || require('../nima');
+            await handler(nimesha, m, msg, store).catch(...)
 
             // ===== AUTO-REACT TO MENTIONS (Group only) =====
             if (set.autoreactmention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
