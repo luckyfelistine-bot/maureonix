@@ -272,9 +272,7 @@ function initChatSession(){
     chatHistory=raw?JSON.parse(raw):[];
     renderChatHistory();
     if(!chatHistory.length){
-      var greeting=adminIdentity?'Welcome back, **Administrator**. I can check feedback, verify numbers, export data, and execute any command.':`Welcome to the **Neural Command Center**.
-
-I am MAUREONIX. Ask me about feedback, pairing, or anything.`;
+      var greeting=adminIdentity?'Welcome back, **Administrator**. I can check feedback, verify numbers, export data, and execute any command.':'Welcome to the **Neural Command Center**.\\n\\nI am MAUREONIX. Ask me about feedback, pairing, or anything.';   
       appendChatBubble('assistant',greeting,Date.now(),true);
     }
   }catch(e){chatSessionId=generateSessionId();}

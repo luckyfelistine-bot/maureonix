@@ -691,9 +691,7 @@ function initChatSession(){
     chatHistory=raw?JSON.parse(raw):[];
     renderChatHistory();
     if(!chatHistory.length){
-      const greeting=isAdmin?'Welcome back, **Administrator**. I am MAUREONIX. I can navigate, research, verify numbers, and execute commands for you.':`Welcome to the **Neural Command Center**.
-
-I am MAUREONIX. Ask me about commands, pairing, or anything.`;
+      const greeting=isAdmin?'Welcome back, **Administrator**. I am MAUREONIX. I can navigate, research, verify numbers, and execute commands for you.':'Welcome to the **Neural Command Center**.\\n\\nI am MAUREONIX. Ask me about commands, pairing, or anything.';
       appendChatBubble('assistant',greeting,Date.now(),true);
     }
       appendChatBubble('assistant',greeting,Date.now(),true);
