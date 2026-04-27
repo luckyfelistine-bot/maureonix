@@ -1,0 +1,266 @@
+// commands/ai.js – AI chat, image generation, translation, TTS, etc.
+const { sendFile, extractQuotedContent } = require('./_utils');
+
+module.exports = {
+    gpt: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <question>`);
+        await m.reply('🦊 *Maureonix thinking...*');
+        try {
+            const res = await AI.askModel(text, 'gpt', m.sender);
+            await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
+        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+    },
+    gemini: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <question>`);
+        await m.reply('♊ *Maureonix(gemini)* thinking...*');
+        try {
+            const res = await AI.askModel(text, 'gemini', m.sender);
+            await m.reply(`♊ *Maureonix*\n\n${res.text}`);
+        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+    },
+    llama: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <question>`);
+        await m.reply('🦙 *Maureonix(Llama 3) thinking...*');
+        try {
+            const res = await AI.askModel(text, 'llama', m.sender);
+            await m.reply(`🦙 *Maureonix*\n\n${res.text}`);
+        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+    },
+    deepseek: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <question>`);
+        await m.reply('🐋 *Maureonix(DeepSeek) thinking...*');
+        try {
+            const res = await AI.askModel(text, 'deepseek', m.sender);
+            await m.reply(`🐋 *Maureonix*\n\n${res.text}`);
+        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+    },
+    ai: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <question>`);
+        const { buildContext } = require('../lib/docs');
+        const context = buildContext(text, 2);
+        let prompt = text;
+        if (context) prompt = `You are Maureonix. Use the documentation below if relevant.\n\n${context}\n\nUser: ${text}`;
+        const res = await AI.ultimateAI(prompt, m.sender);
+        await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
+    },
+    imagine: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <prompt>`);
+        await m.reply('🎨 *Generating image...*');
+        const url = await AI.imagine(text);
+        await nimesha.sendMessage(m.chat, { image: { url }, caption: `🎨 *${text}*` }, { quoted: m });
+    },
+    translate: async (nimesha, m, { args, prefix, command, text }) => {
+        if (args.length < 2) return m.reply(`Example: ${prefix + command} si Hello world`);
+        const targetLang = args[0].toLowerCase();
+        const textToTranslate = args.slice(1).join(' ');
+        if (!textToTranslate) return m.reply('Please provide text to translate.');
+        await m.reply('🌐 *Translating...*');
+        try {
+            const fetch = require('node-fetch');
+            let translatedText = null;
+            // MyMemory
+            try {
+                const myMemoryUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=auto|${targetLang}`;
+                const res = await fetch(myMemoryUrl);
+                const json = await res.json();
+                if (json.responseStatus === 200 && json.responseData?.translatedText) translatedText = json.responseData.translatedText;
+            } catch (e) {}
+            // LibreTranslate
+            if (!translatedText) {
+                try {
+                    const res = await fetch('https://translate.argosopentech.com/translate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ q: textToTranslate, source: 'auto', target: targetLang, format: 'text' })
+                    });
+                    if (res.ok) { const json = await res.json(); translatedText = json.translatedText; }
+                } catch (e) {}
+            }
+            // Google Translate fallback
+            if (!translatedText) {
+                try {
+                    const googleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(textToTranslate)}`;
+                    const res = await fetch(googleUrl);
+                    const json = await res.json();
+                    translatedText = json[0].map(part => part[0]).join('');
+                } catch (e) {}
+            }
+            if (translatedText) await m.reply(`🌐 *Translated (${targetLang})*\n\n${translatedText}`);
+            else throw new Error('All translation services failed');
+        } catch (e) { m.reply(`❌ Translation failed: ${e.message}`); }
+    },
+    tts: async (nimesha, m, { args, text, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
+        let lang = args[0]?.length === 2 ? args.shift() : 'en';
+        let txt = args.join(' ') || text;
+        await m.reply('🔊 *Generating voice...*');
+        let oggBuffer = null;
+        const tmpDir = require('os').tmpdir();
+        const path = require('path');
+        const fs = require('fs');
+        const { exec } = require('child_process');
+        const util = require('util');
+        const execPromise = util.promisify(exec);
+        const isValidAudio = (buf) => buf && buf.length > 500;
+        // gTTS → MP3 → Opus OGG
+        try {
+            const gTTS = require('gtts');
+            const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+            await new Promise((resolve, reject) => {
+                const tts = new gTTS(txt, lang);
+                tts.save(tempMp3, (err) => { if (err) reject(err); else resolve(); });
+            });
+            const mp3Buffer = fs.readFileSync(tempMp3);
+            fs.unlinkSync(tempMp3);
+            if (isValidAudio(mp3Buffer)) {
+                const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+                await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
+                oggBuffer = fs.readFileSync(tempOgg);
+                fs.unlinkSync(tempOgg);
+            }
+        } catch (e) {}
+        // Fallback: Google Translate TTS
+        if (!oggBuffer) {
+            try {
+                const axios = require('axios');
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${lang}&client=tw-ob&ttsspeed=1`;
+                const res = await axios.get(url, { responseType: 'arraybuffer', headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' }, timeout: 15000 });
+                const mp3Buffer = Buffer.from(res.data);
+                if (isValidAudio(mp3Buffer)) {
+                    const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                    fs.writeFileSync(tempMp3, mp3Buffer);
+                    const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+                    await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
+                    oggBuffer = fs.readFileSync(tempOgg);
+                    fs.unlinkSync(tempMp3);
+                    fs.unlinkSync(tempOgg);
+                }
+            } catch (e) {}
+        }
+        if (oggBuffer) {
+            await nimesha.sendMessage(m.chat, { audio: oggBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m });
+        } else {
+            try {
+                const gTTS = require('gtts');
+                const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
+                await new Promise((resolve, reject) => {
+                    const tts = new gTTS(txt, lang);
+                    tts.save(tempMp3, (err) => { if (err) reject(err); else resolve(); });
+                });
+                const mp3Buffer = fs.readFileSync(tempMp3);
+                fs.unlinkSync(tempMp3);
+                await nimesha.sendMessage(m.chat, { audio: mp3Buffer, mimetype: 'audio/mpeg', ptt: false }, { quoted: m });
+            } catch (finalErr) { m.reply(`❌ TTS failed: ${finalErr.message}`); }
+        }
+    },
+    stt: async (nimesha, m) => {
+        if (!m.quoted || !/audio|voice|ptt/.test(m.quoted.type)) return m.reply('🎤 Reply to a voice note to transcribe it.');
+        await m.reply('🎤 *Transcribing audio...*');
+        try {
+            const audioBuffer = await m.quoted.download();
+            const { transcribeAudio } = require('../lib/audioTranscribe');
+            const text = await transcribeAudio(audioBuffer);
+            await m.reply(`📝 *Transcription:*\n\n${text || '(No speech detected)'}`);
+        } catch (err) { await m.reply(`❌ Transcription failed: ${err.message}`); }
+    },
+    vv: async (nimesha, m) => {
+        const quoted = m.quoted;
+        if (!quoted) return m.reply('⚠️ Reply to a view once message!');
+        try {
+            const msg = quoted.message?.viewOnceMessage?.message || quoted.message?.viewOnceMessageV2?.message || quoted.message;
+            if (msg?.imageMessage) {
+                const buffer = await nimesha.downloadMediaMessage(quoted);
+                await nimesha.sendMessage(m.chat, { image: buffer, caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` }, { quoted: m });
+            } else if (msg?.videoMessage) {
+                const buffer = await nimesha.downloadMediaMessage(quoted);
+                await nimesha.sendMessage(m.chat, { video: buffer, caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` }, { quoted: m });
+            } else m.reply('❌ Not a view‑once message or unsupported type.');
+        } catch (e) { m.reply(`❌ Error: ${e.message}`); }
+    },
+    summarize: async (nimesha, m, { AI }) => {
+        if (!m.quoted) return m.reply('Reply to a long message to summarize');
+        const toSummarize = m.quoted.body || m.quoted.text || '';
+        if (!toSummarize) return m.reply('No text to summarize');
+        await m.reply('📋 *Summarizing...*');
+        try {
+            const summary = await AI.summarize(toSummarize);
+            await m.reply(`📋 *Summary:*\n\n${summary}`);
+        } catch (e) { m.reply('❌ Summarize failed: ' + e.message); }
+    },
+    code: async (nimesha, m, { args, text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <description>`);
+        const lang = args[0]?.startsWith('--') ? args.shift().slice(2) : 'javascript';
+        const desc = args.join(' ') || text;
+        try {
+            const res = await AI.codeAI(desc, lang);
+            await m.reply(`💻 *${lang.toUpperCase()} Code:*\n\n\`\`\`${lang}\n${res.text}\n\`\`\``);
+        } catch (e) { m.reply('❌ Code generation failed: ' + e.message); }
+    },
+    brainrot: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <text>`);
+        try {
+            const res = await AI.brainrot(text);
+            await m.reply(`🧠 *Brainrot Mode:*\n${res.text}`);
+        } catch (e) { m.reply('❌ Brainrot failed: ' + e.message); }
+    },
+    roastai: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <name/thing>`);
+        try {
+            const res = await AI.roast(text);
+            await m.reply(`🔥 *AI Roast:*\n${res.text}`);
+        } catch (e) { m.reply('❌ Roast failed: ' + e.message); }
+    },
+    rizz: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <situation>`);
+        try {
+            const res = await AI.rizz(text);
+            await m.reply(`💘 *Rizz:*\n${res.text}`);
+        } catch (e) { m.reply('❌ Rizz failed: ' + e.message); }
+    },
+    askmedia: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!m.quoted) return m.reply(`📎 *Universal Media AI*\n\nReply to any file with:\n${prefix}askmedia [your question]\n\nSupports: images, audio, video, PDF, Word, Excel, PowerPoint, archives, ebooks, code, and more.`);
+        let userQuestion = text || 'Please summarise the content of this file.';
+        await m.reply('🧠 *Analyzing file with AI...*');
+        try {
+            const extracted = await extractQuotedContent(m.quoted, nimesha);
+            if (!extracted.text && extracted.type !== 'sticker') return m.reply(`❌ Could not extract text from this ${extracted.type || 'file'}.${extracted.error ? `\nError: ${extracted.error}` : ''}`);
+            let prompt = extracted.type === 'sticker' ? `User: "${userQuestion}"\n(Sticker – no text)` : `File type: ${extracted.type}\nContent:\n"""\n${extracted.text.slice(0, 4000)}\n"""\n\nQuestion: ${userQuestion}\nAnswer based on the content.`;
+            const aiResult = await AI.ultimateAI(prompt, m.sender, 'deepseek');
+            await m.reply(`📎 *${extracted.type.toUpperCase()} Analysis*\n\n${aiResult.text}`);
+        } catch (e) { await m.reply(`❌ Failed: ${e.message}`); }
+    },
+    clearmemory: async (nimesha, m, { AI }) => {
+        AI.clearMemory(m.sender);
+        await m.reply('🧹 AI memory cleared');
+    },
+    aibalance: async (nimesha, m, { AI }) => {
+        try {
+            const bal = await AI.getBalance();
+            await m.reply(`💰 *AI Service Status*\n\nBalance: ${bal.current_point_balance}\nRate Limit: ${bal.rate_limit}\nModels: ${bal.models_available.join(', ')}`);
+        } catch (e) { await m.reply('❌ Failed to fetch status'); }
+    },
+    detectlang: async (nimesha, m, { text, AI, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} <text>`);
+        const res = await AI.ultimateAI(`Detect language: "${text}". Reply only language name.`, m.sender, 'deepseek');
+        await m.reply(`🌐 Detected: ${res.text}`);
+    },
+    readtime: async (nimesha, m, { text }) => {
+        const words = text.split(/\s+/).length;
+        const mins = Math.ceil(words / 200);
+        await m.reply(`📖 ${words} words ≈ ${mins} min read`);
+    },
+    // Aliases
+    chatgpt: async (nimesha, m, ctx) => { await module.exports.gpt(nimesha, m, ctx); },
+    openai: async (nimesha, m, ctx) => { await module.exports.gpt(nimesha, m, ctx); },
+    transcribe: async (nimesha, m, ctx) => { await module.exports.stt(nimesha, m, ctx); },
+    speech2text: async (nimesha, m, ctx) => { await module.exports.stt(nimesha, m, ctx); },
+    ok: async (nimesha, m, ctx) => { await module.exports.vv(nimesha, m, ctx); },
+    wow: async (nimesha, m, ctx) => { await module.exports.vv(nimesha, m, ctx); },
+    coding: async (nimesha, m, ctx) => { await module.exports.code(nimesha, m, ctx); },
+    program: async (nimesha, m, ctx) => { await module.exports.code(nimesha, m, ctx); },
+    aiimage: async (nimesha, m, ctx) => { await module.exports.imagine(nimesha, m, ctx); },
+    draw: async (nimesha, m, ctx) => { await module.exports.imagine(nimesha, m, ctx); },
+    create: async (nimesha, m, ctx) => { await module.exports.imagine(nimesha, m, ctx); },
+    askai: async (nimesha, m, ctx) => { await module.exports.ai(nimesha, m, ctx); },
+    tr: async (nimesha, m, ctx) => { await module.exports.translate(nimesha, m, ctx); },
+};

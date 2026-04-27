@@ -223,7 +223,7 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
   <div class="admin-footer"><b>MAUREONIX</b> NEURAL INTERFACE · Admin Command Center</div>
 </div>
 <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeModal()"><div class="cyber-modal"><div class="modal-icon">🗑</div><h3>Purge Feedback</h3><p>Permanently delete this feedback? This cannot be undone.</p><div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-danger-solid" onclick="confirmDelete()">Purge</button></div></div></div>
-<button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant">🧠</button>
+<button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant">🦊</button>
 <button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant" aria-label="Open Neural Assistant">🦊</button>
 <div class="chat-panel" id="chatPanel" role="dialog" aria-label="Neural Assistant" aria-hidden="true">
   <div class="chat-header"><span>🦊 MAUREONIX AI</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
@@ -414,8 +414,7 @@ document.addEventListener('click',function(e){
   if(e.target.closest('#chatSend'))sendChatMessage();
 });
 document.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&document.activeElement===document.getElementById('chatInput')){e.preventDefault();sendChatMessage();}
-  if(e.key==='Escape'){if(isChatOpen)toggleChat();}
+  if(e.key==='Escape'&&isChatOpen)toggleChat();
 });
 
 /* ── Admin Identity ── */

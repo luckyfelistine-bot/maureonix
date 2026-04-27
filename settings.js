@@ -24,6 +24,7 @@ global.rapidApiKey = SecureConfig.rapidApiKey;
 global.geminiKey = SecureConfig.geminiApiKey;
 global.geminiApiKey = SecureConfig.geminiApiKey;
 global.removeBgKey = SecureConfig.removeBgApiKey;
+global.groqApiKeys = SecureConfig.groqApiKeys;
 global.voiceRssKey = SecureConfig.voiceRssApiKey;
 global.openaiKey = SecureConfig.openaiKey;
 global.llamaKey = SecureConfig.llamaKey;

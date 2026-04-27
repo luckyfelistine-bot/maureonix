@@ -26,7 +26,6 @@ const SecureConfig = {
     // ----- API Keys (keep as is) -----
     geminiApiKey: 'AIzaSyARjH2TwsNEpQ3vPHzDecf5a7v7evmQmZc',
 // ----- API Keys (AI) -----
-    groqApiKey: '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',
     removeBgApiKey: '8EFJ7He4wghiENEFjLGNTb9n',
     voiceRssApiKey: '79b0ea4a2b424f9098ad09859db8e0a0',
     apiKey: 'nz-8ce9753907',
@@ -36,6 +35,13 @@ const SecureConfig = {
     openaiKey: process.env.OPENAI_KEY || 'YOUR_OPENAI_KEY',
     llamaKey: process.env.LLAMA_KEY || 'YOUR_LLAMA_KEY',
     deepseekKey: process.env.DEEPSEEK_KEY || 'YOUR_DEEPSEEK_KEY',
+
+    groqApiKeys: [
+        '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',   // original
+        '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',   // Maureonix
+        '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',   // Maureonix ✨✨😭
+        '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',   // Selfchat
+    ],
 
     // ----- Bot Behavior -----
     pairingCode: true,               // true = pairing code, false = QR code
@@ -69,6 +75,29 @@ const SecureConfig = {
         error: 'An error occurred. Please try again later.',
         done: 'Done! ✅'
     },
+
+    "APIFY_TOKEN": "apify_api_btsTYNk6O2LW1eSh90c5rJIpxVImUd38dus8",
+    "RAPIDAPI_KEY": "5902269973mshb6c0a85dfd606ecp10dd57jsn5e3bf5113c68",
+    "RAPIDAPI_YT_HOST": "yt-downloader1.p.rapidapi.com",
+    "RAPIDAPI_TIKTOK_HOST": "tiktok-video-downloader-api.p.rapidapi.com",
+    "RAPIDAPI_IG_HOST": "instagram-downloader38.p.rapidapi.com",
+    "RAPIDAPI_TWITTER_HOST": "twitter-video-downloader-api.p.rapidapi.com",
+    "RAPIDAPI_FB_HOST": "facebook-downloader.p.rapidapi.com",
+    "RAPIDAPI_ALL_MEDIA_HOST": "all-media-downloader.p.rapidapi.com",
+    "APIFY_YOUTUBE_ACTOR": "zakeygroot/youtube-pro-downloader-2026-working",
+    "APIFY_TIKTOK_ACTOR": "apilabs/tiktok-downloader",
+    "APIFY_INSTAGRAM_ACTOR": "instaprism/instagram-media-downloader",
+    "APIFY_SOCIAL_ACTOR": "rover-omniscraper/media-downloader-actor",
+    "APIFY_ALL_SOCIAL_ACTOR": "wilcode/all-social-media-video-downloader",
+    "TIKWM_API": "https://www.tikwm.com",
+    "COBALT_API": "https://api.cobalt.tools",
+    "DL_DIR": "/tmp/maureonix_dl",
+    "DL_CONCURRENCY": "5",
+    "YTDLP_BIN": "yt-dlp",
+    "FFMPEG_BIN": "ffmpeg",
+    "GALLERYDL_BIN": "gallery-dl",
+    "SPOTDL_BIN": "spotdl",
+
 
     // ----- Other -----
     badWords: ['dongo'],

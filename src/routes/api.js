@@ -1,23 +1,10 @@
 const { ADMIN_SECRET } = require('../config/constants');
 const { loadFeedback, saveFeedback } = require('../modules/feedback');
 const { dashboardAiChat } = require('../modules/aiChat');
-const { getVisitors, getVisitorStats, addVisitor } = require('../modules/visitors');
+const { getVisitors, getVisitorStats } = require('../modules/visitors');
 const { pairAttempts } = require('../modules/pairCode');
 
 module.exports = function mountApiRoutes(app, packageInfo) {
-  // ── Visitor tracking middleware for all routes ──
-  app.use((req, res, next) => {
-    try {
-      addVisitor({
-        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown',
-        path: req.path,
-        ua: req.headers['user-agent'] || 'unknown',
-        time: new Date().toISOString()
-      });
-    } catch (e) {}
-    next();
-  });
-
   app.all('/', (req, res) => {
     if (process.send) {
       process.send('uptime');

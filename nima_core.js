@@ -268,9 +268,15 @@ const coreHandler = async (nimesha, m, msg, store) => {
         
         const budy = (typeof m.text == 'string' ? m.text : '');
 
-        // Override m.reply so newsletters receive messages correctly
-        const originalReply = m.reply.bind(m);
+        // Override m.reply to ensure footer is always added
+        const footerText = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
         m.reply = async (content, options = {}) => {
+            if (typeof content === 'string') {
+                content += footerText;
+            } else if (typeof content === 'object') {
+                if (content.text) content.text += footerText;
+                else if (content.caption) content.caption += footerText;
+            }
             return sendReply(m.chat, content, options);
         };
 
@@ -379,18 +385,36 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // Determine if this is a self‑chat (owner messaging own bot number)
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
-       
+              
 
-        // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
-        if (isSelfChat && set.autoai_selfchat && !isCmd && (body || budy)) {
+ // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
+        if (isSelfChat && set.autoai_selfchat && !isCmd) {
             const now = Date.now();
             const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
             if (now - lastSelfReply < 2000) return;
             db.lastSelfReply = db.lastSelfReply || {};
             db.lastSelfReply[m.sender] = now;
 
-            const userMessage = (body || budy).trim();
-            if (!userMessage) return;
+            let userMessage = (body || budy).trim();
+
+            // ── NEW: Process file attachments if no text ──
+            if ((!userMessage || userMessage.length < 3) && m.isMedia) {
+                try {
+                    const mediaBuffer = await m.download();
+                    const { processFile } = require('./lib/fileProcessor');
+                    const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                    if (result.type === 'text') {
+                        userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
+                    } else {
+                        userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
+                    }
+                } catch (e) {
+                    console.error('[self-chat file process]', e.message);
+                    userMessage = `[File could not be processed: ${m.mime}]`;
+                }
+            } else if (!userMessage) {
+                return; // no text and no media → skip
+            }
 
             if (set.autotyping) {
                 await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
@@ -404,7 +428,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (store?.messages?.[m.chat]?.array) {
                     const msgs = store.messages[m.chat].array.slice(-6);
                     for (const msg of msgs) {
-                        if (msg.key.id === m.key.id) continue; // skip current
+                        if (msg.key.id === m.key.id) continue;
                         const role = msg.key.fromMe ? 'assistant' : 'user';
                         const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                         if (content) recentContext.push({ role, content: content.substring(0, 200) });
@@ -413,18 +437,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
                 // Detect active game modes
                 const activeModes = [];
-                if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) {
-                    activeModes.push('connect4');
-                }
-                if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) {
-                    activeModes.push('chess');
-                }
-                if (db.game?.akinator && db.game.akinator[m.sender]) {
-                    activeModes.push('akinator');
-                }
-                if (recentContext.some(t => /truth or dare/i.test(t.content))) {
-                    activeModes.push('truth_or_dare');
-                }
+                if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) activeModes.push('connect4');
+                if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) activeModes.push('chess');
+                if (db.game?.akinator && db.game.akinator[m.sender]) activeModes.push('akinator');
+                if (recentContext.some(t => /truth or dare/i.test(t.content))) activeModes.push('truth_or_dare');
 
                 let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
 
@@ -438,7 +454,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 const args = Array.isArray(result.args) ? result.args : [];
                 const syntheticText = [cmd, ...args].join(' ');
 
-                // ── SYSTEM COMMANDS (owner-only, never routed to nima_commands) ──
+                // ── SYSTEM COMMANDS (owner‑only, never routed to nima_commands) ──
                 const systemHandled = await (async () => {
                     switch (cmd) {
                         case 'sysinfo':
@@ -475,7 +491,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                                 const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
                                 await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 chars of error log*\n\n${logs}`, { quoted: m });
                             } else {
-                                await m.reply('No log file found.');
+                                await m.reply('No log found.');
                             }
                             return true;
                         }
@@ -553,21 +569,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
                 // ── COMMAND WHITELIST ──
                 const AI_ALLOWED = new Set(ALL_COMMANDS);
-                // Add aliases
-                ['s', 'vid', 'ytmp4', 'ytmp3', 'music', 'audio', 'sp', 'spot', 'c4',
-                 'bj', 'dep', 'with', 'pay', 'inv', 'h', 'linkgc', 'del', 'd',
-                 'blokir', 'unblokir', 'sched', 'cuaca', 'g', 'tr', 'aiimage',
-                 'draw', 'create', 'askai', 'coding', 'program', '8b', 'wouldyourather',
-                 'wyr', 'ss', 'clips', 'store', 'gamesearch', 'eps', 'ontv',
-                 'livescore', 'table', 'headtohead', 'prediction', 'betting',
-                 'sportsnews', 'scoreboard', 'clearinbox', 'clearme', 'addnote',
-                 'mynotes', 'delnote', 'addtodo', 'check', 'cleartodo', 'tags',
-                 'phrases', 'time', 'unit', 'readtime', 'setawaymsg', 'awaymsg',
-                 'inbox', 'pendingclear', 'clearreminders', 'autogpt', 'selfchat',
-                 'allmenu', 'botmenu', 'groupmenu', 'downloadmenu', 'aimenu',
-                 'gamemenu', 'funmenu', 'stickermenu', 'searchmenu', 'economymenu',
-                 'ownermenu', 'sportsmenu', 'moviesmenu', 'casinomenu', 'rpgmenu',
-                 'mastermenu', 'adminmenu', 'autosettings', 'docsask'].forEach(a => AI_ALLOWED.add(a));
+                ['s','vid','ytmp4','ytmp3','music','audio','sp','spot','c4','bj','dep','with','pay','inv','h','linkgc','del','d','blokir','unblokir','sched','cuaca','g','tr','aiimage','draw','create','askai','coding','program','8b','wouldyourather','wyr','ss','clips','store','gamesearch','eps','ontv','livescore','table','headtohead','prediction','betting','sportsnews','scoreboard','clearinbox','clearme','addnote','mynotes','delnote','addtodo','check','cleartodo','tags','phrases','time','unit','readtime','setawaymsg','awaymsg','inbox','pendingclear','clearreminders','autogpt','selfchat','allmenu','botmenu','groupmenu','downloadmenu','aimenu','gamemenu','funmenu','stickermenu','searchmenu','economymenu','ownermenu','sportsmenu','moviesmenu','casinomenu','rpgmenu','mastermenu','adminmenu','autosettings','docsask'].forEach(a => AI_ALLOWED.add(a));
 
                 if (!AI_ALLOWED.has(cmd)) {
                     await m.reply(`⚠️ Command ".${cmd}" is not available via AI intent. Use the prefix directly.`);
@@ -609,7 +611,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (typeof handleCommand !== 'function') {
                     throw new Error('Command handler is not a function — possible require cache corruption.');
                 }
-
                 await handleCommand(nimesha, m, syntheticCtx);
 
             } catch (e) {
@@ -685,9 +686,30 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ═══════════════════════════════════════════════════════════════
         let autoAiHandled = false;
 
-        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (body || budy)) {
+            const hasText = body || budy;
+            const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
+            if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia)) {
             // Owner messages bypass - they have self-chat above
-            if (!isCreator) {
+                if (!isCreator) {
+
+                    // ── NEW: Process media file if no text ──
+                    let userMessage = hasText ? (body || budy) : '';
+                    if (!userMessage && hasMedia) {
+                        try {
+                            const mediaBuffer = await m.download();
+                            const { processFile } = require('./lib/fileProcessor');
+                            const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                            if (result.type === 'text') {
+                                userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
+                            } else {
+                                userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
+                            }
+                        } catch (e) {
+                            console.error('[auto-ai file process]', e.message);
+                            userMessage = `[Could not process file]`;
+                        }
+                    }
+                    if (!userMessage) return; // still nothing to process
 
                 // ── 1. COMPREHENSIVE GAME STATE CHECK ──
                 // If user is mid-game, DO NOT intercept - let game handlers below process it
@@ -751,7 +773,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const session = db.autoAiSessions[m.sender];
                         session.messageCount++;
                         session.lastActivity = now;
-                        session.context.push({ role: 'user', content: body || budy, time: now });
+                        session.context.push({ role: 'user', content: userMessage, time: now });
                         if (session.context.length > 10) session.context.shift();
 
                         // ── 4. STORE MESSAGE FOR OWNER ──
@@ -787,7 +809,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                                     activeModes: [],
                                     model: 'deepseek-r1-distill-llama-70b'
                                 });
-                                intent = await engine.parse(body || budy);
+                                intent = await engine.parse(userMessage);
                             } catch (e) {
                                 intent = { type: 'text', confidence: 'uncertain' };
                             }
@@ -858,7 +880,7 @@ Rules:
 - If they seem distressed or in crisis, be extra kind and suggest talking to the owner directly
 - You can discuss any topic naturally`;
 
-                                const aiResult = await ultimateAI(body || budy, m.sender, 'deepseek', systemPrompt);
+                                const aiResult = await ultimateAI(userMessage, m.sender, 'deepseek', systemPrompt);
                                 let replyText = aiResult.text;
 
                                 // Owner handoff detection
@@ -888,7 +910,7 @@ Rules:
                                     `Name: ${m.pushName || 'unknown'}\n` +
                                     `Messages: ${session.messageCount}\n` +
                                     `Location: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\n` +
-                                    `Last: ${(body || budy).substring(0, 80)}...\n\n` +
+                                    `Last: ${userMessage.substring(0, 80)}...\n\n` +
                                     `Use ${prefix}pending to review.\n` +
                                     `Use ${prefix}autoai off to disable.`;
                                 await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
