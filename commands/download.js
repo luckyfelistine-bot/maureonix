@@ -1,9 +1,7 @@
+// commands/download.js – Works with new downloader.js, never broadcasts errors
 const fs = require('fs');
 const path = require('path');
-const {
-  smartDownload, bulkDownload, extractURLs, ensureUnderLimit,
-  guessMime, getFileSizeMB, cleanupFile, STATUS_EDIT_1, STATUS_EDIT_2
-} = require('../lib/downloader');
+const { smartDownload, bulkDownload, extractURLs, ensureUnderLimit, guessMime, getFileSizeMB, cleanupFile, STATUS_EDIT_1, STATUS_EDIT_2 } = require('../lib/downloader');
 
 const isUrl = (text) => /^https?:\/\/[^\s<>"{}|\\^`[\]]+/i.test(text || '');
 
