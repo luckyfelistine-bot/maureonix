@@ -1,5 +1,33 @@
 const SecureConfig = require('./config');
 
+// Inject all SecureConfig properties into process.env (if not already set)
+for (const [key, value] of Object.entries(SecureConfig)) {
+    if (typeof value === 'string' && !process.env[key]) {
+        process.env[key] = value;
+    }
+}
+
+const cron = require('node-cron');
+const { sendEmail } = require('./lib/emailService');
+const { generateReport } = require('./lib/reporting');
+
+// Schedule daily & weekly reports
+cron.schedule(SecureConfig.reportDailyTime, async () => {
+    console.log('[CRON] Daily report');
+    const report = await generateReport('daily', global.db, require('./lib/ai'), null, null, null, null, null, 'owner');
+    const ownerJid = SecureConfig.ownerNumber[0] + '@s.whatsapp.net';
+    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: report.text }).catch(e=>console.error);
+    await sendEmail(SecureConfig.emailRecipient, '📊 Maureonix Daily Report', report.text, report.attachment, report.filename);
+}, { timezone: 'Africa/Nairobi' });
+
+cron.schedule(SecureConfig.reportWeeklyTime, async () => {
+    console.log('[CRON] Weekly report');
+    const report = await generateReport('weekly', global.db, require('./lib/ai'), null, null, null, null, null, 'owner');
+    const ownerJid = SecureConfig.ownerNumber[0] + '@s.whatsapp.net';
+    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: report.text }).catch(e=>console.error);
+    await sendEmail(SecureConfig.emailRecipient, '📊 Maureonix Weekly Report', report.text, report.attachment, report.filename);
+}, { timezone: 'Africa/Nairobi' });
+
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
 // ═══════════════════════════════════════════════════════════
 // (async () => {
@@ -270,6 +298,10 @@ if (!global.db.game) global.db.game = {};
 if (!global.db.premium) global.db.premium = [];
 if (!global.db.sewa) global.db.sewa = [];
 
+// 🧠 Learning Mode (user‑specific interactive training)
+global.learningMode = {};        // Tracks which users are in learning mode
+global.learningEngines = {};     // Stores learning engine instances per user
+
 const os = require('os');
 const pino = require('pino');
 const axios = require('axios');
@@ -467,6 +499,14 @@ async function startnimaBot() {
                 if (global.store) await storeDB.write(global.store);
             }, 30 * 1000);
         }
+
+            // 🧠 Initialize Learning Engine and attach AI
+            const { LearningEngine } = require('./lib/learningEngine');
+            global.learningEngine = new LearningEngine();
+            const AI = require('./lib/ai');
+            global.learningEngine.setAIChat(AI.groqChat);
+            console.log('✅ Learning Engine initialized and connected to AI.');
+
     } catch (e) {
         console.log('[startnimaBot error]', e);
         console.log('🔄 Retrying in 30s...');

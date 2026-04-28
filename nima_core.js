@@ -381,6 +381,27 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
 
+
+        // ========================
+        // 🧠 LEARNING MODE OVERRIDE
+        // (intercepts ALL messages when user is in learning mode)
+        // ========================
+        if (global.learningMode && global.learningMode[m.sender] && global.learningEngine) {
+            try {
+                const result = await global.learningEngine.processLearningQuery(budy, m.sender);
+                if (result) {
+                    await m.reply(result.message || result.text);
+                    return;
+                }
+            } catch (err) {
+                console.error('[Learning Mode Error]', err);
+                await m.reply('⚠️ Learning mode error. Use `.learning off` to disable.');
+                delete global.learningMode[m.sender];
+                return;
+            }
+        }
+
+
         // ===== ENHANCED AUTO‑AI MODE =====
         // Determine if this is a self‑chat (owner messaging own bot number)
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);

@@ -2,6 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 const { generateProfilePicture, sleep } = require('../lib/function');
+const { generateReport } = require('../lib/reporting');
+const { sendEmail } = require('../lib/emailService');
 
 module.exports = {
     block: async (nimesha, m, { isCreator, mess, text }) => {
@@ -412,6 +414,94 @@ module.exports = {
         const msg = `╔══════════════════════╗\n║  *👑 OWNER COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *User Control*\n▸ ${prefix}block @user\n▸ ${prefix}unblock @user\n▸ ${prefix}ban @user\n▸ ${prefix}unban @user\n▸ ${prefix}addprem @user\n▸ ${prefix}delprem @user\n\n📌 *Bot Control*\n▸ ${prefix}backup – Backup database\n▸ ${prefix}shutdown – Stop bot\n▸ ${prefix}restart – Restart bot\n▸ ${prefix}join <link> – Join group\n▸ ${prefix}leave – Leave group\n▸ ${prefix}setppbot – Set bot profile picture\n▸ ${prefix}delppbot – Remove bot profile picture\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
+
+    dailyreport: async (nimesha, m, { isCreator, mess, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        await m.reply('📊 Generating daily report...');
+        const report = await generateReport('daily', db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
+        await m.reply(report.text);
+        await sendEmail(global.emailRecipient, '📊 Daily Report', report.text, report.attachment, report.filename);
+    },
+    weeklyreport: async (nimesha, m, { isCreator, mess, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        await m.reply('📊 Generating weekly report...');
+        const report = await generateReport('weekly', db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
+        await m.reply(report.text);
+        await sendEmail(global.emailRecipient, '📊 Weekly Report', report.text, report.attachment, report.filename);
+    },
+    reportnow: async (nimesha, m, { isCreator, mess, args, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const customType = args[0] || 'now';
+        await m.reply('📊 Generating custom report...');
+        const report = await generateReport(customType, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
+        await m.reply(report.text);
+        if (args.includes('--email')) {
+            await sendEmail(global.emailRecipient, `📊 ${customType} Report`, report.text, report.attachment, report.filename);
+            await m.reply('✅ Report also sent to email.');
+        }
+    },
+    learnfile: async (nimesha, m, { isCreator, mess, args, prefix, command, db }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        if (!m.quoted || !['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(m.quoted.type)) {
+            return m.reply(`📌 Reply to a file with *${prefix + command} <curriculum_name>*\nExample: ${prefix + command} AI_Fundamentals`);
+        }
+        const curriculumName = args.join(' ') || `file_${Date.now()}`;
+        const buffer = await m.quoted.download();
+        const { processFile } = require('../lib/fileProcessor');
+        const result = await processFile(buffer, m.quoted.mimetype, m.quoted.filename);
+        if (result.type !== 'text') return m.reply('❌ Could not extract text from this file.');
+        const engine = global.learningEngine;
+        const startRes = await engine.startLearning(m.sender, result.content, curriculumName);
+        if (!startRes.success) return m.reply(`❌ ${startRes.error}`);
+        global.learningMode[m.sender] = true;
+        if (!db.learningCurricula) db.learningCurricula = {};
+        db.learningCurricula[curriculumName] = { content: result.content.slice(0, 5000), date: Date.now() };
+        await m.reply(startRes.message + `\n\nChunk 1/${startRes.totalChunks}:\n${startRes.firstChunk.text.slice(0, 300)}...\nType *next* to continue, *exit* to stop.`);
+    },
+    learntext: async (nimesha, m, { isCreator, mess, text, prefix, command }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        if (!text) return m.reply(`Usage: ${prefix + command} <name> || <content>`);
+        const parts = text.split('||');
+        if (parts.length < 2) return m.reply('Separate name and content with `||`');
+        const name = parts[0].trim();
+        const content = parts.slice(1).join('||').trim();
+        if (content.length < 50) return m.reply('Content too short (min 50 chars).');
+        const engine = global.learningEngine;
+        const startRes = await engine.startLearning(m.sender, content, name);
+        if (!startRes.success) return m.reply(`❌ ${startRes.error}`);
+        global.learningMode[m.sender] = true;
+        await m.reply(startRes.message);
+    },
+    learningstatus: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const session = learningSessionManager?.getSession(m.sender);
+        if (!session) return m.reply('No active learning session.');
+        const mastery = learningSessionManager.calculateMastery(m.sender);
+        let txt = `📚 *Learning Status*\n\nCurriculum: ${session.curriculumName}\nProgress: ${session.currentChunkIndex + 1}/${session.chunks.length} chunks\nMastery: ${mastery.toFixed(1)}%\nStatus: ${session.status}\n\nType *next* or *exit*.`;
+        await m.reply(txt);
+    },
+    learningstop: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const result = learningSessionManager?.endSession(m.sender);
+        delete global.learningMode[m.sender];
+        if (result) {
+            await m.reply(`🛑 Learning stopped. Final mastery: ${result.mastery.toFixed(1)}%`);
+            await sendEmail(global.emailRecipient, 'Learning Progress', `Curriculum: ${result.curriculumName}\nMastery: ${result.mastery.toFixed(1)}%\nChunks: ${result.chunksStudied}/${result.totalChunks}`);
+        } else {
+            await m.reply('No active session.');
+        }
+    },
+    learninghistory: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const history = learningSessionManager?.getMasteryHistory(m.sender);
+        if (!history?.length) return m.reply('No learning history.');
+        let txt = `📜 *Learning History*\n\n`;
+        history.slice(-10).forEach((h, i) => {
+            txt += `${i+1}. ${h.curriculum} – ${h.mastery}% mastery\n   ${new Date(h.completedAt).toLocaleDateString()}\n`;
+        });
+        await m.reply(txt);
+    },
+
     // Aliases
     blokir: async (nimesha, m, ctx) => { await module.exports.block(nimesha, m, ctx); },
     unblokir: async (nimesha, m, ctx) => { await module.exports.unblock(nimesha, m, ctx); },
@@ -420,4 +510,11 @@ module.exports = {
     selfchat: async (nimesha, m, ctx) => { await module.exports.autoaiselfchat(nimesha, m, ctx); },
     inbox: async (nimesha, m, ctx) => { await module.exports.pending(nimesha, m, ctx); },
     clearinbox: async (nimesha, m, ctx) => { await module.exports.pendingclear(nimesha, m, ctx); },
+    report: async (nimesha, m, ctx) => { await module.exports.reportnow(nimesha, m, ctx); },
+    daily: async (nimesha, m, ctx) => { await module.exports.dailyreport(nimesha, m, ctx); },
+    weekly: async (nimesha, m, ctx) => { await module.exports.weeklyreport(nimesha, m, ctx); },
+    learn: async (nimesha, m, ctx) => { await module.exports.learnfile(nimesha, m, ctx); },
+    learnstop: async (nimesha, m, ctx) => { await module.exports.learningstop(nimesha, m, ctx); },
+    learnstat: async (nimesha, m, ctx) => { await module.exports.learningstatus(nimesha, m, ctx); },
+    learnhistory: async (nimesha, m, ctx) => { await module.exports.learninghistory(nimesha, m, ctx); },
 };

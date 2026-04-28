@@ -9,6 +9,12 @@ const SecureConfig = {
     ownerName: 'Infinite Vybeflix',
     ownerNumber: ['254116903500'],   // Your WhatsApp number (array)
 
+    emailSender: 'iris.with.vybeflix@gmail.com',
+    emailAppPassword: 'qkoi dqzn mnbb qcmc',
+    emailRecipient: 'irislogs006@gmail.com',
+    reportDailyTime: '0 7 * * *',
+    reportWeeklyTime: '0 8 * * 1',
+
     // ----- WhatsApp Group & Channel -----
     groupJid: '120363423838424989@g.us',           // Group ID (starts with 1203...)
     groupInviteLink: 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp',
