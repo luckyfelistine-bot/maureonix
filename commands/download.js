@@ -1,7 +1,7 @@
-// commands/download.js – Works with new downloader.js, never broadcasts errors
+// commands/download.js – works with new downloader.js, never broadcasts errors
 const fs = require('fs');
 const path = require('path');
-const { smartDownload, bulkDownload, extractURLs, ensureUnderLimit, guessMime, getFileSizeMB, cleanupFile, STATUS_EDIT_1, STATUS_EDIT_2 } = require('../lib/downloader');
+const { smartDownload, extractURLs, ensureUnderLimit, guessMime, getFileSizeMB, cleanupFile, STATUS_EDIT_1, STATUS_EDIT_2 } = require('../lib/downloader');
 
 const isUrl = (text) => /^https?:\/\/[^\s<>"{}|\\^`[\]]+/i.test(text || '');
 
@@ -31,13 +31,9 @@ async function createStatus(nimesha, m, text) {
 }
 
 module.exports = {
-  // YouTube video
   video: async (nimesha, m, { text, prefix, command }) => {
     if (!text) return m.reply(`🎬 *Usage:* ${prefix+command} <url>`);
-    let input = text.trim(), quality = 'best';
-    const qMatch = input.match(/^(2160|1440|1080|720|480|360|240)\s+/);
-    if (qMatch) { quality = qMatch[1]; input = input.slice(qMatch[0].length).trim(); }
-    let url = input;
+    let url = text.trim();
     if (!isUrl(url)) {
       const yts = require('yt-search');
       const sr = await yts(url);
@@ -46,7 +42,7 @@ module.exports = {
     }
     const status = await createStatus(nimesha, m, `⏳ Downloading video...`);
     try {
-      const files = await smartDownload(url, { audioOnly: false, quality });
+      const files = await smartDownload(url, { audioOnly: false });
       for (const fp of files) await sendFile(nimesha, m, fp, '🎬 Video');
       await status.success('✅ Video sent!');
     } catch (err) { await status.error(`❌ ${err.message}`); }
@@ -77,55 +73,10 @@ module.exports = {
       await status.success('✅ Done!');
     } catch (err) { await status.error(`❌ ${err.message}`); }
   },
-  instagram: async (nimesha, m, { text }) => {
-    const urls = extractURLs(text);
-    if (!urls.length) return m.reply('📸 *Usage:* .ig <url>');
-    const status = await createStatus(nimesha, m, `📸 Downloading Instagram...`);
-    try {
-      const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, '📸 Instagram');
-      await status.success('✅ Done!');
-    } catch (err) { await status.error(`❌ ${err.message}`); }
-  },
-  twitter: async (nimesha, m, { text }) => {
-    const urls = extractURLs(text);
-    if (!urls.length) return m.reply('🐦 *Usage:* .tw <url>');
-    const status = await createStatus(nimesha, m, `🐦 Downloading Twitter/X...`);
-    try {
-      const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, '🐦 Twitter');
-      await status.success('✅ Done!');
-    } catch (err) { await status.error(`❌ ${err.message}`); }
-  },
-  facebook: async (nimesha, m, { text }) => {
-    const urls = extractURLs(text);
-    if (!urls.length) return m.reply('👤 *Usage:* .fb <url>');
-    const status = await createStatus(nimesha, m, `👤 Downloading Facebook...`);
-    try {
-      const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, '👤 Facebook');
-      await status.success('✅ Done!');
-    } catch (err) { await status.error(`❌ ${err.message}`); }
-  },
-  spotify: async (nimesha, m, { text }) => {
-    if (!isUrl(text)) return m.reply('🟢 *Usage:* .spotify <url>');
-    const status = await createStatus(nimesha, m, `🟢 Downloading Spotify...`);
-    try {
-      const files = await smartDownload(text.trim());
-      for (const fp of files) await sendFile(nimesha, m, fp, '🟢 Spotify');
-      await status.success('✅ Done!');
-    } catch (err) { await status.error(`❌ ${err.message}`); }
-  },
   // Aliases
-  vid: async (nimesha, m, ctx) => { await module.exports.video(nimesha, m, ctx); },
+  tt: async (nimesha, m, ctx) => { await module.exports.tiktok(nimesha, m, ctx); },
   ytmp4: async (nimesha, m, ctx) => { await module.exports.video(nimesha, m, ctx); },
   mp4: async (nimesha, m, ctx) => { await module.exports.video(nimesha, m, ctx); },
   mp3: async (nimesha, m, ctx) => { await module.exports.song(nimesha, m, ctx); },
   ytmp3: async (nimesha, m, ctx) => { await module.exports.song(nimesha, m, ctx); },
-  audio: async (nimesha, m, ctx) => { await module.exports.song(nimesha, m, ctx); },
-  tt: async (nimesha, m, ctx) => { await module.exports.tiktok(nimesha, m, ctx); },
-  ig: async (nimesha, m, ctx) => { await module.exports.instagram(nimesha, m, ctx); },
-  tw: async (nimesha, m, ctx) => { await module.exports.twitter(nimesha, m, ctx); },
-  fb: async (nimesha, m, ctx) => { await module.exports.facebook(nimesha, m, ctx); },
-  sp: async (nimesha, m, ctx) => { await module.exports.spotify(nimesha, m, ctx); },
 };
