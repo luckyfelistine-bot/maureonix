@@ -1,6 +1,6 @@
 // src/modules/aiChat.js – AI chat, image generation, translation, TTS, learning mode, etc.
 // Maureonix v7 Omniscient Commands
-const { sendFile, extractQuotedContent } = require('./_utils');
+const { sendFile, extractQuotedContent } = require('../../commands/_utils');
 
 module.exports = {
     // ── AI Chat Commands ──
