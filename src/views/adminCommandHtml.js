@@ -34,7 +34,7 @@ module.exports = function getAdminCommandHtml(pkg, isDefaultSecret) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
-:root{--void:#000;--deep:#020408;--panel:rgba(4,10,24,0.95);--panel-solid:#040a18;--panel-elevated:#0a1525;--sidebar:#030814;--cyan:#00f0ff;--cyan-dim:rgba(0,240,255,0.08);--blue:#0066ff;--green:#00ff88;--green-dim:rgba(0,255,136,0.08);--danger:#ff2a6d;--danger-dim:rgba(255,42,109,0.08);--warning:#ffb020;--warning-dim:rgba(255,176,32,0.08);--fox:#ff7b2c;--glow:rgba(0,240,255,0.12);--text:#eef6ff;--text-dim:#8a9bb8;--text-muted:#475569;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.18);--glow:rgba(0,240,255,0.12);--shadow:0 20px 60px rgba(0,0,0,0.6);--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono','Fira Code',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease:cubic-bezier(0.16,1,0.3,1)}
+:root{--void:#000;--deep:#020408;--panel:rgba(4,10,24,0.95);--panel-solid:#040a18;--panel-elevated:#0a1525;--sidebar:#030814;--cyan:#00f0ff;--cyan-dim:rgba(0,240,255,0.08);--blue:#0066ff;--green:#00ff88;--green-dim:rgba(0,255,136,0.08);--danger:#ff2a6d;--danger-dim:rgba(255,42,109,0.08);--warning:#ffb020;--warning-dim:rgba(255,176,32,0.08);--text:#eef6ff;--text-dim:#8a9bb8;--text-muted:#475569;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.18);--glow:rgba(0,240,255,0.12);--shadow:0 20px 60px rgba(0,0,0,0.6);--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono','Fira Code',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease:cubic-bezier(0.16,1,0.3,1)}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scrollbar-width:thin;scrollbar-color:var(--border) var(--void)}
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -193,12 +193,10 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 .btn-danger-solid{background:var(--danger);color:#fff}
 .btn-danger-solid:hover{box-shadow:0 0 20px rgba(255,42,109,0.3);transform:translateY(-1px)}
 
-/* ═══ Chat & Marquee Chips v7.0 ═══ */
-.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite;transform:translateZ(0)}
-.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg) translateZ(0);box-shadow:0 0 50px var(--glow)}
-.chat-toggle-btn::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--cyan);opacity:0;transition:opacity 0.3s}
-.chat-toggle-btn:hover::before{opacity:0.4;animation:ringPulse 2s infinite}
-.chat-panel{position:fixed;bottom:96px;right:24px;width:420px;max-width:calc(100vw - 48px);height:560px;max-height:calc(100vh - 130px);background:var(--panel-solid);border:1px solid var(--border-bright);border-radius:20px;display:none;flex-direction:column;z-index:10003;box-shadow:0 30px 100px rgba(0,0,0,0.8),inset 0 0 60px rgba(0,240,255,0.02);overflow:hidden;animation:panelIn 0.5s var(--ease);backdrop-filter:blur(40px);transform:translateZ(0)}
+/* Chat & Marquee Chips */
+.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite}
+.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg);box-shadow:0 0 50px var(--glow)}
+.chat-panel{position:fixed;bottom:96px;right:24px;width:420px;max-width:calc(100vw - 48px);height:560px;max-height:calc(100vh - 130px);background:var(--panel-solid);border:1px solid var(--border-bright);border-radius:20px;display:none;flex-direction:column;z-index:10003;box-shadow:0 30px 100px rgba(0,0,0,0.8),inset 0 0 60px rgba(0,240,255,0.02);overflow:hidden;animation:panelIn 0.5s var(--ease);backdrop-filter:blur(40px)}
 @keyframes panelIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);z-index:10}
 .chat-header{padding:1rem 1.25rem;background:rgba(0,0,0,0.4);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:relative;z-index:5}
@@ -223,6 +221,8 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 .chat-typing .dot{width:6px;height:6px;background:var(--cyan);border-radius:50%;animation:typingBounce 1.4s infinite ease-in-out both;box-shadow:0 0 8px var(--cyan)}
 .chat-typing .dot:nth-child(2){animation-delay:-0.32s}.chat-typing .dot:nth-child(3){animation-delay:-0.16s}.chat-typing .dot:nth-child(4){animation-delay:0s}
 @keyframes typingBounce{0%,80%,100%{transform:scale(0);opacity:0.3}40%{transform:scale(1);opacity:1}}
+
+/* Marquee Chips */
 .neural-chips{display:flex;overflow:hidden;padding:0.5rem 1.25rem;position:relative;z-index:3;height:44px;align-items:center}
 .neural-chips.hidden{display:none !important}
 .chips-track{display:flex;gap:0.5rem;animation:chipMarquee 16s linear infinite;width:max-content}
@@ -235,19 +235,13 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 .neural-textarea-wrap textarea{width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:12px;padding:0.625rem 2.5rem 0.625rem 1rem;color:var(--text);font-family:var(--font-main);outline:none;font-size:0.9rem;resize:none;min-height:44px;max-height:120px;line-height:1.5;overflow-y:auto}
 .neural-textarea-wrap textarea:focus{border-color:var(--cyan);box-shadow:0 0 15px var(--glow)}
 .neural-textarea-wrap textarea::placeholder{color:var(--text-dim);opacity:0.4}
-#chatSend,#neuralSend{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#000;cursor:pointer;display:grid;place-items:center;transition:all 0.2s;font-size:1.1rem;flex-shrink:0;box-shadow:0 4px 15px var(--glow)}
-#chatSend:hover,#neuralSend:hover{transform:scale(1.08);box-shadow:0 8px 25px var(--glow)}
-#chatSend:disabled,#neuralSend:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+#chatSend{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#000;cursor:pointer;display:grid;place-items:center;transition:all 0.2s;font-size:1.1rem;flex-shrink:0;box-shadow:0 4px 15px var(--glow)}
+#chatSend:hover{transform:scale(1.08);box-shadow:0 8px 25px var(--glow)}
+#chatSend:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
 @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.menu-toggle{display:inline-flex !important}}
 @media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr)}.content{padding:1rem}.main-header{padding:1rem}.chat-panel{right:12px;bottom:80px;width:calc(100vw - 24px);height:60vh}}
 .menu-toggle{display:none;background:transparent;border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;font-size:1rem}
 .hidden{display:none !important}
-/* Admin Welcome Banner */
-.admin-welcome{background:linear-gradient(90deg,rgba(0,240,255,0.08),rgba(0,255,136,0.04));border:1px solid var(--border-bright);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.875rem;animation:fadeUp 0.5s var(--ease)}
-.admin-welcome .admin-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:grid;place-items:center;font-size:1.2rem}
-.admin-welcome .admin-text{flex:1}
-.admin-welcome .admin-text strong{color:var(--cyan);font-family:var(--font-display);font-size:0.95rem}
-.admin-welcome .admin-text span{display:block;font-size:0.75rem;color:var(--text-dim);margin-top:2px}
 </style>
 </head>
 <body>
@@ -285,7 +279,6 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
     </div>
     <div class="content">
       <div id="tab-dashboard" class="tab-content active">
-<div class="admin-welcome" id="adminWelcome"><div class="admin-avatar">👑</div><div class="admin-text"><strong>System Administrator</strong><span>Full neural access granted. You and MAUREONIX control everything.</span></div></div>
         <div class="stats-grid" id="statsGrid">
           <div class="stat-card"><div class="stat-header"><span class="stat-label">Total Visitors</span><div class="stat-icon">🌐</div></div><div class="stat-value" id="stVisitors">—</div><div class="stat-meta">All-time page loads</div><div class="stat-bar-bg"><div class="stat-bar-fill" id="barVisitors" style="width:0%;background:var(--cyan)"></div></div></div>
           <div class="stat-card green"><div class="stat-header"><span class="stat-label">Unique IPs</span><div class="stat-icon">👤</div></div><div class="stat-value" id="stUnique">—</div><div class="stat-meta">Distinct addresses</div></div>
@@ -331,23 +324,8 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
     </div>
   </main>
 </div>
-<button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant" aria-label="Open Neural Assistant">🦊</button>
-<div class="chat-panel" id="chatPanel" style="display:none;" role="dialog" aria-label="Neural Assistant" aria-hidden="true">
-  <div class="chat-header"><span><span class="neural-status"></span> MAUREONIX AI</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
-  <div class="chat-messages" id="chatMessages"></div>
-  <div class="chat-typing" id="chatTyping"><span>Neural pathways connecting</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-  <div class="neural-chips" id="floatChips"><div class="chips-track">
-    <span class="neural-chip" onclick="sendQuick('Show admin dashboard stats')">📊 Stats</span>
-    <span class="neural-chip" onclick="sendQuick('Show recent feedback')">📨 Feedback</span>
-    <span class="neural-chip" onclick="sendQuick('Show visitor logs')">🌐 Visitors</span>
-    <span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair</span>
-    <span class="neural-chip" onclick="sendQuick('Show admin dashboard stats')">📊 Stats</span>
-    <span class="neural-chip" onclick="sendQuick('Show recent feedback')">📨 Feedback</span>
-    <span class="neural-chip" onclick="sendQuick('Show visitor logs')">🌐 Visitors</span>
-    <span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair</span>
-  </div></div>
-  <div class="chat-input-area"><div class="neural-textarea-wrap"><textarea id="chatInput" placeholder="Ask Maureonix anything..." oninput="autoResize(this);checkChips()" onkeydown="handleChatKey(event)"></textarea></div><button id="chatSend" onclick="sendChatMessage()">➤</button></div>
-</div>
+<button class="chat-toggle-btn" id="chatToggle" onclick="toggleChat()" title="Neural Assistant">🦊</button>
+<div class="chat-panel" id="chatPanel" style="display:none;"><div class="chat-header"><span><span class="neural-status"></span> Neural Assistant</span><button onclick="toggleChat()">×</button></div><div class="chat-messages" id="chatMessages"></div><div class="chat-typing" id="chatTyping"><span>Thinking</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="neural-chips" id="floatChips"><div class="chips-track"><span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair</span><span class="neural-chip" onclick="sendQuick('List all AI commands')">🤖 AI</span><span class="neural-chip" onclick="sendQuick('Show bot status')">📊 Status</span><span class="neural-chip" onclick="sendQuick('How do I pair my WhatsApp?')">🔗 Pair</span><span class="neural-chip" onclick="sendQuick('List all AI commands')">🤖 AI</span><span class="neural-chip" onclick="sendQuick('Show bot status')">📊 Status</span></div></div><div class="chat-input-area"><div class="neural-textarea-wrap"><textarea id="chatInput" placeholder="Ask Maureonix anything..." oninput="autoResize(this);checkChips()" onkeydown="handleChatKey(event)"></textarea></div><button id="chatSend" onclick="sendChatMessage()">➤</button></div></div>
 <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeModal()"><div class="cyber-modal"><div class="modal-icon">🗑</div><h3>Purge Entry</h3><p>Permanently delete this feedback? This cannot be undone.</p><div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-danger-solid" onclick="confirmDelete()">Purge</button></div></div></div>
 <script>
 var ADMIN_KEY='maureonix-admin-secret';var secret=localStorage.getItem(ADMIN_KEY)||'';var allFeedback=[];var deleteTargetId=null;var deferredPrompt=null;var currentTab='dashboard';var statsData={};var isChatOpen=false;
@@ -357,12 +335,12 @@ if('serviceWorker' in navigator){try{navigator.serviceWorker.register(URL.create
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;var btn=document.getElementById('installBtn');if(btn)btn.classList.add('visible');});
 function installPWA(){if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt.userChoice.then(function(){deferredPrompt=null;});document.getElementById('installBtn').classList.remove('visible');}
 function showToast(msg,type){var c=document.getElementById('toastContainer');var t=document.createElement('div');t.className='toast toast-'+(type||'info');var i=type==='success'?'✓':type==='error'?'✕':'ℹ';t.innerHTML='<span class="toast-icon">'+i+'</span><span>'+msg+'</span>';c.appendChild(t);requestAnimationFrame(function(){t.classList.add('show');});setTimeout(function(){t.classList.remove('show');setTimeout(function(){t.remove();},400);},4000);}
-async function doLogin(){if(!secret)secret=document.getElementById('secretInput').value.trim();if(!secret)return;try{var r=await fetch('/api/admin/stats?secret='+encodeURIComponent(secret));if(!r.ok)throw new Error('Unauthorized');statsData=await r.json();localStorage.setItem(ADMIN_KEY,secret);document.getElementById('loginScreen').classList.add('hidden');var shell=document.getElementById('appShell');shell.classList.remove('hidden');shell.classList.add('visible');showToast('Neural link established. Welcome, Admin.','success');checkAdminIdentity();renderDashboard();renderFeedback();renderVisitors();startPolling();initChatSession();}catch(e){showToast('Authentication failed.','error');secret='';localStorage.removeItem(ADMIN_KEY);var card=document.getElementById('loginCard');card.classList.add('shake');setTimeout(function(){card.classList.remove('shake');},500);}}
+async function doLogin(){if(!secret)secret=document.getElementById('secretInput').value.trim();if(!secret)return;try{var r=await fetch('/api/admin/stats?secret='+encodeURIComponent(secret));if(!r.ok)throw new Error('Unauthorized');statsData=await r.json();localStorage.setItem(ADMIN_KEY,secret);document.getElementById('loginScreen').classList.add('hidden');var shell=document.getElementById('appShell');shell.classList.remove('hidden');shell.classList.add('visible');showToast('Neural link established. Welcome, Admin.','success');renderDashboard();renderFeedback();renderVisitors();startPolling();initChatSession();}catch(e){showToast('Authentication failed.','error');secret='';localStorage.removeItem(ADMIN_KEY);var card=document.getElementById('loginCard');card.classList.add('shake');setTimeout(function(){card.classList.remove('shake');},500);}}
 function logout(){secret='';localStorage.removeItem(ADMIN_KEY);stopPolling();document.getElementById('loginScreen').classList.remove('hidden');var shell=document.getElementById('appShell');shell.classList.add('hidden');shell.classList.remove('visible');document.getElementById('secretInput').value='';showToast('Session terminated.','info');}
 function refreshAll(){doLogin();showToast('Data refreshed.','success');}
 function switchTab(tab){currentTab=tab;document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active');});document.getElementById('tab-'+tab).classList.add('active');document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active');});var nav=document.querySelector('.nav-item[data-tab="'+tab+'"]');if(nav)nav.classList.add('active');var titles={dashboard:'📊 Overview',feedback:'📨 Feedback',visitors:'🌐 Visitors',neural:'🧠 Neural'};document.getElementById('pageTitle').textContent=titles[tab]||'Overview';var floatChat=document.getElementById('chatToggle');if(tab==='neural'){floatChat.style.display='none';document.getElementById('chatPanel').style.display='none';isChatOpen=false;}else{floatChat.style.display='grid';}if(window.innerWidth<1024)document.getElementById('sidebar').classList.remove('open');}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
-function renderDashboard(){if(!statsData)return;document.getElementById('stVisitors').textContent=(statsData.totalVisitors||0).toLocaleString();document.getElementById('stUnique').textContent=(statsData.uniqueVisitors||0).toLocaleString();document.getElementById('stPairs').textContent=(statsData.totalPairs||0).toLocaleString();document.getElementById('stFeedback').textContent=(statsData.feedbackCount||0).toLocaleString();document.getElementById('stRating').textContent=(statsData.avgRating||'0.0')+' ★';document.getElementById('stUnseen').textContent=(statsData.unseenFeedback||0).toLocaleString();var sec=statsData.uptime||0;var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;document.getElementById('stUptime').textContent=(h>0?h+'h ':'')+m+'m '+s+'s';document.getElementById('sidebarUptime').textContent='UP '+(h>0?h+'h ':'')+m+'m';document.getElementById('stStatus').innerHTML='<span style="color:var(--green);text-shadow:0 0 10px var(--green);">●</span> ONLINE';document.getElementById('sysNode').textContent=statsData.nodeVersion||'—';document.getElementById('sysPlatform').textContent=statsData.platform||'—';document.getElementById('sysVer').textContent=statsData.version||'—';document.getElementById('sysMem').textContent=(statsData.memory&&statsData.memory.rss?statsData.memory.rss+' MB':'—');document.getElementById('sysHeap').textContent=(statsData.memory&&statsData.memory.heapUsed?statsData.memory.heapUsed+' MB':'—');var bar=Math.min(100,(statsData.totalVisitors||0)/10);document.getElementById('barVisitors').style.width=bar+'%';renderVisitorChart();}
+function renderDashboard(){if(!statsData)return;document.getElementById('stVisitors').textContent=(statsData.totalVisitors||0).toLocaleString();document.getElementById('stUnique').textContent=(statsData.uniqueVisitors||0).toLocaleString();document.getElementById('stPairs').textContent=(statsData.totalPairs||0).toLocaleString();document.getElementById('stFeedback').textContent=(statsData.feedbackCount||0).toLocaleString();document.getElementById('stRating').textContent=(statsData.avgRating||'0.0')+' ★';document.getElementById('stUnseen').textContent=(statsData.unseenFeedback||0).toLocaleString();var sec=statsData.uptime||0;var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;document.getElementById('stUptime').textContent=(h>0?h+'h ':'')+m+'m '+s+'s';document.getElementById('sidebarUptime').textContent='UP '+(h>0?h+'h ':'')+m+'m';document.getElementById('stStatus').innerHTML='<span style="color:var(--green);text-shadow:0 0 10px var(--green);">●</span> ONLINE';document.getElementById('sysNode').textContent=statsData.nodeVersion||'—';document.getElementById('sysPlatform').textContent=statsData.platform||'—';document.getElementById('sysVer').textContent=statsData.version||'—';document.getElementById('sysMem').textContent=(statsData.memory&&statsData.memory.rss?statsData.memory.rss+' MB':'—');document.getElementById('sysHeap').textContent=(statsData.memory&&statsData.memory.heapUsed?statsData.memory.heapUsed+' MB':'—');var bar=Math.min(100,(statsData.totalVisitors||0)/10);document.getElementById('barVisitors').style.width=bar+'%';}
 function renderVisitorChart(){var chart=document.getElementById('visitorChart');if(!chart)return;chart.innerHTML='';var data=[3,7,5,12,8,15,10,18,14,20];var max=Math.max.apply(null,data);data.forEach(function(val,i){var bar=document.createElement('div');bar.className='chart-bar';bar.style.height=(val/max*100)+'%';bar.dataset.label='T-'+(10-i);chart.appendChild(bar);});}
 async function renderFeedback(){var query=document.getElementById('fbSearch').value.toLowerCase().trim();var list=allFeedback;if(query){list=list.filter(function(f){return(f.comment&&f.comment.toLowerCase().indexOf(query)!==-1)||(f.contact&&f.contact.toLowerCase().indexOf(query)!==-1)||(f.page&&f.page.toLowerCase().indexOf(query)!==-1)||(f.ip&&f.ip.toLowerCase().indexOf(query)!==-1)||String(f.id).toLowerCase().indexOf(query)!==-1;});}document.getElementById('fbCount').textContent=list.length+' entries';var tbody=document.getElementById('fbBody');if(!list.length){tbody.innerHTML='<tr><td colspan="9" class="empty-state"><div class="empty-icon">📭</div><h3>No feedback found</h3></td></tr>';return;}tbody.innerHTML=list.map(function(f,i){var date=new Date(f.timestamp);var dateStr=date.toLocaleDateString('en-US',{month:'short',day:'numeric'});var timeStr=date.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});var unseenClass=f.seen?'':'unseen';var seenDot=f.seen?'<span class="seen-dot seen-yes"></span>':'<span class="seen-dot seen-no"></span>';var shortId=String(f.id).slice(-8).toUpperCase();var comment=f.comment?escapeHtml(f.comment):'<span style="color:var(--text-muted);font-style:italic;">No comment</span>';return'<tr class="'+unseenClass+'" style="animation-delay:'+(i*0.025)+'s"><td class="cell-id"><span class="id-hash">#</span>'+shortId+'</td><td class="cell-time"><div>'+dateStr+'</div><div class="cell-time-sub">'+timeStr+'</div></td><td class="cell-rating">'+'★'.repeat(f.rating)+'<span class="rating-empty">'+'☆'.repeat(5-f.rating)+'</span></td><td class="cell-comment" title="'+escapeHtml(f.comment||'')+'">'+comment+'</td><td class="cell-contact">'+(f.contact?escapeHtml(f.contact):'<span style="color:var(--text-muted);">-</span>')+'</td><td>'+(f.page?'<span class="page-tag">'+escapeHtml(f.page)+'</span>':'<span style="color:var(--text-muted);">-</span>')+'</td><td><span class="ip-badge">'+(f.ip||'-')+'</span></td><td>'+seenDot+'</td><td style="text-align:center;"><button class="btn-delete" onclick="openDeleteModal(\\''+f.id+'\\')"><span>🗑</span> Delete</button></td></tr>';}).join('');}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML;}
@@ -376,33 +354,30 @@ async function renderVisitors(){try{var r=await fetch('/api/admin/visitors?secre
 var pollTimer=null;function startPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=setInterval(async function(){try{var r=await fetch('/api/admin/stats?secret='+encodeURIComponent(secret));if(r.ok){statsData=await r.json();renderDashboard();var fb=await fetch('/api/feedback/list?secret='+encodeURIComponent(secret));if(fb.ok){var d=await fb.json();allFeedback=d.feedback||[];if(currentTab==='feedback')renderFeedback();}}}catch(e){}},10000);}
 function stopPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=null;}
 
-/* ═══ Neural Chat v2.0 — Smart Admin Assistant ═══ */
+/* ── Neural Chat (Hardened for Admin Command Center) ── */
 var CHAT_SESSION_KEY='maureonix-chat-session';var CHAT_HISTORY_KEY='maureonix-chat-history';
-var chatSessionId='';var chatHistory=[];var isChatOpen=false;var adminIdentity=null;
+var chatSessionId='';var chatHistory=[];var isChatOpen=false;
 
-function generateSessionId(){return'sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);}
-
+function generateSessionId(){ return'sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10); }
 function initChatSession(){
-  try{
+  try {
     chatSessionId=localStorage.getItem(CHAT_SESSION_KEY)||generateSessionId();
     localStorage.setItem(CHAT_SESSION_KEY,chatSessionId);
     var raw=localStorage.getItem(CHAT_HISTORY_KEY);
     chatHistory=raw?JSON.parse(raw):[];
     renderChatHistory();
     if(!chatHistory.length){
-      var greeting=adminIdentity?'Welcome back, **'+adminIdentity.name+'**. MAUREONIX Command Center at your disposal. I can check messages, stats, visitors, and execute any command.':'Welcome to the **Neural Command Center**.\\n\\nI am MAUREONIX. Ask me about commands, pairing, or anything.';
-      appendChatBubble('assistant',greeting,Date.now(),true);
+      appendChatBubble('assistant','Welcome to the **Neural Command Center**.\\n\\nI am Maureonix. Ask me about commands, pairing, or anything.',Date.now(),true);
     }
-  }catch(e){chatSessionId=generateSessionId();}
+  } catch(e){ chatSessionId=generateSessionId(); }
 }
 
-function saveChatHistory(){try{localStorage.setItem(CHAT_HISTORY_KEY,JSON.stringify(chatHistory.slice(-50)));}catch(e){}}
-
+function saveChatHistory(){ try{ localStorage.setItem(CHAT_HISTORY_KEY,JSON.stringify(chatHistory.slice(-50))); }catch(e){} }
 function renderChatHistory(){
   var container=currentTab==='neural'?document.getElementById('neuralMessages'):document.getElementById('chatMessages');
   if(!container)return;
   container.innerHTML='';
-  chatHistory.forEach(function(msg){appendChatBubble(msg.role,msg.text,msg.ts,false);});
+  chatHistory.forEach(function(msg){ appendChatBubble(msg.role,msg.text,msg.ts,false); });
   scrollChatToBottom();
 }
 
@@ -412,25 +387,25 @@ function parseMarkdown(text){
   var parts=html.split(tick+tick+tick);
   for(var i=1;i<parts.length;i+=2){
     var block=parts[i];
-    var nl=block.indexOf('\n');
+    var nl=block.indexOf('\\n');
     var code=nl>-1?block.substring(nl+1):block;
     parts[i]='<pre><button class="copy-code-btn" onclick="copyCode(this)">COPY</button><code>'+code.trim()+'</code></pre>';
   }
   html=parts.join('');
   var parts2=html.split(tick);
-  for(var j=1;j<parts2.length;j+=2){parts2[j]='<code>'+parts2[j]+'</code>';}
+  for(var j=1;j<parts2.length;j+=2){ parts2[j]='<code>'+parts2[j]+'</code>'; }
   html=parts2.join('');
-  html=html.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-  html=html.replace(/\*([^*]+)\*/g,'<em>$1</em>');
-  html=html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  html=html.replace(/\n/g,'<br>');
+  html=html.replace(/\\*\\*([^*]+)\\*\\*/g,'<strong>$1</strong>');
+  html=html.replace(/\\*([^*]+)\\*/g,'<em>$1</em>');
+  html=html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html=html.replace(/\\n/g,'<br>');
   return html;
 }
 
 function copyCode(btn){
   var code=btn.parentElement.querySelector('code').innerText;
   navigator.clipboard.writeText(code).then(function(){
-    btn.textContent='COPIED';setTimeout(function(){btn.textContent='COPY';},2000);
+    btn.textContent='COPIED';setTimeout(function(){ btn.textContent='COPY'; },2000);
   });
 }
 
@@ -440,82 +415,33 @@ function appendChatBubble(role,text,ts,save){
   var bubble=document.createElement('div');
   bubble.className='chat-bubble '+role;
   var timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
-  var parsed=role==='assistant'?parseMarkdown(text):text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  var parsed=role==='assistant'?parseMarkdown(text):text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
   bubble.innerHTML=parsed+'<span class="ts">'+timeStr+'</span>';
   container.appendChild(bubble);
-  if(save){chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory();}
+  if(save){ chatHistory.push({role,text,ts:ts||Date.now()});saveChatHistory(); }
   scrollChatToBottom();
 }
 
 function scrollChatToBottom(){
   var container=currentTab==='neural'?document.getElementById('neuralMessages'):document.getElementById('chatMessages');
-  if(container)container.scrollTop=container.scrollHeight;
+  if(container) container.scrollTop=container.scrollHeight;
 }
 
-function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
-function handleChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}}
+function autoResize(ta){ ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px'; }
+function handleChatKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault();sendChatMessage(); } }
 function checkChips(){
   var hasText=false;
   ['chatInput','neuralInput'].forEach(function(id){
     var el=document.getElementById(id);if(el&&el.value.trim().length>0)hasText=true;
   });
   var chips=document.querySelectorAll('.neural-chips');
-  chips.forEach(function(c){if(hasText)c.classList.add('hidden');else c.classList.remove('hidden');});
+  chips.forEach(function(c){ if(hasText)c.classList.add('hidden');else c.classList.remove('hidden'); });
 }
 
 function sendQuick(text){
   var ta=currentTab==='neural'?document.getElementById('neuralInput'):document.getElementById('chatInput');
-  if(ta){ta.value=text;autoResize(ta);checkChips();}
+  if(ta){ ta.value=text;autoResize(ta);checkChips(); }
   sendChatMessage();
-}
-
-function parseIntent(text){
-  var lower=text.toLowerCase();
-  var intents=[];
-  if(/show.*feedback|display.*feedback|list.*feedback|recent.*feedback|unseen.*feedback/.test(lower)){
-    intents.push({type:'switchTab',tab:'feedback'});
-  }
-  if(/show.*visitor|display.*visitor|list.*visitor|recent.*visitor|who visited/.test(lower)){
-    intents.push({type:'switchTab',tab:'visitors'});
-  }
-  if(/show.*dashboard|display.*stats|system.*status|overview|main.*dashboard/.test(lower)){
-    intents.push({type:'switchTab',tab:'dashboard'});
-  }
-  if(/open.*neural|show.*neural|ai.*chat|neural.*tab/.test(lower)){
-    intents.push({type:'switchTab',tab:'neural'});
-  }
-  if(/scroll to|go to|navigate to/.test(lower)){
-    if(/pair|connect/.test(lower))intents.push({type:'scrollTo',target:'pairing'});
-    else if(/feature/.test(lower))intents.push({type:'scrollTo',target:'features'});
-  }
-  if(/click|press|tap/.test(lower)){
-    if(/refresh|reload/.test(lower))intents.push({type:'click',target:'refresh'});
-  }
-  if(/mark.*seen|mark.*all|clear.*unseen/.test(lower)){
-    intents.push({type:'action',action:'markAllSeen'});
-  }
-  if(/export|download.*csv/.test(lower)){
-    intents.push({type:'action',action:'exportCSV'});
-  }
-  if(/delete.*all|clear.*all|purge.*all/.test(lower)){
-    intents.push({type:'action',action:'deleteAll'});
-  }
-  if(/verify.*number|check.*number|validate.*phone/.test(lower)){
-    var m=text.match(/(?:\+?254|0)?\d{9,12}/);
-    if(m)intents.push({type:'verifyPhone',number:m[0].replace(/^0/,'254').replace(/^\+/,'')});
-  }
-  return intents;
-}
-
-function executeIntent(intent){
-  switch(intent.type){
-    case 'switchTab':switchTab(intent.tab);return true;
-    case 'scrollTo':var el=document.getElementById(intent.target);if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return true;}return false;
-    case 'click':if(intent.target==='refresh'){refreshAll();return true;}return false;
-    case 'action':if(intent.action==='markAllSeen'){markAllSeen();return true;}if(intent.action==='exportCSV'){exportCSV();return true;}if(intent.action==='deleteAll'){deleteAll();return true;}return false;
-    case 'verifyPhone':var valid=/^254\d{9}$/.test(intent.number);return valid?'✅ **'+intent.number+'** is valid Kenyan format.':'⚠️ **'+intent.number+'** is invalid. Use 254XXXXXXXXX';
-    default:return false;
-  }
 }
 
 async function sendChatMessage(){
@@ -529,24 +455,8 @@ async function sendChatMessage(){
   var typingEl=currentTab==='neural'?document.getElementById('neuralTyping'):document.getElementById('chatTyping');
   if(typingEl)typingEl.style.display='flex';
   if(btn)btn.disabled=true;
-  
-  var intents=parseIntent(text);
-  var intentHandled=false;var intentResponse=[];
-  for(var i=0;i<intents.length;i++){
-    var result=executeIntent(intents[i]);
-    if(result===true)intentHandled=true;
-    else if(typeof result==='string'){intentResponse.push(result);intentHandled=true;}
-  }
-  if(intentHandled&&intentResponse.length>0){
-    setTimeout(function(){
-      appendChatBubble('assistant',intentResponse.join('\n\n'),Date.now(),true);
-      if(typingEl)typingEl.style.display='none';if(btn)btn.disabled=false;if(ta)ta.focus();
-    },500);
-    return;
-  }
-  
   try{
-    var res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text,context:{page:'admin',tab:currentTab,isAdmin:true}})});
+    var res=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:chatSessionId,message:text})});
     var data=await res.json();
     if(data.text){
       appendChatBubble('assistant',data.text,Date.now(),true);
@@ -561,37 +471,20 @@ async function sendChatMessage(){
   if(ta)ta.focus();
 }
 
+/* ── Toggle the floating chat panel ── */
 function toggleChat(){
   var panel=document.getElementById('chatPanel');
   if(!panel)return;
   isChatOpen=!isChatOpen;
   panel.style.display=isChatOpen?'flex':'none';
-  panel.setAttribute('aria-hidden',String(!isChatOpen));
   if(isChatOpen){
     var chatInput=document.getElementById('chatInput');
     if(chatInput)chatInput.focus();
     scrollChatToBottom();
-    adjustChatForViewport();
   }
 }
 
-function adjustChatForViewport(){
-  var panel=document.getElementById('chatPanel');
-  if(!panel||panel.style.display!=='flex')return;
-  if(window.visualViewport){
-    var vv=window.visualViewport;
-    var h=Math.min(560,vv.height-130);
-    panel.style.height=h+'px';
-    panel.style.maxHeight=h+'px';
-    var bottomOffset=window.innerHeight-vv.height;
-    panel.style.bottom=(bottomOffset+90)+'px';
-  }
-}
-if(window.visualViewport){
-  window.visualViewport.addEventListener('resize',adjustChatForViewport);
-  window.visualViewport.addEventListener('scroll',adjustChatForViewport);
-}
-
+/* ── Event delegation for chat buttons ── */
 document.addEventListener('click',function(e){
   if(e.target.closest('#chatToggle')){e.preventDefault();toggleChat();return;}
   if(e.target.closest('#chatSend')){e.preventDefault();sendChatMessage();return;}
@@ -600,22 +493,14 @@ document.addEventListener('click',function(e){
 
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
+    var fm=document.getElementById('feedbackModal'); // in case feedback is open
+    if(fm&&fm.style.display==='flex')return;
     if(isChatOpen)toggleChat();
   }
 });
 
-async function checkAdminIdentity(){
-  try{
-    var r=await fetch('/api/admin/identity?secret='+encodeURIComponent(secret));
-    if(r.ok){
-      adminIdentity=await r.json();
-      var sidebarFooter=document.querySelector('.sidebar-footer');
-      if(sidebarFooter&&adminIdentity){
-        sidebarFooter.innerHTML='<b>MAUREONIX</b> v'+statsData.version+'<br><span style="color:var(--green)">● GOD MODE ACTIVE</span>';
-      }
-    }
-  }catch(e){}
-}
+/* ── Init on load ── */
+initChatSession();
 
 (function(){var canvas=document.getElementById('particleCanvas');if(!canvas)return;var ctx=canvas.getContext('2d');var particles=[];function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}window.addEventListener('resize',resize);resize();for(var i=0;i<50;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,size:Math.random()*1.5+0.5});}function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(function(p,i){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle='rgba(0,240,255,'+(p.size/4)+')';ctx.fill();for(var j=i+1;j<particles.length;j++){var p2=particles[j],dx=p.x-p2.x,dy=p.y-p2.y,d=Math.sqrt(dx*dx+dy*dy);if(d<130){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(0,240,255,'+(0.03*(1-d/130))+')';ctx.lineWidth=0.5;ctx.stroke();}}});requestAnimationFrame(draw);}draw();})();
 switchTab('dashboard');

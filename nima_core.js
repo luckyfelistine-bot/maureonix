@@ -399,7 +399,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 delete global.learningMode[m.sender];
                 return;
             }
-        }
+        } 
 
 
         // ===== ENHANCED AUTO‑AI MODE =====
@@ -408,238 +408,250 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
               
 
- // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
+        // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
         if (isSelfChat && set.autoai_selfchat && !isCmd) {
-            const now = Date.now();
-            const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
-            if (now - lastSelfReply < 2000) return;
-            db.lastSelfReply = db.lastSelfReply || {};
-            db.lastSelfReply[m.sender] = now;
 
-            let userMessage = (body || budy).trim();
-
-            // ── NEW: Process file attachments if no text ──
-            if ((!userMessage || userMessage.length < 3) && m.isMedia) {
-                try {
-                    const mediaBuffer = await m.download();
-                    const { processFile } = require('./lib/fileProcessor');
-                    const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                    if (result.type === 'text') {
-                        userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
-                    } else {
-                        userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
-                    }
-                } catch (e) {
-                    console.error('[self-chat file process]', e.message);
-                    userMessage = `[File could not be processed: ${m.mime}]`;
-                }
-            } else if (!userMessage) {
-                return; // no text and no media → skip
-            }
-
-            if (set.autotyping) {
-                await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
-            }
-
+            // ── Anti‑loop guard: ignore any self‑chat message while we are still processing ──
+            if (global.db._selfChatBusy) return;
+            global.db._selfChatBusy = true;
             try {
-                const { selfChatAI, sendLongMessage, ALL_COMMANDS } = require('./lib/ai');
+                // ▼▼▼ YOUR EXISTING CODE STARTS HERE ▼▼▼
 
-                // Build conversation context from recent messages
-                const recentContext = [];
-                if (store?.messages?.[m.chat]?.array) {
-                    const msgs = store.messages[m.chat].array.slice(-6);
-                    for (const msg of msgs) {
-                        if (msg.key.id === m.key.id) continue;
-                        const role = msg.key.fromMe ? 'assistant' : 'user';
-                        const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-                        if (content) recentContext.push({ role, content: content.substring(0, 200) });
+                const now = Date.now();
+                const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
+                if (now - lastSelfReply < 2000) return;
+                db.lastSelfReply = db.lastSelfReply || {};
+                db.lastSelfReply[m.sender] = now;
+
+                let userMessage = (body || budy).trim();
+
+                // ── NEW: Process file attachments if no text ──
+                if ((!userMessage || userMessage.length < 3) && m.isMedia) {
+                    try {
+                        const mediaBuffer = await m.download();
+                        const { processFile } = require('./lib/fileProcessor');
+                        const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                        if (result.type === 'text') {
+                            userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
+                        } else {
+                            userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
+                        }
+                    } catch (e) {
+                        console.error('[self-chat file process]', e.message);
+                        userMessage = `[File could not be processed: ${m.mime}]`;
                     }
+                } else if (!userMessage) {
+                    return; // no text and no media → skip
                 }
 
-                // Detect active game modes
-                const activeModes = [];
-                if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) activeModes.push('connect4');
-                if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) activeModes.push('chess');
-                if (db.game?.akinator && db.game.akinator[m.sender]) activeModes.push('akinator');
-                if (recentContext.some(t => /truth or dare/i.test(t.content))) activeModes.push('truth_or_dare');
-
-                let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
-
-                // ── Pure conversation ──
-                if (result.type !== 'function' || !result.function) {
-                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text || '...'}`, { quoted: m });
-                    return;
+                if (set.autotyping) {
+                    await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
                 }
 
-                const cmd = String(result.function).toLowerCase().trim();
-                const args = Array.isArray(result.args) ? result.args : [];
-                const syntheticText = [cmd, ...args].join(' ');
+                try {
+                    const { selfChatAI, sendLongMessage, ALL_COMMANDS } = require('./lib/ai');
 
-                // ── SYSTEM COMMANDS (owner‑only, never routed to nima_commands) ──
-                const systemHandled = await (async () => {
-                    switch (cmd) {
-                        case 'sysinfo':
-                        case 'systeminfo': {
-                            const os = require('os');
-                            const memUsage = (os.totalmem() - os.freemem()) / 1024 / 1024;
-                            const totalMem = os.totalmem() / 1024 / 1024;
-                            await m.reply(`🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`);
-                            return true;
+                    // Build conversation context from recent messages
+                    const recentContext = [];
+                    if (store?.messages?.[m.chat]?.array) {
+                        const msgs = store.messages[m.chat].array.slice(-6);
+                        for (const msg of msgs) {
+                            if (msg.key.id === m.key.id) continue;
+                            const role = msg.key.fromMe ? 'assistant' : 'user';
+                            const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                            if (content) recentContext.push({ role, content: content.substring(0, 200) });
                         }
-                        case 'restart':
-                        case 'reboot': {
-                            await m.reply('🔄 Restarting bot...');
-                            setTimeout(() => process.exit(0), 1000);
-                            return true;
-                        }
-                        case 'backup':
-                        case 'backupdb': {
-                            const backupPath = path.join(__dirname, '../database', `backup_${Date.now()}.json`);
-                            try {
-                                fs.writeFileSync(backupPath, JSON.stringify(db, null, 2));
-                                await nimesha.sendMessage(m.chat, { document: { url: backupPath }, fileName: path.basename(backupPath) });
-                                fs.unlinkSync(backupPath);
-                                await m.reply('✅ Database backup sent.');
-                            } catch (e) {
-                                await m.reply(`❌ Backup failed: ${e.message}`);
+                    }
+
+                    // Detect active game modes
+                    const activeModes = [];
+                    if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) activeModes.push('connect4');
+                    if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) activeModes.push('chess');
+                    if (db.game?.akinator && db.game.akinator[m.sender]) activeModes.push('akinator');
+                    if (recentContext.some(t => /truth or dare/i.test(t.content))) activeModes.push('truth_or_dare');
+
+                    let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
+
+                    // ── Pure conversation ──
+                    if (result.type !== 'function' || !result.function) {
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text || '...'}`, { quoted: m });
+                        return;
+                    }
+
+                    const cmd = String(result.function).toLowerCase().trim();
+                    const args = Array.isArray(result.args) ? result.args : [];
+                    const syntheticText = [cmd, ...args].join(' ');
+
+                    // ── SYSTEM COMMANDS (owner‑only, never routed to nima_commands) ──
+                    const systemHandled = await (async () => {
+                        switch (cmd) {
+                            case 'sysinfo':
+                            case 'systeminfo': {
+                                const os = require('os');
+                                const memUsage = (os.totalmem() - os.freemem()) / 1024 / 1024;
+                                const totalMem = os.totalmem() / 1024 / 1024;
+                                await m.reply(`🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`);
+                                return true;
                             }
-                            return true;
-                        }
-                        case 'logs':
-                        case 'lastlog': {
-                            const LOG_FILE = path.join(__dirname, '../logs/error.log');
-                            if (fs.existsSync(LOG_FILE)) {
-                                const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
-                                await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 chars of error log*\n\n${logs}`, { quoted: m });
-                            } else {
-                                await m.reply('No log found.');
+                            case 'restart':
+                            case 'reboot': {
+                                await m.reply('🔄 Restarting bot...');
+                                setTimeout(() => process.exit(0), 1000);
+                                return true;
                             }
-                            return true;
-                        }
-                        case 'editconfig': {
-                            if (!args[0]) {
-                                await m.reply('Usage: editconfig <key> = <value>\nExample: editconfig global.botname = "SuperBot"');
-                            } else {
+                            case 'backup':
+                            case 'backupdb': {
+                                const backupPath = path.join(__dirname, '../database', `backup_${Date.now()}.json`);
                                 try {
-                                    const full = args.join(' ');
-                                    const eqIndex = full.indexOf('=');
-                                    if (eqIndex === -1) throw new Error('Missing "="');
-                                    const key = full.slice(0, eqIndex).trim();
-                                    const value = full.slice(eqIndex + 1).trim();
-                                    eval(key + ' = ' + value);
-                                    await m.reply(`✅ Updated ${key} = ${value}`);
+                                    fs.writeFileSync(backupPath, JSON.stringify(db, null, 2));
+                                    await nimesha.sendMessage(m.chat, { document: { url: backupPath }, fileName: path.basename(backupPath) });
+                                    fs.unlinkSync(backupPath);
+                                    await m.reply('✅ Database backup sent.');
                                 } catch (e) {
-                                    await m.reply(`❌ Edit failed: ${e.message}`);
+                                    await m.reply(`❌ Backup failed: ${e.message}`);
                                 }
-                            }
-                            return true;
-                        }
-                        case 'exec': {
-                            const commandLine = args.join(' ');
-                            if (!commandLine) {
-                                await m.reply('Usage: exec <shell command>');
                                 return true;
                             }
-                            const { exec } = require('child_process');
-                            exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
-                                const output = stdout || stderr || (err && err.message);
-                                m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
-                            });
-                            return true;
-                        }
-                        case 'addprem':
-                        case 'removeprem': {
-                            const targetNum = (args[0] || '').replace(/[^0-9]/g, '');
-                            if (!targetNum) {
-                                await m.reply(`Usage: ${cmd} 254712345678`);
+                            case 'logs':
+                            case 'lastlog': {
+                                const LOG_FILE = path.join(__dirname, '../logs/error.log');
+                                if (fs.existsSync(LOG_FILE)) {
+                                    const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
+                                    await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 chars of error log*\n\n${logs}`, { quoted: m });
+                                } else {
+                                    await m.reply('No log found.');
+                                }
                                 return true;
                             }
-                            const jid = targetNum + '@s.whatsapp.net';
-                            const isAdd = cmd === 'addprem';
-                            const existing = db.premium.find(p => p.id === jid);
-                            if (isAdd && !existing) {
-                                db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
-                                await m.reply(`✅ Added premium for +${targetNum}`);
-                            } else if (!isAdd && existing) {
-                                db.premium = db.premium.filter(p => p.id !== jid);
-                                await m.reply(`❌ Removed premium for +${targetNum}`);
-                            } else {
-                                await m.reply(isAdd ? 'Already premium' : 'Not premium');
-                            }
-                            return true;
-                        }
-                        case 'ban':
-                        case 'unban': {
-                            const banTarget = (args[0] || '').replace(/[^0-9]/g, '');
-                            if (!banTarget) {
-                                await m.reply(`Usage: ${cmd} 254712345678`);
+                            case 'editconfig': {
+                                if (!args[0]) {
+                                    await m.reply('Usage: editconfig <key> = <value>\nExample: editconfig global.botname = "SuperBot"');
+                                } else {
+                                    try {
+                                        const full = args.join(' ');
+                                        const eqIndex = full.indexOf('=');
+                                        if (eqIndex === -1) throw new Error('Missing "="');
+                                        const key = full.slice(0, eqIndex).trim();
+                                        const value = full.slice(eqIndex + 1).trim();
+                                        eval(key + ' = ' + value);
+                                        await m.reply(`✅ Updated ${key} = ${value}`);
+                                    } catch (e) {
+                                        await m.reply(`❌ Edit failed: ${e.message}`);
+                                    }
+                                }
                                 return true;
                             }
-                            const banJid = banTarget + '@s.whatsapp.net';
-                            if (!db.users[banJid]) db.users[banJid] = {};
-                            if (cmd === 'ban') db.users[banJid].ban = true;
-                            else delete db.users[banJid].ban;
-                            await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
-                            return true;
+                            case 'exec': {
+                                const commandLine = args.join(' ');
+                                if (!commandLine) {
+                                    await m.reply('Usage: exec <shell command>');
+                                    return true;
+                                }
+                                const { exec } = require('child_process');
+                                exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
+                                    const output = stdout || stderr || (err && err.message);
+                                    m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
+                                });
+                                return true;
+                            }
+                            case 'addprem':
+                            case 'removeprem': {
+                                const targetNum = (args[0] || '').replace(/[^0-9]/g, '');
+                                if (!targetNum) {
+                                    await m.reply(`Usage: ${cmd} 254712345678`);
+                                    return true;
+                                }
+                                const jid = targetNum + '@s.whatsapp.net';
+                                const isAdd = cmd === 'addprem';
+                                const existing = db.premium.find(p => p.id === jid);
+                                if (isAdd && !existing) {
+                                    db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
+                                    await m.reply(`✅ Added premium for +${targetNum}`);
+                                } else if (!isAdd && existing) {
+                                    db.premium = db.premium.filter(p => p.id !== jid);
+                                    await m.reply(`❌ Removed premium for +${targetNum}`);
+                                } else {
+                                    await m.reply(isAdd ? 'Already premium' : 'Not premium');
+                                }
+                                return true;
+                            }
+                            case 'ban':
+                            case 'unban': {
+                                const banTarget = (args[0] || '').replace(/[^0-9]/g, '');
+                                if (!banTarget) {
+                                    await m.reply(`Usage: ${cmd} 254712345678`);
+                                    return true;
+                                }
+                                const banJid = banTarget + '@s.whatsapp.net';
+                                if (!db.users[banJid]) db.users[banJid] = {};
+                                if (cmd === 'ban') db.users[banJid].ban = true;
+                                else delete db.users[banJid].ban;
+                                await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
+                                return true;
+                            }
                         }
+                        return false;
+                    })();
+
+                    if (systemHandled) return;
+
+                    // ── COMMAND WHITELIST ──
+                    const AI_ALLOWED = new Set(ALL_COMMANDS);
+                    ['s','vid','ytmp4','ytmp3','music','audio','sp','spot','c4','bj','dep','with','pay','inv','h','linkgc','del','d','blokir','unblokir','sched','cuaca','g','tr','aiimage','draw','create','askai','coding','program','8b','wouldyourather','wyr','ss','clips','store','gamesearch','eps','ontv','livescore','table','headtohead','prediction','betting','sportsnews','scoreboard','clearinbox','clearme','addnote','mynotes','delnote','addtodo','check','cleartodo','tags','phrases','time','unit','readtime','setawaymsg','awaymsg','inbox','pendingclear','clearreminders','autogpt','selfchat','allmenu','botmenu','groupmenu','downloadmenu','aimenu','gamemenu','funmenu','stickermenu','searchmenu','economymenu','ownermenu','sportsmenu','moviesmenu','casinomenu','rpgmenu','mastermenu','adminmenu','autosettings','docsask'].forEach(a => AI_ALLOWED.add(a));
+
+                    if (!AI_ALLOWED.has(cmd)) {
+                        await m.reply(`⚠️ Command ".${cmd}" is not available via AI intent. Use the prefix directly.`);
+                        return;
                     }
-                    return false;
-                })();
 
-                if (systemHandled) return;
+                    // ── BUILD SYNTHETIC CONTEXT ──
+                    const syntheticCtx = {
+                        mess, isCmd: true, command: cmd, args, text: syntheticText,
+                        q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
+                        set, sewa, premium, db, store, botNumber,
+                        suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
+                        checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
+                        tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
+                        tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
+                        tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
+                        isVip, isBan, isLimit, isPremium, isNsfw,
+                        author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
+                        setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
+                        AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
+                        RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
+                        slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+                        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
+                        daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+                        OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
+                        APISports, OddsAPI, ESPN,
+                        ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+                        twitterDownload, spotifyDownload, pinterestDownload,
+                        redditDownload, soundcloudDownload, threadsDownload,
+                        capcutDownload, likeeDownload, snapchatDownload,
+                        vimeoDownload, dailymotionDownload, mediafireDownload,
+                        gdriveDownload, apkDownload,
+                        toAudio, toPTT, toVideo, generateMenuImage,
+                        runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
+                        pickRandom, similarity, almost, cases, getBuffer, writeExif
+                    };
 
-                // ── COMMAND WHITELIST ──
-                const AI_ALLOWED = new Set(ALL_COMMANDS);
-                ['s','vid','ytmp4','ytmp3','music','audio','sp','spot','c4','bj','dep','with','pay','inv','h','linkgc','del','d','blokir','unblokir','sched','cuaca','g','tr','aiimage','draw','create','askai','coding','program','8b','wouldyourather','wyr','ss','clips','store','gamesearch','eps','ontv','livescore','table','headtohead','prediction','betting','sportsnews','scoreboard','clearinbox','clearme','addnote','mynotes','delnote','addtodo','check','cleartodo','tags','phrases','time','unit','readtime','setawaymsg','awaymsg','inbox','pendingclear','clearreminders','autogpt','selfchat','allmenu','botmenu','groupmenu','downloadmenu','aimenu','gamemenu','funmenu','stickermenu','searchmenu','economymenu','ownermenu','sportsmenu','moviesmenu','casinomenu','rpgmenu','mastermenu','adminmenu','autosettings','docsask'].forEach(a => AI_ALLOWED.add(a));
+                    const handleCommand = require('./nima_commands');
+                    if (typeof handleCommand !== 'function') {
+                        throw new Error('Command handler is not a function — possible require cache corruption.');
+                    }
+                    await handleCommand(nimesha, m, syntheticCtx);
 
-                if (!AI_ALLOWED.has(cmd)) {
-                    await m.reply(`⚠️ Command ".${cmd}" is not available via AI intent. Use the prefix directly.`);
-                    return;
+                } catch (e) {
+                    console.error('[SELF-CHAT FATAL]', e);
+                    await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
                 }
+                return;
 
-                // ── BUILD SYNTHETIC CONTEXT ──
-                const syntheticCtx = {
-                    mess, isCmd: true, command: cmd, args, text: syntheticText,
-                    q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
-                    set, sewa, premium, db, store, botNumber,
-                    suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
-                    checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
-                    tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
-                    tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
-                    tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
-                    isVip, isBan, isLimit, isPremium, isNsfw,
-                    author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
-                    setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
-                    AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
-                    RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
-                    slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-                    gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
-                    daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
-                    OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
-                    APISports, OddsAPI, ESPN,
-                    ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
-                    twitterDownload, spotifyDownload, pinterestDownload,
-                    redditDownload, soundcloudDownload, threadsDownload,
-                    capcutDownload, likeeDownload, snapchatDownload,
-                    vimeoDownload, dailymotionDownload, mediafireDownload,
-                    gdriveDownload, apkDownload,
-                    toAudio, toPTT, toVideo, generateMenuImage,
-                    runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-                    pickRandom, similarity, almost, cases, getBuffer, writeExif
-                };
-
-                const handleCommand = require('./nima_commands');
-                if (typeof handleCommand !== 'function') {
-                    throw new Error('Command handler is not a function — possible require cache corruption.');
-                }
-                await handleCommand(nimesha, m, syntheticCtx);
-
-            } catch (e) {
-                console.error('[SELF-CHAT FATAL]', e);
-                await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
+            } finally {
+                delete global.db._selfChatBusy;
             }
-            return;
         }
+
         // 2) Private message from a stranger (not owner, not group, not status)
         if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
             const mode = set.privatemode || 'off';
@@ -1852,6 +1864,7 @@ Rules:
             isAutoReplyEnabled &&
             !isCmd &&
             !m.key.fromMe &&
+            !isCreator && 
             m.key.remoteJid !== 'status@broadcast' &&
             (body || budy) &&
             (body || budy).trim().length > 0 &&

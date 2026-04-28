@@ -165,11 +165,13 @@ module.exports = {
     },
     vv: async (nimesha, m) => {
         const quoted = m.quoted;
-        if (!quoted) return; // silently ignore – no reply
+        if (!quoted) return m.reply('⚠️ Reply to a view once message!');
 
-        const viewOnceMsg = quoted.message?.viewOnceMessage?.message ||
-                            quoted.message?.viewOnceMessageV2?.message;
-        if (!viewOnceMsg) return; // not a view‑once – do nothing
+        // Extract view‑once message (supports both old and new formats)
+        const viewOnceMsg = quoted.message?.viewOnceMessageV2?.message ||
+                            quoted.message?.viewOnceMessage?.message;
+
+        if (!viewOnceMsg) return m.reply('❌ The quoted message is not a view‑once message.');
 
         try {
             if (viewOnceMsg.imageMessage) {
@@ -178,9 +180,12 @@ module.exports = {
             } else if (viewOnceMsg.videoMessage) {
                 const buffer = await nimesha.downloadMediaMessage(quoted);
                 await nimesha.sendMessage(m.chat, { video: buffer, caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` }, { quoted: m });
+            } else {
+                m.reply('❌ Not a view‑once image or video.');
             }
         } catch (e) {
-            console.error('[vv error]', e.message);
+            console.error('[vv error]', e);
+            m.reply(`❌ Failed to reveal: ${e.message}`);
         }
     },
     summarize: async (nimesha, m, { AI }) => {

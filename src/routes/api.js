@@ -35,10 +35,10 @@ module.exports = function mountApiRoutes(app, packageInfo) {
     res.json({ status: 200, mess: 'Not yet implemented' });
   });
 
-  // ═══ AI Chat — Neural Assistant with Action Routing ═══
+  // ═══ AI Chat — powered by dashboardAiChat (session memory + smart actions) ═══
   app.post('/api/ai/chat', async (req, res) => {
     try {
-      const { sessionId, message, context } = req.body;
+      const { sessionId, message } = req.body;
       if (!sessionId || typeof sessionId !== 'string' || sessionId.length > 64) {
         return res.status(400).json({ error: 'Invalid sessionId' });
       }
@@ -46,30 +46,15 @@ module.exports = function mountApiRoutes(app, packageInfo) {
         return res.status(400).json({ error: 'Invalid message (max 2000 chars)' });
       }
 
-      const result = await dashboardAiChat(sessionId, message, context || {});
-      
-      // Inject action hints based on message content for client-side routing
-      const lower = message.toLowerCase();
-      const actions = [];
-      
-      if (/pair|connect|link|code|whatsapp|number|phone|254|\+?\d{10,}/.test(lower)) {
-        actions.push({ type: 'highlight', target: 'pairing' });
-      }
-      if (/feature|command|menu|module|what can you do|help|list/.test(lower)) {
-        actions.push({ type: 'highlight', target: 'features' });
-      }
-      if (/status|online|uptime|health|alive/.test(lower)) {
-        actions.push({ type: 'highlight', target: 'stats' });
-      }
-      
-      res.json({ ...result, actions });
+      const { dashboardAiChat } = require('../modules/aiChat');
+      const result = await dashboardAiChat(sessionId, message);
+      res.json(result);
     } catch (e) {
       console.error('AI chat error:', e.message);
       res.status(500).json({ error: 'Neural assistant offline', details: e.message });
     }
   });
 
-  // ═══ Feedback System ═══
   app.post('/api/feedback', (req, res) => {
     try {
       const { rating, comment, contact, page } = req.body;
@@ -128,11 +113,11 @@ module.exports = function mountApiRoutes(app, packageInfo) {
     } catch (e) { res.status(500).json({ error: 'Server error' }); }
   });
 
-  // ═══ Admin Stats & Identity ═══
   app.get('/api/admin/stats', (req, res) => {
     try {
       const { secret } = req.query;
       if (!secret || secret !== ADMIN_SECRET) {
+        console.log('Auth fail — got:', secret?.substring(0,3)+'...', 'expected:', ADMIN_SECRET.substring(0,3)+'...');
         return res.status(403).json({ error: 'Unauthorized' });
       }
       const feedback = loadFeedback();
@@ -163,25 +148,12 @@ module.exports = function mountApiRoutes(app, packageInfo) {
       res.json({ visitors: getVisitors() });
     } catch (e) { res.status(500).json({ error: 'Server error' }); }
   });
-
-  app.get('/api/admin/identity', (req, res) => {
-    try {
-      const { secret } = req.query;
-      if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
-      res.json({ 
-        authenticated: true, 
-        role: 'SUPER_ADMIN',
-        name: 'System Administrator',
-        accessLevel: 'GOD_MODE',
-        timestamp: new Date().toISOString()
-      });
-    } catch (e) { res.status(500).json({ error: 'Server error' }); }
-  });
-
-  // ═══ Health & Debug ═══
+  // ═══ Health endpoint (safe for production) ═══
   app.get('/api/admin/debug', (req, res) => {
     const { secret } = req.query;
-    if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    if (!secret || secret !== ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
     res.json({
       authenticated: true,
       secretConfigured: ADMIN_SECRET !== 'maureonix_secret_key',
@@ -189,9 +161,12 @@ module.exports = function mountApiRoutes(app, packageInfo) {
     });
   });
 
+  // ═══ Configuration status (safe) ═══
   app.get('/api/admin/check', (req, res) => {
     const { secret } = req.query;
-    if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    if (!secret || secret !== ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
     res.json({
       secretSet: ADMIN_SECRET !== 'maureonix_secret_key',
       groqKeySet: !!process.env.GROQ_API_KEY,
