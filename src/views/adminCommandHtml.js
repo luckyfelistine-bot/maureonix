@@ -248,11 +248,6 @@ tbody tr.unseen td:first-child::before{content:'';position:absolute;left:0;top:5
 .admin-welcome .admin-text{flex:1}
 .admin-welcome .admin-text strong{color:var(--cyan);font-family:var(--font-display);font-size:0.95rem}
 .admin-welcome .admin-text span{display:block;font-size:0.75rem;color:var(--text-dim);margin-top:2px}
-
-@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.menu-toggle{display:inline-flex !important}}
-@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr)}.content{padding:1rem}.main-header{padding:1rem}.chat-panel{right:12px;bottom:80px;width:calc(100vw - 24px);height:60vh}}
-.menu-toggle{display:none;background:transparent;border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;font-size:1rem}
-.hidden{display:none !important}
 </style>
 </head>
 <body>
@@ -381,7 +376,7 @@ async function renderVisitors(){try{var r=await fetch('/api/admin/visitors?secre
 var pollTimer=null;function startPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=setInterval(async function(){try{var r=await fetch('/api/admin/stats?secret='+encodeURIComponent(secret));if(r.ok){statsData=await r.json();renderDashboard();var fb=await fetch('/api/feedback/list?secret='+encodeURIComponent(secret));if(fb.ok){var d=await fb.json();allFeedback=d.feedback||[];if(currentTab==='feedback')renderFeedback();}}}catch(e){}},10000);}
 function stopPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=null;}
 
-/* ═══ Neural Chat v7.0 — Smart Admin Assistant ═══ */
+/* ═══ Neural Chat v2.0 — Smart Admin Assistant ═══ */
 var CHAT_SESSION_KEY='maureonix-chat-session';var CHAT_HISTORY_KEY='maureonix-chat-history';
 var chatSessionId='';var chatHistory=[];var isChatOpen=false;var adminIdentity=null;
 
@@ -395,7 +390,7 @@ function initChatSession(){
     chatHistory=raw?JSON.parse(raw):[];
     renderChatHistory();
     if(!chatHistory.length){
-      var greeting=adminIdentity?'Welcome back, **'+adminIdentity.name+'**. MAUREONIX Command Center at your disposal. I can check messages, stats, visitors, and execute any command.':'Welcome to the **Neural Command Center**.\n\nI am MAUREONIX. Ask me about commands, pairing, or anything.';
+      var greeting=adminIdentity?'Welcome back, **'+adminIdentity.name+'**. MAUREONIX Command Center at your disposal. I can check messages, stats, visitors, and execute any command.':'Welcome to the **Neural Command Center**.\\n\\nI am MAUREONIX. Ask me about commands, pairing, or anything.';
       appendChatBubble('assistant',greeting,Date.now(),true);
     }
   }catch(e){chatSessionId=generateSessionId();}
@@ -474,11 +469,9 @@ function sendQuick(text){
   sendChatMessage();
 }
 
-/* ── Smart Intent Parser for Admin ── */
 function parseIntent(text){
   var lower=text.toLowerCase();
   var intents=[];
-  
   if(/show.*feedback|display.*feedback|list.*feedback|recent.*feedback|unseen.*feedback/.test(lower)){
     intents.push({type:'switchTab',tab:'feedback'});
   }
@@ -537,7 +530,6 @@ async function sendChatMessage(){
   if(typingEl)typingEl.style.display='flex';
   if(btn)btn.disabled=true;
   
-  // Intent handling
   var intents=parseIntent(text);
   var intentHandled=false;var intentResponse=[];
   for(var i=0;i<intents.length;i++){
@@ -583,7 +575,6 @@ function toggleChat(){
   }
 }
 
-// Visual Viewport API
 function adjustChatForViewport(){
   var panel=document.getElementById('chatPanel');
   if(!panel||panel.style.display!=='flex')return;
@@ -601,7 +592,6 @@ if(window.visualViewport){
   window.visualViewport.addEventListener('scroll',adjustChatForViewport);
 }
 
-/* ── Event delegation ── */
 document.addEventListener('click',function(e){
   if(e.target.closest('#chatToggle')){e.preventDefault();toggleChat();return;}
   if(e.target.closest('#chatSend')){e.preventDefault();sendChatMessage();return;}
@@ -610,19 +600,15 @@ document.addEventListener('click',function(e){
 
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
-    var fm=document.getElementById('feedbackModal');
-    if(fm&&fm.style.display==='flex')return;
     if(isChatOpen)toggleChat();
   }
 });
 
-/* ── Admin Identity Check ── */
 async function checkAdminIdentity(){
   try{
     var r=await fetch('/api/admin/identity?secret='+encodeURIComponent(secret));
     if(r.ok){
       adminIdentity=await r.json();
-      // Update sidebar with admin info
       var sidebarFooter=document.querySelector('.sidebar-footer');
       if(sidebarFooter&&adminIdentity){
         sidebarFooter.innerHTML='<b>MAUREONIX</b> v'+statsData.version+'<br><span style="color:var(--green)">● GOD MODE ACTIVE</span>';
@@ -630,9 +616,6 @@ async function checkAdminIdentity(){
     }
   }catch(e){}
 }
-
-/* ── Init on load ── */
-initChatSession();
 
 (function(){var canvas=document.getElementById('particleCanvas');if(!canvas)return;var ctx=canvas.getContext('2d');var particles=[];function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}window.addEventListener('resize',resize);resize();for(var i=0;i<50;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,size:Math.random()*1.5+0.5});}function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(function(p,i){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle='rgba(0,240,255,'+(p.size/4)+')';ctx.fill();for(var j=i+1;j<particles.length;j++){var p2=particles[j],dx=p.x-p2.x,dy=p.y-p2.y,d=Math.sqrt(dx*dx+dy*dy);if(d<130){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(0,240,255,'+(0.03*(1-d/130))+')';ctx.lineWidth=0.5;ctx.stroke();}}});requestAnimationFrame(draw);}draw();})();
 switchTab('dashboard');

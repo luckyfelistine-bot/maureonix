@@ -167,14 +167,19 @@ module.exports = {
         const quoted = m.quoted;
         if (!quoted) return m.reply('⚠️ Reply to a view once message!');
         try {
-            const msg = quoted.message?.viewOnceMessage?.message || quoted.message?.viewOnceMessageV2?.message || quoted.message;
-            if (msg?.imageMessage) {
+            // Check if the quoted message is actually a view‑once message
+            const viewOnceMsg = quoted.message?.viewOnceMessage?.message || quoted.message?.viewOnceMessageV2?.message;
+            if (!viewOnceMsg) return m.reply('❌ The quoted message is not a view‑once message.');
+
+            if (viewOnceMsg.imageMessage) {
                 const buffer = await nimesha.downloadMediaMessage(quoted);
                 await nimesha.sendMessage(m.chat, { image: buffer, caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` }, { quoted: m });
-            } else if (msg?.videoMessage) {
+            } else if (viewOnceMsg.videoMessage) {
                 const buffer = await nimesha.downloadMediaMessage(quoted);
                 await nimesha.sendMessage(m.chat, { video: buffer, caption: `👁️ *View Once Revealed*\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX` }, { quoted: m });
-            } else m.reply('❌ Not a view‑once message or unsupported type.');
+            } else {
+                m.reply('❌ Not a view‑once message or unsupported type.');
+            }
         } catch (e) { m.reply(`❌ Error: ${e.message}`); }
     },
     summarize: async (nimesha, m, { AI }) => {
