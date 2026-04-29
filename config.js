@@ -82,27 +82,44 @@ const SecureConfig = {
         done: 'Done! ✅'
     },
 
-    "APIFY_TOKEN": "apify_api_btsTYNk6O2LW1eSh90c5rJIpxVImUd38dus8",
-    "RAPIDAPI_KEY": "5902269973mshb6c0a85dfd606ecp10dd57jsn5e3bf5113c68",
-    "RAPIDAPI_YT_HOST": "yt-downloader1.p.rapidapi.com",
-    "RAPIDAPI_TIKTOK_HOST": "tiktok-video-downloader-api.p.rapidapi.com",
-    "RAPIDAPI_IG_HOST": "instagram-downloader38.p.rapidapi.com",
-    "RAPIDAPI_TWITTER_HOST": "twitter-video-downloader-api.p.rapidapi.com",
-    "RAPIDAPI_FB_HOST": "facebook-downloader.p.rapidapi.com",
-    "RAPIDAPI_ALL_MEDIA_HOST": "all-media-downloader.p.rapidapi.com",
-    "APIFY_YOUTUBE_ACTOR": "zakeygroot/youtube-pro-downloader-2026-working",
-    "APIFY_TIKTOK_ACTOR": "apilabs/tiktok-downloader",
-    "APIFY_INSTAGRAM_ACTOR": "instaprism/instagram-media-downloader",
-    "APIFY_SOCIAL_ACTOR": "rover-omniscraper/media-downloader-actor",
-    "APIFY_ALL_SOCIAL_ACTOR": "wilcode/all-social-media-video-downloader",
-    "TIKWM_API": "https://www.tikwm.com",
-    "COBALT_API": "https://api.cobalt.tools",
-    "DL_DIR": "/tmp/maureonix_dl",
-    "DL_CONCURRENCY": "5",
-    "FFMPEG_BIN": "ffmpeg",
-    "GALLERYDL_BIN": "gallery-dl",
-    "SPOTDL_BIN": "spotdl",
+    // ─── CORE API TOKENS ───────────────────────────────
+    APIFY_TOKEN:     "apify_api_btsTYNk6O2LW1eSh90c5rJIpxVImUd38dus8",
+    RAPIDAPI_KEY:    "5902269973mshb6c0a85dfd606ecp10dd57jsn5e3bf5113c68",
+    COBALT_API:      "https://api.cobalt.tools",                   // or self-hosted instance
 
+    // ─── OPTIONAL OFFICIAL APIs (free tiers) ────────────
+    YOUTUBE_API_KEY:           "YOUR_YOUTUBE_DATA_API_KEY",        // Google Cloud Console
+    VIMEO_ACCESS_TOKEN:        "",
+    REDDIT_CLIENT_ID:          "",
+    REDDIT_CLIENT_SECRET:      "",
+    SPOTIFY_CLIENT_ID:         "",
+    SPOTIFY_CLIENT_SECRET:     "",
+    MEDIAFIRE_APP_ID:          "",
+
+    // ─── RAPIDAPI HOSTS ────────────────────────────────
+    RAPIDAPI_YT_HOST:          "yt-downloader1.p.rapidapi.com",
+    RAPIDAPI_TIKTOK_HOST:      "tiktok-video-downloader-api.p.rapidapi.com",
+    RAPIDAPI_IG_HOST:          "instagram-downloader38.p.rapidapi.com",
+    RAPIDAPI_TWITTER_HOST:     "twitter-video-downloader-api.p.rapidapi.com",
+    RAPIDAPI_FB_HOST:          "facebook-downloader.p.rapidapi.com",
+    RAPIDAPI_ALL_MEDIA_HOST:   "all-media-downloader.p.rapidapi.com",
+
+    // ─── APIFY ACTORS ──────────────────────────────────
+    APIFY_YOUTUBE_ACTOR:       "zakeygroot/youtube-pro-downloader-2026-working",
+    APIFY_TIKTOK_ACTOR:        "apilabs/tiktok-downloader",
+    APIFY_INSTAGRAM_ACTOR:     "instaprism/instagram-media-downloader",
+    APIFY_SOCIAL_ACTOR:        "rover-omniscraper/media-downloader-actor",
+    APIFY_ALL_SOCIAL_ACTOR:    "wilcode/all-social-media-video-downloader",
+
+    // ─── OTHER THIRD-PARTY APIs ────────────────────────
+    TIKWM_API:                 "https://www.tikwm.com",
+
+    // ─── DOWNLOAD & PROCESSING SETTINGS ────────────────
+    DL_DIR:                    "/tmp/maureonix_dl",
+    DL_CONCURRENCY:            "5",
+    FFMPEG_BIN:                "ffmpeg",
+    GALLERYDL_BIN:             "gallery-dl",
+    SPOTDL_BIN:                "spotdl",
 
     // ----- Other -----
     badWords: ['dongo'],

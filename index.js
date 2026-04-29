@@ -29,7 +29,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 }, { timezone: 'Africa/Nairobi' });
 
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // (async () => {
 (async () => { // wrapper kept for structure
     const { execSync } = require('child_process');
@@ -284,7 +284,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         }
     }
 })().then(async () => {
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 
 require('./settings');
 require('./protection');
@@ -411,7 +411,32 @@ if (!server.listening) {
 // reconnect attempt counter
 let _reconnectCount = 0;
 const _MAX_RECONNECT_DELAY = 60000;
+// ═══════════════════════════════════════════════════════
+//  DECRYPTION ERROR WATCHDOG
+// ═══════════════════════════════════════════════════════
+let _decryptErrorCount = 0;
+let _lastDecryptErrorTime = 0;
+const _DECRYPT_ERROR_THRESHOLD = 10;       // consecutive errors
+const _DECRYPT_ERROR_WINDOW = 60000;       // within 1 minute
+const _FORCE_RECONNECT_AFTER_ERRORS = true;
 
+function resetDecryptErrorCount() {
+    _decryptErrorCount = 0;
+    _lastDecryptErrorTime = 0;
+}
+
+function checkDecryptErrorThreshold() {
+    const now = Date.now();
+    // Reset count if outside window
+    if (now - _lastDecryptErrorTime > _DECRYPT_ERROR_WINDOW) {
+        resetDecryptErrorCount();
+    }
+    return _decryptErrorCount >= _DECRYPT_ERROR_THRESHOLD;
+}
+
+// ═══════════════════════════════════════════════════════
+//  START BOT FUNCTION (with error resilience)
+// ═══════════════════════════════════════════════════════
 async function startnimaBot() {
     // Old socket cleanup — memory leak prevention
     if (global.nimaInstance) {
@@ -423,6 +448,7 @@ async function startnimaBot() {
     }
     pairingStarted = false;
     phoneNumber = global.number_bot || '254116903500';
+    resetDecryptErrorCount(); // reset watchdog on new connection
 
     try {
         const loadData = await database.read();
@@ -611,6 +637,20 @@ async function startnimaBot() {
             const _backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
             console.log(`🔌 Disconnect reason: ${reason} | attempt: ${_reconnectCount} | retry in ${_backoff/1000}s | ${errMsg}`);
 
+            // Check for decryption errors and force full reset if threshold exceeded
+            if (errMsg.includes('closed session') || errMsg.includes('decrypt')) {
+                _decryptErrorCount++;
+                _lastDecryptErrorTime = Date.now();
+                if (checkDecryptErrorThreshold()) {
+                    console.log('⚠️ Too many decryption errors — forcing full session reset...');
+                    exec('find ./nimadev -name "*.json" -delete', () => {});
+                    resetDecryptErrorCount();
+                    _reconnectCount = 0;
+                    setTimeout(() => startnimaBot(), 5000);
+                    return;
+                }
+            }
+
             if (reason === DisconnectReason.loggedOut) {
                 console.log('🚪 Logged Out — clearing session and reconnecting...');
                 exec('find ./nimadev -name "*.json" -delete', () => {});
@@ -635,6 +675,7 @@ async function startnimaBot() {
         }
         if (connection == 'open') {
             _reconnectCount = 0;
+            resetDecryptErrorCount(); // fresh start
             // Request fresh pre-keys immediately after connection
             try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
             console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
@@ -751,6 +792,16 @@ async function startnimaBot() {
             await MessagesUpsert(nimaBot, message, global.store);
         } catch (e) {
             console.error('[messages.upsert error]', e?.message || e);
+            // Track decryption-like errors from message processing
+            if (e?.message?.includes('closed session') || e?.message?.includes('decrypt')) {
+                _decryptErrorCount++;
+                _lastDecryptErrorTime = Date.now();
+                if (checkDecryptErrorThreshold()) {
+                    console.log('⚠️ [watchdog] Too many decryption errors in message processing — scheduling reconnect...');
+                    resetDecryptErrorCount();
+                    global.nimaInstance?.ws?.close();
+                }
+            }
         }
     });
     

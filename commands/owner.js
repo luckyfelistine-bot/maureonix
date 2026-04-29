@@ -1,4 +1,4 @@
-// commands/owner.js – Owner & privacy controls
+// commands/owner.js – Owner & privacy controls (enhanced)
 const fs = require('fs');
 const path = require('path');
 const { generateProfilePicture, sleep } = require('../lib/function');
@@ -275,47 +275,6 @@ module.exports = {
         set.autoai = status;
         m.reply(`✅ Auto-AI ${status ? 'enabled' : 'disabled'}. Now messages without prefix will get AI responses.`);
     },
-    knowledge: async (nimesha, m, { isCreator, mess, text, db, prefix, AI }) => {
-        if (!isCreator) return m.reply(mess.owner);
-        if (!db.botKnowledge) db.botKnowledge = [];
-        if (!text) {
-            const kb = db.botKnowledge;
-            if (!kb.length) return m.reply(`🧠 *My Knowledge Base*\n\nEmpty. Add knowledge with:\n${prefix}knowledge <fact to remember>`);
-            let txt = `🧠 *My Knowledge Base* (${kb.length} entries)\n\n`;
-            kb.slice(-10).forEach((k, i) => {
-                txt += `${i + 1}. ${k.text.substring(0, 60)}${k.text.length > 60 ? '...' : ''}\n   _Added: ${new Date(k.added).toLocaleDateString()}_\n\n`;
-            });
-            return m.reply(txt);
-        }
-        db.botKnowledge.push({ text: text.trim(), added: Date.now(), by: 'creator', category: 'general' });
-        if (db.botKnowledge.length > 500) db.botKnowledge.shift();
-        m.reply(`🧠 *Knowledge Added*\n\n"${text.trim()}"\n\nI've saved this. I'll be able to recall it in our conversations and use it to help you better.`);
-    },
-    reflect: async (nimesha, m, { isCreator, mess, db, runtime, AI }) => {
-        if (!isCreator) return m.reply(mess.owner);
-        if (!db.botReflections) db.botReflections = [];
-        const refl = {
-            timestamp: Date.now(),
-            uptime: runtime(process.uptime()),
-            users: Object.keys(db.users || {}).length,
-            groups: Object.keys(db.groups || {}).length,
-            memorySize: AI.getMemory?.(m.sender)?.length || 0,
-            modelUsage: db.aiModelUsage || {}
-        };
-        db.botReflections.push(refl);
-        if (db.botReflections.length > 100) db.botReflections.shift();
-        let txt = `🪞 *Self-Reflection Report*\n\n`;
-        txt += `⏱️ Uptime: ${refl.uptime}\n`;
-        txt += `👥 Users: ${refl.users}\n`;
-        txt += `🏠 Groups: ${refl.groups}\n`;
-        txt += `🧠 Memory Entries: ${refl.memorySize}\n`;
-        txt += `📊 Model Usage:\n`;
-        Object.entries(refl.modelUsage).forEach(([model, count]) => {
-            txt += `   • ${model}: ${count} calls\n`;
-        });
-        txt += `\n_These are my personal metrics. I track them to understand my own usage._`;
-        m.reply(txt);
-    },
     autoaiselfchat: async (nimesha, m, { isCreator, mess, args, set, prefix, command }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
@@ -390,13 +349,18 @@ module.exports = {
         set.pendingMessages = [];
         await m.reply('✅ Pending messages cleared.');
     },
-    crisis: async (nimesha, m, { isCreator, mess, args, db }) => {
+    crisis: async (nimesha, m, { isCreator, mess, args, prefix, set, db }) => {
         if (!isCreator) return m.reply(mess.owner);
-        if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisiscancel @user - stop crisis mode for a specific user`);
+        if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisis scope <all|dm|groups|off> - set scope\n${prefix}crisiscancel @user - stop crisis mode for a user`);
         const action = args[0].toLowerCase();
-        if (action === 'on') { db.set.crisisDetection = true; m.reply('✅ Crisis detection ENABLED.'); }
-        else if (action === 'off') { db.set.crisisDetection = false; m.reply('❌ Crisis detection DISABLED.'); }
-        else m.reply('Unknown action. Use `on` or `off`.');
+        if (action === 'on') { set.crisisDetection = true; m.reply('✅ Crisis detection ENABLED.'); }
+        else if (action === 'off') { set.crisisDetection = false; m.reply('❌ Crisis detection DISABLED.'); }
+        else if (action === 'scope') {
+            const scope = args[1]?.toLowerCase();
+            if (!['all', 'dm', 'groups', 'off'].includes(scope)) return m.reply(`Invalid scope. Use: all, dm, groups, off\nCurrent: ${set.crisisScope || 'all'}`);
+            set.crisisScope = scope;
+            m.reply(`✅ Crisis scope set to *${scope.toUpperCase()}*`);
+        } else m.reply('Unknown action. Use `on`, `off`, or `scope`.');
     },
     crisiscancel: async (nimesha, m, { isCreator, mess, args, db }) => {
         if (!isCreator) return m.reply(mess.owner);
@@ -409,6 +373,47 @@ module.exports = {
             await m.reply(`✅ Crisis mode cancelled for @${target.split('@')[0]}.`, { mentions: [target] });
             await nimesha.sendMessage(target, { text: '🕊️ *The crisis support session has ended.*\n\nIf you need help again, just type anything – I will listen. You are not alone.' }).catch(() => {});
         } else m.reply(`❌ No active crisis mode found for @${target.split('@')[0]}.`);
+    },
+    knowledge: async (nimesha, m, { isCreator, mess, text, db, prefix, AI }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        if (!db.botKnowledge) db.botKnowledge = [];
+        if (!text) {
+            const kb = db.botKnowledge;
+            if (!kb.length) return m.reply(`🧠 *My Knowledge Base*\n\nEmpty. Add knowledge with:\n${prefix}knowledge <fact to remember>`);
+            let txt = `🧠 *My Knowledge Base* (${kb.length} entries)\n\n`;
+            kb.slice(-10).forEach((k, i) => {
+                txt += `${i + 1}. ${k.text.substring(0, 60)}${k.text.length > 60 ? '...' : ''}\n   _Added: ${new Date(k.added).toLocaleDateString()}_\n\n`;
+            });
+            return m.reply(txt);
+        }
+        db.botKnowledge.push({ text: text.trim(), added: Date.now(), by: 'creator', category: 'general' });
+        if (db.botKnowledge.length > 500) db.botKnowledge.shift();
+        m.reply(`🧠 *Knowledge Added*\n\n"${text.trim()}"\n\nI've saved this. I'll be able to recall it in our conversations and use it to help you better.`);
+    },
+    reflect: async (nimesha, m, { isCreator, mess, db, runtime, AI }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        if (!db.botReflections) db.botReflections = [];
+        const refl = {
+            timestamp: Date.now(),
+            uptime: runtime(process.uptime()),
+            users: Object.keys(db.users || {}).length,
+            groups: Object.keys(db.groups || {}).length,
+            memorySize: AI.getMemory?.(m.sender)?.length || 0,
+            modelUsage: db.aiModelUsage || {}
+        };
+        db.botReflections.push(refl);
+        if (db.botReflections.length > 100) db.botReflections.shift();
+        let txt = `🪞 *Self-Reflection Report*\n\n`;
+        txt += `⏱️ Uptime: ${refl.uptime}\n`;
+        txt += `👥 Users: ${refl.users}\n`;
+        txt += `🏠 Groups: ${refl.groups}\n`;
+        txt += `🧠 Memory Entries: ${refl.memorySize}\n`;
+        txt += `📊 Model Usage:\n`;
+        Object.entries(refl.modelUsage).forEach(([model, count]) => {
+            txt += `   • ${model}: ${count} calls\n`;
+        });
+        txt += `\n_These are my personal metrics. I track them to understand my own usage._`;
+        m.reply(txt);
     },
     ownermenu: async (nimesha, m, { prefix }) => {
         const msg = `╔══════════════════════╗\n║  *👑 OWNER COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *User Control*\n▸ ${prefix}block @user\n▸ ${prefix}unblock @user\n▸ ${prefix}ban @user\n▸ ${prefix}unban @user\n▸ ${prefix}addprem @user\n▸ ${prefix}delprem @user\n\n📌 *Bot Control*\n▸ ${prefix}backup – Backup database\n▸ ${prefix}shutdown – Stop bot\n▸ ${prefix}restart – Restart bot\n▸ ${prefix}join <link> – Join group\n▸ ${prefix}leave – Leave group\n▸ ${prefix}setppbot – Set bot profile picture\n▸ ${prefix}delppbot – Remove bot profile picture\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;

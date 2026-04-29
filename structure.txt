@@ -1,0 +1,197 @@
+Folder PATH listing
+Volume serial number is 0001-78DA
+C:.
+|   .gitignore
+|   .railwayignore
+|   app.json
+|   bot-runner.yml
+|   config.js
+|   deploy.yml
+|   docker-compose.yml
+|   Dockerfile
+|   ecosystem.config.js
+|   heroku.yml
+|   index.js
+|   install.sh
+|   LICENSE
+|   nima.js
+|   nima_commands.js
+|   nima_core.js
+|   nixpacks.toml
+|   nodemon.json
+|   package.json
+|   Procfile
+|   protection.js
+|   railway.json
+|   README.md
+|   replit.nix
+|   settings.js
+|   speed.py
+|   start.js
+|   structure.txt
+|   yarn.lock
+|   {})
+|   
++----p
++---commands
+|       ai.js
+|       bot.js
+|       download.js
+|       economy.js
+|       fun.js
+|       games.js
+|       group.js
+|       healthfinance.js
+|       moviesports.js
+|       others.js
+|       owner.js
+|       search.js
+|       stickers.js
+|       _utils.js
+|       
++---curriculum
+|       curriculum_week3_ai_architecture.txt
+|       evaluation_bank.txt
+|       week1_cognitive_foundations.txt
+|       week2_advanced_reasoning.txt
+|       
++---database
+|   +---jadibot
+|   |       nima
+|   |       
+|   +---menucards
+|   |       admin.png
+|   |       ai.png
+|   |       bot.png
+|   |       casino.png
+|   |       download.png
+|   |       economy.png
+|   |       fun.png
+|   |       games.png
+|   |       group.png
+|   |       movies.png
+|   |       owner.png
+|   |       privacy.png
+|   |       rpg.png
+|   |       search.png
+|   |       sports.png
+|   |       sticker.png
+|   |       
+|   \---temp
+|           A
+|           
++---docs
+|       ADMIN.md
+|       API.md
+|       ARCHITECTURE.md
+|       AUTH.md
+|       CHANGELOG.md
+|       COMMANDS.md
+|       CONFIG.md
+|       CONTRIBUTING.md
+|       FEATURES.md
+|       HEALTHCHECK.md
+|       HEARTBEAT.md
+|       INSTALL.md
+|       INTENTS.md
+|       MAUREONIX_V7_INTEGRATION.md
+|       MAUREONIX_v7_MANIFEST.txt
+|       MEMORY.md
+|       MODERATION.md
+|       OWNER.md
+|       PERMISSIONS.md
+|       PROMPTS.md
+|       RESPONSES.md
+|       ROADMAP.md
+|       ROLES.md
+|       SCALING.md
+|       SECURITY.md
+|       STATUS.md
+|       USAGE.md
+|       
++---learning_mastery
++---learning_progress
++---lib
+|       admin.js
+|       ai.js
+|       antispam.js
+|       audioTranscribe.js
+|       converter.js
+|       creator_knowledge.js
+|       daily.js
+|       database.js
+|       dev.js
+|       docs.js
+|       downloader.js
+|       economy.js
+|       emailService.js
+|       exif.js
+|       extract.js
+|       fileProcessor.js
+|       finance.js
+|       food.js
+|       fun.js
+|       function.js
+|       game.js
+|       health.js
+|       intentEngine.js
+|       learningEngine.js
+|       math.js
+|       maureonixCore.js
+|       memoryStore.js
+|       menuimage.js
+|       movie.js
+|       neuralSymbolicBridge.js
+|       nima
+|       ocr.js
+|       pdfExtract.js
+|       realTimeDiagnostics.js
+|       reporting.js
+|       search.js
+|       selfModificationProtocol.js
+|       social.js
+|       sports.js
+|       template_menu.js
+|       tools.js
+|       travel.js
+|       uploader.js
+|       
++---public
+|       favicon.zip
+|       
++---scripts
+|       error_checking.sh
+|       
+\---src
+    |   jadibot.js
+    |   message.js
+    |   server.js
+    |   
+    +---config
+    |       constants.js
+    |       
+    +---media
+    |       fake.pdf
+    |       nima.png
+    |       
+    +---modules
+    |       aiChat.js
+    |       feedback.js
+    |       menuCards.js
+    |       pairCode.js
+    |       visitors.js
+    |       
+    +---routes
+    |       adminCommand.js
+    |       adminFeedback.js
+    |       api.js
+    |       dashboard.js
+    |       index.js
+    |       menucard.js
+    |       pair.js
+    |       
+    \---views
+            adminCommandHtml.js
+            adminFeedbackHtml.js
+            dashboardHtml.js
+            

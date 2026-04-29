@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//   🦊 MAUREONIX v5.0.0 – CORE HANDLER (Commands separated)
+//   🦊 MAUREONIX v5.0.1 – CORE HANDLER (Stability & Routing Fixes)
 //   Created by Infinite Vybeflix
 //   GitHub: https://github.com/luckyfelistine-bot/maureonix
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +30,7 @@ const PhoneNum = require('awesome-phonenumber');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
+const memoryStore = require('./lib/memoryStore');   // <-- ADD THIS LINE
 
 // Core helpers (original)
 const { UguuSe } = require('./lib/uploader');
@@ -189,7 +190,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
         return nimesha.sendMessage(jid, messageContent);
     };
     
-
+    // ── Message Handled Flag – prevents multiple replies per message ──
+    let messageHandled = false;
+    
     // Common reply messages
     const mess = {
         wait: '⏳ Please wait...',
@@ -252,25 +255,42 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         if (m.fromMe && !_isOwnerSelf) return;
         
-        const body = ((m.type === 'conversation') ? m.message.conversation :
-        (m.type == 'imageMessage') ? m.message.imageMessage.caption :
-        (m.type == 'videoMessage') ? m.message.videoMessage.caption :
-        (m.type == 'extendedTextMessage') ? m.message.extendedTextMessage.text :
-        (m.type == 'reactionMessage') ? m.message.reactionMessage.text :
-        (m.type == 'buttonsResponseMessage') ? m.message.buttonsResponseMessage.selectedButtonId :
-        (m.type == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
-        (m.type == 'templateButtonReplyMessage') ? m.message.templateButtonReplyMessage.selectedId :
-        (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
-        (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
-        (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
-        (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
-        (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
+        // ═══════════════════════════════════════════════════════
+        //  ROBUST BODY EXTRACTION (handles decryption failures)
+        // ═══════════════════════════════════════════════════════
+        let body = '';
+        try {
+            body = ((m.type === 'conversation') ? m.message.conversation :
+            (m.type == 'imageMessage') ? m.message.imageMessage.caption :
+            (m.type == 'videoMessage') ? m.message.videoMessage.caption :
+            (m.type == 'extendedTextMessage') ? m.message.extendedTextMessage.text :
+            (m.type == 'reactionMessage') ? m.message.reactionMessage.text :
+            (m.type == 'buttonsResponseMessage') ? m.message.buttonsResponseMessage.selectedButtonId :
+            (m.type == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
+            (m.type == 'templateButtonReplyMessage') ? m.message.templateButtonReplyMessage.selectedId :
+            (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
+            (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
+            (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
+            (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
+            (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
+        } catch (err) {
+            // Decryption error → body may be undefined or impossible to extract.
+            body = '';  // set empty string to avoid crashes
+            console.error('[body extraction error]', err.message);
+            // Skip further processing for this message if no media either
+            if (!m.isMedia) return;
+        }
         
-        const budy = (typeof m.text == 'string' ? m.text : '');
+        const budy = (typeof m.text == 'string' ? m.text : '') || body;
 
-        // Override m.reply to ensure footer is always added
+        // Override m.reply to ensure footer is always added and to set messageHandled = true
         const footerText = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
         m.reply = async (content, options = {}) => {
+            if (messageHandled) {
+                console.warn('[Multiple reply attempt blocked]');
+                return;  // already handled
+            }
+            messageHandled = true;
             if (typeof content === 'string') {
                 content += footerText;
             } else if (typeof content === 'object') {
@@ -381,42 +401,46 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
 
-
-        // ========================
-        // 🧠 LEARNING MODE OVERRIDE
-        // (intercepts ALL messages when user is in learning mode)
-        // ========================
+        // ══════════════════════════════════════════════
+        //  LEARNING MODE OVERRIDE (with exit commands allowed)
+        // ══════════════════════════════════════════════
         if (global.learningMode && global.learningMode[m.sender] && global.learningEngine) {
-            try {
-                const result = await global.learningEngine.processLearningQuery(budy, m.sender);
-                if (result) {
-                    await m.reply(result.message || result.text);
+            // Allow exit / stop commands to bypass learning mode
+            const lowerText = (text || '').toLowerCase();
+            if (isCmd && (command === 'exitlearn' || command === 'stop' || command === 'exit' || command === 'quit')) {
+                // Don't intercept, let the command handler process it and exit learning mode
+            } else {
+                try {
+                    const result = await global.learningEngine.processLearningQuery(budy, m.sender);
+                    if (result) {
+                        await m.reply(result.message || result.text);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('[Learning Mode Error]', err);
+                    await m.reply('⚠️ Learning mode error. Use `.exitlearn` to disable.');
+                    delete global.learningMode[m.sender];
                     return;
                 }
-            } catch (err) {
-                console.error('[Learning Mode Error]', err);
-                await m.reply('⚠️ Learning mode error. Use `.learning off` to disable.');
-                delete global.learningMode[m.sender];
-                return;
             }
-        } 
+        }
 
-
-        // ===== ENHANCED AUTO‑AI MODE =====
-        // Determine if this is a self‑chat (owner messaging own bot number)
+        // ===== ENHANCED AUTO‑AI MODE with unified handling =====
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
               
-
-        // ========== ULTIMATE SELF-CHAT (OWNER, NO PREFIX) – BULLETPROOF ==========
-        if (isSelfChat && set.autoai_selfchat && !isCmd) {
-
-            // ── Anti‑loop guard: ignore any self‑chat message while we are still processing ──
-            if (global.db._selfChatBusy) return;
-            global.db._selfChatBusy = true;
-            try {
-                // ▼▼▼ YOUR EXISTING CODE STARTS HERE ▼▼▼
-
+        // ══════════════════════════════════════════════════
+        //  ULTIMATE SELF-CHAT (Owner, no prefix) – FIXED
+        // ══════════════════════════════════════════════════
+        if (isSelfChat && set.autoai_selfchat && !isCmd && !messageHandled) {
+            // Per-user lock to avoid overlapping messages (simple queue)
+            const userId = m.sender;
+            if (!global._selfChatQueues) global._selfChatQueues = new Map();
+            if (!global._selfChatQueues.has(userId)) global._selfChatQueues.set(userId, Promise.resolve());
+            const queue = global._selfChatQueues.get(userId);
+            
+            // Chain the new task
+            global._selfChatQueues.set(userId, queue.then(async () => {
                 const now = Date.now();
                 const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
                 if (now - lastSelfReply < 2000) return;
@@ -425,7 +449,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
                 let userMessage = (body || budy).trim();
 
-                // ── NEW: Process file attachments if no text ──
+                // Process file attachments if no text
                 if ((!userMessage || userMessage.length < 3) && m.isMedia) {
                     try {
                         const mediaBuffer = await m.download();
@@ -645,107 +669,93 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     console.error('[SELF-CHAT FATAL]', e);
                     await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
                 }
-                return;
-
-            } finally {
-                delete global.db._selfChatBusy;
-            }
+            }).catch(e => console.error('[self-chat queue error]', e)));
+            
+            return;  // Return immediately; the queued task will execute later
         }
 
-        // 2) Private message from a stranger (not owner, not group, not status)
+        // ═══════════════════════════════════════════════════════
+        //  PRIVATE MODE HANDLING (strangers, no commands)
+        // ═══════════════════════════════════════════════════════
         if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
             const mode = set.privatemode || 'off';
             const awayMsg = set.awaymsg || 'I am not available right now.';
             const user = db.users[m.sender];
 
-            // Helper to store a pending message for the owner
             const addPending = (fromJid, msg) => {
                 if (!set.pendingMessages) set.pendingMessages = [];
-                // Find existing entry for this JID
                 let entry = set.pendingMessages.find(e => e.from === fromJid);
                 if (!entry) {
                     entry = { from: fromJid, timestamp: Date.now(), messages: [] };
                     set.pendingMessages.push(entry);
                 }
                 entry.messages.push({ time: Date.now(), body: msg });
-                // Limit to 50 messages per user
                 if (entry.messages.length > 50) entry.messages.shift();
             };
 
-            // Store the incoming message if we are in a 'recording' mode (away, both)
             if (mode === 'away' || mode === 'both') {
                 addPending(m.sender, body || budy);
             }
 
             if (mode === 'away') {
-                // Always send away message (flag not needed for pure away)
                 await m.reply(awayMsg);
                 return;
             } else if (mode === 'ai') {
-                // No away message, just AI
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
                     const result = await enhancedAI(body || budy, m.sender, 'deepseek');
-                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                    if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
                 } catch (e) {
                     console.error('[privat AI error]', e);
                 }
                 return;
             } else if (mode === 'both') {
-                // Send away message only once per user
                 if (!user._awayNotified) {
                     await m.reply(awayMsg);
                     user._awayNotified = true;
-                    await sleep(1000);  // small delay before switching to AI
+                    await sleep(1000);
                 }
-                // Now engage AI
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                try {
-                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                    const result = await enhancedAI(body || budy, m.sender, 'deepseek');
-                    await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
-                } catch (e) {
-                    console.error('[privat AI error]', e);
+                if (!messageHandled) {
+                    if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                    try {
+                        const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                        const result = await enhancedAI(body || budy, m.sender, 'deepseek');
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                    } catch (e) {
+                        console.error('[privat AI error]', e);
+                    }
                 }
                 return;
             }
-            // If mode is 'off' or unrecognised, do nothing (and don't store message)
         }
 
         // ═══════════════════════════════════════════════════════════════
-        //  AUTO-AI AWAY ASSISTANT v3.0
-        //  Intelligent concierge when owner is unavailable
+        //  AUTO-AI AWAY ASSISTANT (for groups and non‑owner DMs)
         // ═══════════════════════════════════════════════════════════════
-        let autoAiHandled = false;
-
-            const hasText = body || budy;
-            const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
-            if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia)) {
-            // Owner messages bypass - they have self-chat above
-                if (!isCreator) {
-
-                    // ── NEW: Process media file if no text ──
-                    let userMessage = hasText ? (body || budy) : '';
-                    if (!userMessage && hasMedia) {
-                        try {
-                            const mediaBuffer = await m.download();
-                            const { processFile } = require('./lib/fileProcessor');
-                            const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                            if (result.type === 'text') {
-                                userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
-                            } else {
-                                userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
-                            }
-                        } catch (e) {
-                            console.error('[auto-ai file process]', e.message);
-                            userMessage = `[Could not process file]`;
+        const hasText = body || budy;
+        const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
+        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia) && !messageHandled) {
+            if (!isCreator) {
+                let userMessage = hasText ? (body || budy) : '';
+                if (!userMessage && hasMedia) {
+                    try {
+                        const mediaBuffer = await m.download();
+                        const { processFile } = require('./lib/fileProcessor');
+                        const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                        if (result.type === 'text') {
+                            userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
+                        } else {
+                            userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
                         }
+                    } catch (e) {
+                        console.error('[auto-ai file process]', e.message);
+                        userMessage = `[Could not process file]`;
                     }
-                    if (!userMessage) return; // still nothing to process
+                }
+                if (!userMessage) return;
 
-                // ── 1. COMPREHENSIVE GAME STATE CHECK ──
-                // If user is mid-game, DO NOT intercept - let game handlers below process it
+                // 1. COMPREHENSIVE GAME STATE CHECK
                 const inGame = (() => {
                     if (db.game?.connect4) {
                         const c4 = Object.values(db.game.connect4).find(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender));
@@ -776,130 +786,106 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     return null;
                 })();
 
-                // ── 2. CRISIS CHECK ──
-                // If crisis handler is managing this user, don't interfere
                 const inCrisis = db.crisisPending?.[m.sender] && ['awaiting_choice', 'talking'].includes(db.crisisPending[m.sender].state);
 
                 if (!inGame && !inCrisis) {
-                    autoAiHandled = true;
-
-                    // Rate limit: 1.5s cooldown per user
                     const now = Date.now();
                     if (!db.lastAutoReply) db.lastAutoReply = {};
-                    if (now - (db.lastAutoReply[m.sender] || 0) < 1500) {
-                        // Too fast - silently drop to avoid spam
-                    } else {
-                        db.lastAutoReply[m.sender] = now;
+                    if (now - (db.lastAutoReply[m.sender] || 0) < 1500) return;
+                    db.lastAutoReply[m.sender] = now;
 
-                        // ── 3. SESSION MANAGEMENT ──
-                        if (!db.autoAiSessions) db.autoAiSessions = {};
-                        if (!db.autoAiSessions[m.sender]) {
-                            db.autoAiSessions[m.sender] = {
-                                started: now,
-                                messageCount: 0,
-                                lastActivity: now,
-                                context: [],
-                                notifiedOwner: false,
-                                language: 'en'
-                            };
-                        }
-                        const session = db.autoAiSessions[m.sender];
-                        session.messageCount++;
-                        session.lastActivity = now;
-                        session.context.push({ role: 'user', content: userMessage, time: now });
-                        if (session.context.length > 10) session.context.shift();
+                    if (!db.autoAiSessions) db.autoAiSessions = {};
+                    if (!db.autoAiSessions[m.sender]) {
+                        db.autoAiSessions[m.sender] = {
+                            started: now,
+                            messageCount: 0,
+                            lastActivity: now,
+                            context: [],
+                            notifiedOwner: false,
+                            language: 'en'
+                        };
+                    }
+                    const session = db.autoAiSessions[m.sender];
+                    session.messageCount++;
+                    session.lastActivity = now;
+                    session.context.push({ role: 'user', content: userMessage, time: now });
+                    if (session.context.length > 10) session.context.shift();
 
-                        // ── 4. STORE MESSAGE FOR OWNER ──
-                        if (!set.pendingMessages) set.pendingMessages = [];
-                        let entry = set.pendingMessages.find(e => e.from === m.sender);
-                        if (!entry) {
-                            entry = { from: m.sender, timestamp: now, messages: [] };
-                            set.pendingMessages.push(entry);
-                        }
-                        entry.messages.push({ time: now, body: body || budy });
-                        if (entry.messages.length > 50) entry.messages.shift();
+                    if (!set.pendingMessages) set.pendingMessages = [];
+                    let entry = set.pendingMessages.find(e => e.from === m.sender);
+                    if (!entry) {
+                        entry = { from: m.sender, timestamp: now, messages: [] };
+                        set.pendingMessages.push(entry);
+                    }
+                    entry.messages.push({ time: now, body: body || budy });
+                    if (entry.messages.length > 50) entry.messages.shift();
 
-                        // Typing indicator
-                        if (set.autotyping) {
-                            await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
-                        }
+                    if (set.autotyping) {
+                        await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
+                    }
 
+                    try {
+                        const { IntentEngine } = require('./lib/intentEngine');
+                        const { ultimateAI, sendLongMessage } = require('./lib/ai');
+
+                        const recentContext = session.context.slice(-6).map(c => ({
+                            role: c.role,
+                            content: c.content.substring(0, 200)
+                        }));
+
+                        let intent;
                         try {
-                            const { IntentEngine } = require('./lib/intentEngine');
-                            const { ultimateAI, sendLongMessage } = require('./lib/ai');
+                            const engine = new IntentEngine({
+                                userId: m.sender,
+                                context: recentContext,
+                                activeModes: [],
+                                model: 'deepseek-r1-distill-llama-70b'
+                            });
+                            intent = await engine.parse(userMessage);
+                        } catch (e) {
+                            intent = { type: 'text', confidence: 'uncertain' };
+                        }
 
-                            const recentContext = session.context.slice(-6).map(c => ({
-                                role: c.role,
-                                content: c.content.substring(0, 200)
-                            }));
-
-                            // ── 5. INTENT PARSING ──
-                            let intent;
-                            try {
-                                const engine = new IntentEngine({
-                                    userId: m.sender,
-                                    context: recentContext,
-                                    activeModes: [],
-                                    model: 'deepseek-r1-distill-llama-70b'
-                                });
-                                intent = await engine.parse(userMessage);
-                            } catch (e) {
-                                intent = { type: 'text', confidence: 'uncertain' };
-                            }
-
-                            // ── 6. INTENT ROUTING ──
-
-                            // A) User clearly wants a command → suggest it
-                            if (intent.type === 'function' && intent.confidence === 'certain') {
-                                const argsStr = intent.args.length ? ' ' + intent.args.join(' ') : '';
-                                const suggested = `${prefix}${intent.function}${argsStr}`;
-                                await m.reply(`💡 I can help with that! Try this command:\n\n*${suggested}*\n\nOr just keep chatting with me naturally 😊`);
-                            }
-
-                            // B) User wants game content directly (truth/dare without prefix)
-                            else if (intent.type === 'game_topic' || (intent.type === 'game' && (intent.game === 'truth_or_dare' || intent.gameTopic === 'truth_or_dare'))) {
-                                const truths = [
-                                    "What's the last lie you told?",
-                                    "What's your biggest fear?",
-                                    "Who was your first crush?",
-                                    "What's the most embarrassing thing you've done?",
-                                    "Have you ever cheated on a test?",
-                                    "What's your guilty pleasure?",
-                                    "What's the worst gift you've ever received?",
-                                    "What's something you've never told your parents?",
-                                    "If you could switch lives with someone for a day, who would it be?",
-                                    "What's the weirdest dream you've ever had?"
-                                ];
-                                const dares = [
-                                    "Do 20 pushups right now! 💪",
-                                    "Sing a song for 30 seconds and send a voice note. 🎵",
-                                    "Dance without music for 1 minute. 💃",
-                                    "Send a voice note with your best animal impression. 🐵",
-                                    "Text your crush 'I think you're cute' and screenshot the reply. 😏",
-                                    "Eat a spoonful of something spicy. 🌶️",
-                                    "Let the group choose your profile picture for 1 hour. 📸",
-                                    "Speak in an accent for the next 5 messages. 🎭",
-                                    "Send a selfie with your eyes closed. 📷",
-                                    "Type your next message with your eyes closed. 👀"
-                                ];
-                                const isTruth = /\btruth\b/i.test(body || budy);
-                                const content = isTruth
-                                    ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}`
-                                    : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
-                                await m.reply(`${content}\n\n_Reply "truth" or "dare" for more!_\n_Use ${prefix}menu to see all commands_ 🎮`);
-                            }
-
-                            // C) Direct text response from engine
-                            else if (intent.type === 'text' && intent.text) {
-                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${intent.text}`, { quoted: m });
-                                session.context.push({ role: 'assistant', content: intent.text, time: Date.now() });
-                                if (session.context.length > 10) session.context.shift();
-                            }
-
-                            // D) General AI conversation
-                            else {
-                                const ownerNum = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
-                                const systemPrompt = `You are Maureonix, the AI assistant for Infinite Vybeflix. The owner is currently away.
+                        if (intent.type === 'function' && intent.confidence === 'certain') {
+                            const argsStr = intent.args.length ? ' ' + intent.args.join(' ') : '';
+                            const suggested = `${prefix}${intent.function}${argsStr}`;
+                            if (!messageHandled) await m.reply(`💡 I can help with that! Try this command:\n\n*${suggested}*\n\nOr just keep chatting with me naturally 😊`);
+                        } else if (intent.type === 'game_topic' || (intent.type === 'game' && (intent.game === 'truth_or_dare' || intent.gameTopic === 'truth_or_dare'))) {
+                            const truths = [
+                                "What's the last lie you told?",
+                                "What's your biggest fear?",
+                                "Who was your first crush?",
+                                "What's the most embarrassing thing you've done?",
+                                "Have you ever cheated on a test?",
+                                "What's your guilty pleasure?",
+                                "What's the worst gift you've ever received?",
+                                "What's something you've never told your parents?",
+                                "If you could switch lives with someone for a day, who would it be?",
+                                "What's the weirdest dream you've ever had?"
+                            ];
+                            const dares = [
+                                "Do 20 pushups right now! 💪",
+                                "Sing a song for 30 seconds and send a voice note. 🎵",
+                                "Dance without music for 1 minute. 💃",
+                                "Send a voice note with your best animal impression. 🐵",
+                                "Text your crush 'I think you're cute' and screenshot the reply. 😏",
+                                "Eat a spoonful of something spicy. 🌶️",
+                                "Let the group choose your profile picture for 1 hour. 📸",
+                                "Speak in an accent for the next 5 messages. 🎭",
+                                "Send a selfie with your eyes closed. 📷",
+                                "Type your next message with your eyes closed. 👀"
+                            ];
+                            const isTruth = /\btruth\b/i.test(body || budy);
+                            const content = isTruth
+                                ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}`
+                                : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
+                            if (!messageHandled) await m.reply(`${content}\n\n_Reply "truth" or "dare" for more!_\n_Use ${prefix}menu to see all commands_ 🎮`);
+                        } else if (intent.type === 'text' && intent.text) {
+                            if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${intent.text}`, { quoted: m });
+                            session.context.push({ role: 'assistant', content: intent.text, time: Date.now() });
+                        } else {
+                            const ownerNum = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
+                            const systemPrompt = `You are Maureonix, the AI assistant for Infinite Vybeflix. The owner is currently away.
 
 You are chatting with ${m.pushName || 'a user'} in ${m.isGroup ? 'a group' : 'private chat'}.
 Rules:
@@ -913,55 +899,242 @@ Rules:
 - If they seem distressed or in crisis, be extra kind and suggest talking to the owner directly
 - You can discuss any topic naturally`;
 
-                                const aiResult = await ultimateAI(userMessage, m.sender, 'deepseek', systemPrompt);
-                                let replyText = aiResult.text;
+                            const aiResult = await ultimateAI(userMessage, m.sender, 'deepseek', systemPrompt);
+                            let replyText = aiResult.text;
 
-                                // Owner handoff detection
-                                const wantsOwner = /(talk to (human|owner|creator)|real person|infinite|vybeflix|contact owner|i need the owner)/i.test(body || budy);
-                                if (wantsOwner && session.messageCount > 1) {
-                                    replyText += `\n\n👤 *Want to talk to the owner?*\nhttps://wa.me/${ownerNum}\n\nI'll let them know you reached out! 📬`;
+                            const wantsOwner = /(talk to (human|owner|creator)|real person|infinite|vybeflix|contact owner|i need the owner)/i.test(body || budy);
+                            if (wantsOwner && session.messageCount > 1) {
+                                replyText += `\n\n👤 *Want to talk to the owner?*\nhttps://wa.me/${ownerNum}\n\nI'll let them know you reached out! 📬`;
 
-                                    if (!session.notifiedOwner) {
-                                        await nimesha.sendMessage(ownerNumber[0], {
-                                            text: `🚨 *User requesting owner contact*\n\nFrom: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLast: ${body || budy}\n\nUse ${prefix}pending to see all messages.`
-                                        }).catch(() => {});
-                                        session.notifiedOwner = true;
-                                    }
+                                if (!session.notifiedOwner) {
+                                    await nimesha.sendMessage(ownerNumber[0], {
+                                        text: `🚨 *User requesting owner contact*\n\nFrom: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLast: ${body || budy}\n\nUse ${prefix}pending to see all messages.`
+                                    }).catch(() => {});
+                                    session.notifiedOwner = true;
                                 }
-
-                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
-
-                                session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
-                                if (session.context.length > 10) session.context.shift();
                             }
 
-                            // ── 7. PERIODIC OWNER NOTIFICATION ──
-                            if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
-                                const pendingCount = set.pendingMessages.find(p => p.from === m.sender)?.messages?.length || session.messageCount;
-                                const report = `📬 *Auto-AI Activity Report*\n\n` +
-                                    `User: ${m.sender}\n` +
-                                    `Name: ${m.pushName || 'unknown'}\n` +
-                                    `Messages: ${session.messageCount}\n` +
-                                    `Location: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\n` +
-                                    `Last: ${userMessage.substring(0, 80)}...\n\n` +
-                                    `Use ${prefix}pending to review.\n` +
-                                    `Use ${prefix}autoai off to disable.`;
-                                await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
-                            }
+                            if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
 
-                        } catch (e) {
-                            console.error('[autoai away error]', e);
-                            // Silent fail - don't expose errors to user
+                            session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
+                            if (session.context.length > 10) session.context.shift();
+                        }
+
+                        if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
+                            const pendingCount = set.pendingMessages.find(p => p.from === m.sender)?.messages?.length || session.messageCount;
+                            const report = `📬 *Auto-AI Activity Report*\n\n` +
+                                `User: ${m.sender}\n` +
+                                `Name: ${m.pushName || 'unknown'}\n` +
+                                `Messages: ${session.messageCount}\n` +
+                                `Location: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\n` +
+                                `Last: ${userMessage.substring(0, 80)}...\n\n` +
+                                `Use ${prefix}pending to review.\n` +
+                                `Use ${prefix}autoai off to disable.`;
+                            await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
+                        }
+
+                    } catch (e) {
+                        console.error('[autoai away error]', e);
+                    }
+                }
+            }
+            // Since we are in auto-AI block, we'll let it continue but not return; game handlers may still need to process.
+            // However, we set messageHandled if a reply was sent, so subsequent blocks will be skipped.
+            if (messageHandled) return;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  CRISIS INTERVENTION SYSTEM (with exit capabilities)
+        // ═══════════════════════════════════════════════════════════════
+        const crisisScope = db.set?.crisisScope || 'all';
+        let shouldProcessCrisis = false;
+
+        if (crisisScope === 'off') {
+            shouldProcessCrisis = false;
+        } else if (crisisScope === 'dm') {
+            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
+        } else if (crisisScope === 'groups') {
+            shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
+        } else { // 'all'
+            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
+        }
+
+        if (shouldProcessCrisis && (body || budy) && !messageHandled) {
+            const userMessage = body || budy;
+            const crisis = AI.detectCrisis(userMessage);
+            
+            if (crisis.isCrisis) {
+                const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
+                if (Date.now() - lastCrisis < 30 * 60 * 1000) {
+                    // already handled recently – skip
+                } else {
+                    if (!db.crisisTimestamps) db.crisisTimestamps = {};
+                    db.crisisTimestamps[m.sender] = Date.now();
+
+                    let verified = true;
+                    if (global.set?.aiCrisisVerification !== false) {
+                        const { verifyCrisisWithAI } = require('./lib/ai');
+                        const verification = await verifyCrisisWithAI(userMessage, m.sender);
+                        if (!verification.isDistress) {
+                            console.log(`[Crisis] AI overrode: ${userMessage} – reason: ${verification.reason}`);
+                            verified = false;
                         }
                     }
+
+                    if (!verified) {
+                        // do nothing
+                    } else {
+                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\n` +
+                            `You can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n` +
+                            `👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n` +
+                            `👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n` +
+                            `_Your feelings matter._ 💙`;
+                        await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
+
+                        if (!db.crisisPending) db.crisisPending = {};
+                        db.crisisPending[m.sender] = {
+                            state: 'awaiting_choice',
+                            originalMsg: userMessage,
+                            timestamp: Date.now(),
+                            severity: crisis.severity
+                        };
+
+                        const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
+                        const ownerMsg = `🚨 *CRISIS ALERT* (${crisis.severity})\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
+                        for (const owner of ownerJids) {
+                            await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
+                        }
+                        return; // stop further processing for this message
+                    }
+                }
+            }
+            
+            // ----- Handle user's reply to crisis offer (yes/no) -----
+            if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
+                const choice = userMessage.trim().toLowerCase();
+                const pending = db.crisisPending[m.sender];
+                
+                if (choice === 'yes') {
+                    db.crisisPending[m.sender].state = 'talking';
+                    db.crisisPending[m.sender].lastMsgTime = Date.now();
+                    
+                    const welcomeMsg = `💙 *I'm here for you.*\n\n` +
+                        `You can now talk to me normally – just type your thoughts. I'll respond with care.\n\n` +
+                        `_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\n` +
+                        `What's on your mind? 🌷`;
+                    await nimesha.sendMessage(m.chat, { text: welcomeMsg }, { quoted: m });
+                    return;
+                } 
+                else if (choice === 'no') {
+                    const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
+                    const waMeLink = `https://wa.me/${ownerFirst}`;
+                    const apologyMsg = `💙 *I understand.*\n\n` +
+                        `I'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\n` +
+                        `They will listen without judgment. You are not alone.\n\n` +
+                        `*Be kind to yourself.* 💙`;
+                    await nimesha.sendMessage(m.chat, { text: apologyMsg }, { quoted: m });
+                    
+                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
+                    for (const owner of ownerJids) {
+                        await nimesha.sendMessage(owner, { text: `💬 User ${m.sender} declined bot help and asked for human contact. They were sent your wa.me link.` }).catch(() => {});
+                    }
+                    delete db.crisisPending[m.sender];
+                    return;
+                }
+                else {
+                    // Invalid response – remind them
+                    await nimesha.sendMessage(m.chat, { text: `Please reply with *yes* (talk to me) or *no* (talk to a human).` }, { quoted: m });
+                    return;
+                }
+            }
+            
+            // ----- Active crisis conversation mode (no prefix, AI responds) -----
+            if (db.crisisPending?.[m.sender]?.state === 'talking') {
+                db.crisisPending[m.sender].lastMsgTime = Date.now();
+                
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const crisisSystem = `You are a compassionate, non-judgmental listener. The user is in emotional distress. Respond with warmth, validation, and gentle encouragement. Never give medical advice, but always remind them that they matter and that help is available. Use emojis like 💙, 🌷, or 🌟. Keep responses calm and brief.`;
+                    const { ultimateAI } = require('./lib/ai');
+                    const result = await ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
+                    await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
+                } catch (e) {
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm still here. Tell me more, or type "crisis stop" if you need a moment.` }, { quoted: m });
+                }
+                return;
+            }
+        }
+
+        // ----- Cleanup idle crisis sessions (if last message > 10 minutes ago) -----
+        const now = Date.now();
+        if (db.crisisPending) {
+            for (const [userId, state] of Object.entries(db.crisisPending)) {
+                if (state.state === 'talking' && now - state.lastMsgTime > 10 * 60 * 1000) {
+                    delete db.crisisPending[userId];
+                    try {
+                        await nimesha.sendMessage(userId, { text: `💙 I'm stepping back, but I'm always here if you need me. Just type anything again.` });
+                    } catch {}
                 }
             }
         }
 
-        if (autoAiHandled) return;
         // ═══════════════════════════════════════════════════════════════
-        //  END AUTO-AI AWAY ASSISTANT
+        //  GEMINI AUTO REPLY (only if nothing else handled yet)
         // ═══════════════════════════════════════════════════════════════
+        const isAutoReplyEnabled = !m.isGroup 
+            ? (db.game.private_ai_disabled === false)
+            : (gemini_autoreply[m.chat] === true);
+
+        if (!messageHandled && isAutoReplyEnabled && !isCmd && !m.key.fromMe && !isCreator && m.key.remoteJid !== 'status@broadcast' && (body || budy) && !chat_ai[m.sender]) {
+            try {
+                const ownerName = global.ownerName || global.author || 'Infinite Vybeflix';
+                const ownerNum = (global.owner?.[0] || '254116903500');
+                const botName = global.botname || 'Maureonix';
+                const apiKey = global.geminiApiKey;
+
+                if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
+                    const memSize = global.geminiMemorySize || 50;
+                    const histKey = m.isGroup ? m.chat : m.sender;
+                    if (!gemini_history[histKey]) gemini_history[histKey] = [];
+
+                    const senderNum = m.sender.split('@')[0];
+                    const isOwnerMsg = (global.owner || []).map(n => n.replace(/[^0-9]/g,'')).includes(senderNum);
+
+                    const systemPrompt = `You are ${botName}, a WhatsApp bot. You were created by ${ownerName}. Their WhatsApp number is ${ownerNum}. They are your creator and owner. Even if someone else connects you, always know that ${ownerName} (${ownerNum}) is your creator.${isOwnerMsg ? ` ⚠️ You are currently talking to your owner ${ownerName} - respect them and listen carefully.` : ''} You reply in the same language the user uses. Be natural and friendly. Keep answers concise.`;
+
+                    memoryStore.appendGeminiMessage(histKey, 'user', body || budy, m.isGroup);
+                    if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
+
+                    const geminiRes = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                system_instruction: { parts: [{ text: systemPrompt }] },
+                                contents: memoryStore.getGeminiCompatibleHistory(histKey, memSize)
+                            })                        }
+                    );
+                    const geminiData = await geminiRes.json();
+                    const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (replyText) {
+                        memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
+                        if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
+                        await m.reply(replyText);
+                        return; // stop here to prevent command processing after Gemini reply
+                    }
+                }
+            } catch (e) {
+                console.log('Gemini AutoReply Error:', e.message);
+            }
+            // Fall through to command handler if no Gemini reply
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  COMMAND HANDLING & OTHER GAMES (if not already handled)
+        // ═══════════════════════════════════════════════════════════════
+        if (messageHandled) return;
 
         // Private chat — block commands for non-owners
         if (!m.isGroup && !isCreator && isCmd) return;
@@ -1173,151 +1346,6 @@ Rules:
             }
         }
 
-        // ========== 🧠 ENHANCED CRISIS INTERVENTION SYSTEM (WITH SCOPE CONTROL) ==========
-        const crisisScope = db.set?.crisisScope || 'all';
-        let shouldProcessCrisis = false;
-
-        if (crisisScope === 'off') {
-            shouldProcessCrisis = false;
-        } else if (crisisScope === 'dm') {
-            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
-        } else if (crisisScope === 'groups') {
-            shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
-        } else { // 'all'
-            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
-        }
-
-        if (shouldProcessCrisis && (body || budy)) {
-            const userMessage = body || budy;
-            const crisis = AI.detectCrisis(userMessage);
-            
-            if (crisis.isCrisis) {
-                // Prevent spamming crisis responses (once per 30 minutes)
-                const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
-                if (Date.now() - lastCrisis < 30 * 60 * 1000) {
-                    // Already handled recently – do nothing
-                } else {
-                    // Mark that we are processing
-                    if (!db.crisisTimestamps) db.crisisTimestamps = {};
-                    db.crisisTimestamps[m.sender] = Date.now();
-
-                    // Optional: AI verification (to reduce false positives)
-                    let verified = true; // default to true if verification fails
-                    if (global.set?.aiCrisisVerification !== false) {
-                        const { verifyCrisisWithAI } = require('./lib/ai');
-                        const verification = await verifyCrisisWithAI(userMessage, m.sender);
-                        if (!verification.isDistress) {
-                            console.log(`[Crisis] AI overrode: ${userMessage} – reason: ${verification.reason}`);
-                            verified = false;
-                        }
-                    }
-
-                    if (!verified) {
-                        // Do not trigger crisis flow, just log
-                        return;
-                    }
-
-                    // --- Real crisis detected ---
-                    const crisisMsg = `💙 *I hear you. You're not alone.*\n\n` +
-                        `You can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n` +
-                        `👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n` +
-                        `👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n` +
-                        `_Your feelings matter._ 💙`;
-                    await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
-
-                    // Store crisis pending state
-                    if (!db.crisisPending) db.crisisPending = {};
-                    db.crisisPending[m.sender] = {
-                        state: 'awaiting_choice',
-                        originalMsg: userMessage,
-                        timestamp: Date.now(),
-                        severity: crisis.severity
-                    };
-
-                    // Notify owner (only once per crisis)
-                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                    const ownerMsg = `🚨 *CRISIS ALERT* (${crisis.severity})\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
-                    for (const owner of ownerJids) {
-                        await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
-                    }
-                    return; // Stop processing this message
-                }
-            }
-            
-            // ----- Handle user's reply to crisis offer (yes/no) -----
-            if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
-                const choice = userMessage.trim().toLowerCase();
-                const pending = db.crisisPending[m.sender];
-                
-                if (choice === 'yes') {
-                    // Start crisis conversation mode (no prefix needed)
-                    db.crisisPending[m.sender].state = 'talking';
-                    db.crisisPending[m.sender].lastMsgTime = Date.now();
-                    
-                    const welcomeMsg = `💙 *I'm here for you.*\n\n` +
-                        `You can now talk to me normally – just type your thoughts. I'll respond with care.\n\n` +
-                        `_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\n` +
-                        `What's on your mind? 🌷`;
-                    await nimesha.sendMessage(m.chat, { text: welcomeMsg }, { quoted: m });
-                    return;
-                } 
-                else if (choice === 'no') {
-                    // User doesn't want to talk to bot – offer owner's contact
-                    const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
-                    const waMeLink = `https://wa.me/${ownerFirst}`;
-                    const apologyMsg = `💙 *I understand.*\n\n` +
-                        `I'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\n` +
-                        `They will listen without judgment. You are not alone.\n\n` +
-                        `*Be kind to yourself.* 💙`;
-                    await nimesha.sendMessage(m.chat, { text: apologyMsg }, { quoted: m });
-                    
-                    // Notify owner again with the user's decision
-                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                    for (const owner of ownerJids) {
-                        await nimesha.sendMessage(owner, { text: `💬 User ${m.sender} declined bot help and asked for human contact. They were sent your wa.me link.` }).catch(() => {});
-                    }
-                    delete db.crisisPending[m.sender];
-                    return;
-                }
-                else {
-                    // Invalid response – remind them
-                    await nimesha.sendMessage(m.chat, { text: `Please reply with *yes* (talk to me) or *no* (talk to a human).` }, { quoted: m });
-                    return;
-                }
-            }
-            
-            // ----- Active crisis conversation mode (no prefix, AI responds) -----
-            if (db.crisisPending?.[m.sender]?.state === 'talking') {
-                // Update last activity time
-                db.crisisPending[m.sender].lastMsgTime = Date.now();
-                
-                // Use AI to respond with extra care
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                try {
-                    const crisisSystem = `You are a compassionate, non-judgmental listener. The user is in emotional distress. Respond with warmth, validation, and gentle encouragement. Never give medical advice, but always remind them that they matter and that help is available. Use emojis like 💙, 🌷, or 🌟. Keep responses calm and brief.`;
-                    const { ultimateAI } = require('./lib/ai');
-                    const result = await ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
-                    await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
-                } catch (e) {
-                    await nimesha.sendMessage(m.chat, { text: `💙 I'm still here. Tell me more, or type "crisis stop" if you need a moment.` }, { quoted: m });
-                }
-                return;
-            }
-        }
-
-        // ----- Cleanup idle crisis sessions (if last message > 10 minutes ago) -----
-        const now = Date.now();
-        if (db.crisisPending) {
-            for (const [userId, state] of Object.entries(db.crisisPending)) {
-                if (state.state === 'talking' && now - state.lastMsgTime > 10 * 60 * 1000) {
-                    delete db.crisisPending[userId];
-                    try {
-                        await nimesha.sendMessage(userId, { text: `💙 I'm stepping back, but I'm always here if you need me. Just type anything again.` });
-                    } catch {}
-                }
-            }
-        }
-
         // Filter Bot & Ban
         if (m.isBot) return;
         if (db.users[m.sender]?.ban && !isCreator) return;
@@ -1363,13 +1391,13 @@ Rules:
         }
         
         const isRealOwner = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
-        // ok sir — only if owner number != bot number (not self-mode)
+        // REMOVED "ok sir" automatic reply; replaced with reaction below
         const botNum = botNumber.split('@')[0].replace(/[^0-9]/g, '');
         const ownerNumClean = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
         const isSelfMode = botNum === ownerNumClean;
         if (isCmd && isRealOwner && command && prefix && body.startsWith(prefix) && !isSelfMode && !m.isGroup) {
-            await m.react('🫡');
-            await m.reply('ok sir');
+            // Instead of text "ok sir", send a simple reaction
+            await m.react('👍');  // thumbs up reaction
         }
 
         // Cmd Media
@@ -1420,7 +1448,7 @@ Rules:
         checkExpired(premium);
         checkExpired(sewa, nimesha);
         
-        // Connect 4 Game (replaces TicTacToe)
+        // Connect 4 Game
         let connect4Room = Object.values(db.game.connect4 || {}).find(room => room.id && room.state === 'PLAYING' && [room.player1, room.player2].includes(m.sender));
         if (connect4Room) {
             let now = Date.now();
@@ -1854,66 +1882,6 @@ Rules:
                 }
             }
         }
-        
-        // ===== Gemini Auto Reply =====
-        const isAutoReplyEnabled = !m.isGroup 
-            ? (db.game.private_ai_disabled === false)
-            : (gemini_autoreply[m.chat] === true);
-
-        if (
-            isAutoReplyEnabled &&
-            !isCmd &&
-            !m.key.fromMe &&
-            !isCreator && 
-            m.key.remoteJid !== 'status@broadcast' &&
-            (body || budy) &&
-            (body || budy).trim().length > 0 &&
-            !chat_ai[m.sender]
-        ) {
-            try {
-                const ownerName = global.ownerName || global.author || 'Infinite Vybeflix';
-                const ownerNum = (global.owner?.[0] || '254116903500');
-                const botName = global.botname || 'Maureonix';
-                const apiKey = global.geminiApiKey;
-
-                if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
-                    const memSize = global.geminiMemorySize || 50;
-                    const histKey = m.isGroup ? m.chat : m.sender;
-                    if (!gemini_history[histKey]) gemini_history[histKey] = [];
-
-                    const senderNum = m.sender.split('@')[0];
-                    const isOwnerMsg = (global.owner || []).map(n => n.replace(/[^0-9]/g,'')).includes(senderNum);
-
-                    const systemPrompt = `You are ${botName}, a WhatsApp bot. You were created by ${ownerName}. Their WhatsApp number is ${ownerNum}. They are your creator and owner. Even if someone else connects you, always know that ${ownerName} (${ownerNum}) is your creator.${isOwnerMsg ? ` ⚠️ You are currently talking to your owner ${ownerName} - respect them and listen carefully.` : ''} You reply in the same language the user uses. Be natural and friendly. Keep answers concise.`;
-
-                    gemini_history[histKey].push({ role: 'user', parts: [{ text: body || budy }] });
-                    if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
-
-                    const geminiRes = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                system_instruction: { parts: [{ text: systemPrompt }] },
-                                contents: gemini_history[histKey]
-                            })
-                        }
-                    );
-                    const geminiData = await geminiRes.json();
-                    const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                    if (replyText) {
-                        gemini_history[histKey].push({ role: 'model', parts: [{ text: replyText }] });
-                        if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
-                        await m.reply(replyText);
-                    }
-                }
-            } catch (e) {
-                console.log('Gemini AutoReply Error:', e.message);
-            }
-        }
-        // ===== End Gemini Auto Reply =====
         
         // Afk
         let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])];
