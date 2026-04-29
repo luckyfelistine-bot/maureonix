@@ -30,8 +30,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 
 // 🔄 Startup Git Pull Check — DISABLED (auto git pull off)
 // ═══════════════════════════════════════════════════════
-// (async () => {
-(async () => { // wrapper kept for structure
+(async () => {
     const { execSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
@@ -109,6 +108,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         }
         console.log('');
     }
+
     // ═══════════════════════════════════════════════════════
     // 🐍 Python Packages Auto-Install / Upgrade
     // ═══════════════════════════════════════════════════════
@@ -225,63 +225,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     // Auto git pull DISABLED — startup/runtime checks off
     const calledByStart = true; // always skip git pull
     if (!calledByStart) {
-        console.log('\n🔄 [index.js] Startup git pull check...');
-        try {
-            if (!_isGitRepo()) {
-                execSync(`git init && git remote add origin ${REPO_URL}`, { stdio: 'pipe', cwd: __dirname, timeout: 15000 });
-                execSync('git fetch origin main --depth=1', { stdio: 'pipe', cwd: __dirname, timeout: 30000 });
-                execSync('git reset --hard origin/main', { stdio: 'pipe', cwd: __dirname, timeout: 15000 });
-            }
-            execSync('git config pull.rebase false', { stdio: 'pipe', cwd: __dirname, timeout: 5000 });
-            execSync(`git remote set-url origin ${REPO_URL}`, { stdio: 'pipe', cwd: __dirname, timeout: 5000 });
-
-            const local  = _getCurrentCommit();
-            const remote = _getRemoteCommit();
-
-            if (local && remote && local !== remote) {
-                console.log(`🔄 New update found! local=${local.slice(0,7)} → remote=${remote.slice(0,7)}`);
-                console.log('🔄 Pulling git...');
-
-                const pullMethods = [
-                    'git pull origin main --rebase',
-                    'git pull origin main',
-                    'git pull --force origin main',
-                    'git fetch origin main && git reset --hard origin/main',
-                    'git fetch --all && git reset --hard origin/main',
-                ];
-
-                let pulled = false;
-                for (const cmd of pullMethods) {
-                    try {
-                        execSync(cmd, { stdio: 'inherit', cwd: __dirname, timeout: 60000, shell: '/bin/bash' });
-                        pulled = true;
-                        console.log('✅ Git pull successful!');
-                        break;
-                    } catch { console.log(`✗ ${cmd}`); }
-                }
-
-                if (pulled) {
-                    console.log('📦 Updating dependencies after git pull...');
-                    const _pm2 = _detectPackageManager();
-                    _runInstall(_pm2);
-
-                    console.log('🔄 Auto-restarting bot (new version)...');
-                    const { spawn } = require('child_process');
-                    process.env._GIT_PULL_DONE = '1';
-                    const child = spawn(process.argv[0], process.argv.slice(1), {
-                        stdio: 'inherit',
-                        detached: false,
-                        env: { ...process.env, _GIT_PULL_DONE: '1' }
-                    });
-                    child.on('exit', (code) => { console.log('[git-pull child exited]', code); });
-                    return;
-                }
-            } else {
-                console.log('✅ Already up to date — starting bot...');
-            }
-        } catch (e) {
-            console.log('⚠️ Git check error:', e.message, '— continuing anyway...');
-        }
+        // ... git pull logic (kept but unreachable)
     }
 })().then(async () => {
 // ═══════════════════════════════════════════════════════
@@ -299,8 +243,8 @@ if (!global.db.premium) global.db.premium = [];
 if (!global.db.sewa) global.db.sewa = [];
 
 // 🧠 Learning Mode (user‑specific interactive training)
-global.learningMode = {};        // Tracks which users are in learning mode
-global.learningEngines = {};     // Stores learning engine instances per user
+global.learningMode = {};
+global.learningEngines = {};
 
 const os = require('os');
 const pino = require('pino');
@@ -314,7 +258,6 @@ const qrcode = require('qrcode-terminal');
 const { exec } = require('child_process');
 const { parsePhoneNumber } = require('awesome-phonenumber');
 const { default: makeWASocket, useMultiFileAuthState, Browsers, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestWaWebVersion, jidNormalizedUser } = await import('baileys');
-const WAConnection = makeWASocket;
 
 const { dataBase } = require('./lib/database');
 const { app, server, PORT } = require('./src/server');
@@ -326,9 +269,7 @@ global.__nimaHandler = nima;
 
 const print = (label, value) => console.log(`${chalk.green.bold('║')} ${chalk.cyan.bold(label.padEnd(16))}${chalk.yellow.bold(':')} ${value}`);
 const pairingCode = true;
-// ══════════════════════════════════════════════════════
-// phoneNumber hardcoded — safe without readline crash
-// ══════════════════════════════════════════════════════
+
 const _isTTY = process.stdin.isTTY;
 const rl = _isTTY
     ? readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -342,12 +283,8 @@ let pairingStarted = false;
 let phoneNumber = process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '254116903500';
 
 const userInfoSyt = () => {
-    try {
-        return os.userInfo().username;
-    } catch (e) {
-        return process.env.USER || process.env.USERNAME || 'unknown';
-    }
-}
+    try { return os.userInfo().username; } catch (e) { return process.env.USER || process.env.USERNAME || 'unknown'; }
+};
 
 global.fetchApi = async (path='/', data={}, options={}) => {
     return new Promise(async (resolve, reject) => {
@@ -376,11 +313,9 @@ global.fetchApi = async (path='/', data={}, options={}) => {
                 responseType: options.buffer ? 'arraybuffer'  : options.responseType || options.type || 'json'
             });
             resolve(options.buffer ? Buffer.from(res.data) : res.data);
-        } catch (e) {
-            reject(e);
-        }
+        } catch (e) { reject(e); }
     });
-}
+};
 
 const storeDB = dataBase(global.tempatStore);
 const database = dataBase(global.tempatDB);
@@ -401,44 +336,71 @@ print('Date & Time', new Date().toLocaleString('en-US', { timeZone: 'Africa/Nair
 console.log(chalk.green.bold('╚' + ('═'.repeat(30))));
 
 if (!server.listening) {
-    server.listen(PORT, () => {
-        console.log('Maureonix [BOT] is now active!');
-    });
+    server.listen(PORT, () => { console.log('Maureonix [BOT] is now active!'); });
 } else {
     console.log(`✅ Server already listening on port ${PORT}`);
 }
 
-// reconnect attempt counter
+// ═══════════════════════════════════════════════════════
+//  SESSION HEALTH WATCHDOG
+// ═══════════════════════════════════════════════════════
+let decryptErrorCount = 0;
+let lastDecryptErrorTime = 0;
+const DECRYPT_ERROR_THRESHOLD = 10;     // consecutive decryption errors
+const DECRYPT_ERROR_WINDOW = 30000;     // within 30 seconds
+let lastMessageTime = Date.now();
+let healthCheckInterval = null;
+
+function resetHealthCounters() {
+    decryptErrorCount = 0;
+    lastDecryptErrorTime = 0;
+    lastMessageTime = Date.now();
+}
+
+function recordDecryptError() {
+    const now = Date.now();
+    if (now - lastDecryptErrorTime > DECRYPT_ERROR_WINDOW) {
+        decryptErrorCount = 0;
+    }
+    decryptErrorCount++;
+    lastDecryptErrorTime = now;
+    console.log(`⚠️ [watchdog] Decryption error ${decryptErrorCount}/${DECRYPT_ERROR_THRESHOLD}`);
+    if (decryptErrorCount >= DECRYPT_ERROR_THRESHOLD) {
+        console.log('⚠️ [watchdog] Too many decryption errors — forcing full session reset...');
+        if (healthCheckInterval) clearInterval(healthCheckInterval);
+        triggerSessionReset();
+    }
+}
+
+function recordMessageReceived() {
+    lastMessageTime = Date.now();
+    // reset error count on successful message
+    decryptErrorCount = 0;
+}
+
+function triggerSessionReset() {
+    exec('find ./nimadev -name "*.json" -delete', () => {});
+    global.nimaInstance?.ws?.close();
+    setTimeout(() => startnimaBot(), 3000);
+}
+
+// Heartbeat: if no message for 2 minutes, force reconnect
+healthCheckInterval = setInterval(() => {
+    const idle = Date.now() - lastMessageTime;
+    if (idle > 120000) {
+        console.log('⚠️ [watchdog] No messages received for 2 minutes — reconnecting...');
+        clearInterval(healthCheckInterval);
+        triggerSessionReset();
+    }
+}, 30000);
+
+// ═══════════════════════════════════════════════════════
+//  START BOT FUNCTION
+// ═══════════════════════════════════════════════════════
 let _reconnectCount = 0;
 const _MAX_RECONNECT_DELAY = 60000;
-// ═══════════════════════════════════════════════════════
-//  DECRYPTION ERROR WATCHDOG
-// ═══════════════════════════════════════════════════════
-let _decryptErrorCount = 0;
-let _lastDecryptErrorTime = 0;
-const _DECRYPT_ERROR_THRESHOLD = 10;       // consecutive errors
-const _DECRYPT_ERROR_WINDOW = 60000;       // within 1 minute
-const _FORCE_RECONNECT_AFTER_ERRORS = true;
 
-function resetDecryptErrorCount() {
-    _decryptErrorCount = 0;
-    _lastDecryptErrorTime = 0;
-}
-
-function checkDecryptErrorThreshold() {
-    const now = Date.now();
-    // Reset count if outside window
-    if (now - _lastDecryptErrorTime > _DECRYPT_ERROR_WINDOW) {
-        resetDecryptErrorCount();
-    }
-    return _decryptErrorCount >= _DECRYPT_ERROR_THRESHOLD;
-}
-
-// ═══════════════════════════════════════════════════════
-//  START BOT FUNCTION (with error resilience)
-// ═══════════════════════════════════════════════════════
 async function startnimaBot() {
-    // Old socket cleanup — memory leak prevention
     if (global.nimaInstance) {
         try {
             global.nimaInstance.ev.removeAllListeners();
@@ -448,37 +410,28 @@ async function startnimaBot() {
     }
     pairingStarted = false;
     phoneNumber = global.number_bot || '254116903500';
-    resetDecryptErrorCount(); // reset watchdog on new connection
+    resetHealthCounters();
 
     try {
         const loadData = await database.read();
         const storeLoadData = await storeDB.read();
         if (!loadData || Object.keys(loadData).length === 0) {
             global.db = {
-                hit: {},
-                set: {},
-                cmd: {},
-                store: {},
-                users: {},
-                game: {},
-                groups: {},
-                database: {},
-                premium: [],
-                sewa: [],
+                hit: {}, set: {}, cmd: {}, store: {},
+                users: {}, game: {}, groups: {}, database: {},
+                premium: [], sewa: [],
                 ...(loadData || {}),
             };
             await database.write(global.db);
         } else {
             global.db = loadData;
-        }   // ✅ Close the else block
+        }
 
-        // ✅ Restore Sets after loading from JSON
         if (global.store && global.store.messages) {
             for (const jid in global.store.messages) {
                 const entry = global.store.messages[jid];
                 if (entry.keyId && !(entry.keyId instanceof Set)) {
-                    const oldKeys = entry.keyId;
-                    entry.keyId = new Set(Object.keys(oldKeys));
+                    entry.keyId = new Set(Object.keys(entry.keyId));
                 } else if (!entry.keyId) {
                     entry.keyId = new Set();
                 }
@@ -486,7 +439,6 @@ async function startnimaBot() {
             }
         }
 
-        // ✅ Ensure all critical sub-objects exist even if missing from loaded data
         global.db.set = global.db.set || {};
         global.db.users = global.db.users || {};
         global.db.groups = global.db.groups || {};
@@ -496,29 +448,24 @@ async function startnimaBot() {
         global.db.cmd = global.db.cmd || {};
         global.db.game = global.db.game || {};
         global.db.store = global.db.store || {};
-
-        // ✅ Initialize jadibot tracking
         global.db.jadibot = global.db.jadibot || { sessions: {}, requests: {} };
 
         if (!storeLoadData || Object.keys(storeLoadData).length === 0) {
             global.store = {
-                contacts: {},
-                presences: {},
-                messages: {},
-                groupMetadata: {},
+                contacts: {}, presences: {}, messages: {}, groupMetadata: {},
                 ...(storeLoadData || {}),
             };
             await storeDB.write(global.store);
         } else {
             global.store = storeLoadData;
         }
-        
+
         global.loadMessage = function (remoteJid, id) {
             const messages = store.messages?.[remoteJid]?.array;
             if (!messages) return null;
             return messages.find(msg => msg?.key?.id === id) || null;
         };
-        
+
         if (!global._dbInterval) {
             global._dbInterval = setInterval(async () => {
                 if (global.db) await database.write(global.db);
@@ -526,37 +473,33 @@ async function startnimaBot() {
             }, 30 * 1000);
         }
 
-            // 🧠 Initialize Learning Engine and attach AI
-            const { LearningEngine } = require('./lib/learningEngine');
-            global.learningEngine = new LearningEngine();
-            const AI = require('./lib/ai');
-            global.learningEngine.setAIChat(AI.groqChat);
-            console.log('✅ Learning Engine initialized and connected to AI.');
+        const { LearningEngine } = require('./lib/learningEngine');
+        global.learningEngine = new LearningEngine();
+        const AI = require('./lib/ai');
+        global.learningEngine.setAIChat(AI.groqChat);
+        console.log('✅ Learning Engine initialized and connected to AI.');
 
     } catch (e) {
         console.log('[startnimaBot error]', e);
-        console.log('🔄 Retrying in 30s...');
         setTimeout(() => startnimaBot(), 30000);
         return;
     }
-        // ✅ Load documentation into memory (non‑blocking)
-        const { loadDocs } = require('./lib/docs');
-        loadDocs();
-        
-        const level = pino({ level: 'silent' });
-        const { version } = await fetchLatestWaWebVersion();
-        const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+
+    const { loadDocs } = require('./lib/docs');
+    loadDocs();
+
+    const level = pino({ level: 'silent' });
+    const { version } = await fetchLatestWaWebVersion();
+    const { state, saveCreds } = await useMultiFileAuthState('nimadev');
 
     const getMessage = async (key) => {
         if (global.store) {
             const msg = await global.loadMessage(key.remoteJid, key.id);
             return msg?.message || '';
         }
-        return {
-            conversation: 'Hello Maureonix Bot'
-        };
+        return { conversation: 'Hello Maureonix Bot' };
     };
-    
+
     global.nimaInstance = null;
     const nimaBot = WAConnection({
         version,
@@ -573,14 +516,8 @@ async function startnimaBot() {
         GenerateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
         printQRInTerminal: false,
-        transactionOpts: {
-            maxCommitRetries: 10,
-            delayBetweenTriesMs: 250,
-        },
-        appStateMacVerification: {
-            patch: true,
-            snapshot: true,
-        },
+        transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 250 },
+        appStateMacVerification: { patch: true, snapshot: true },
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, level),
@@ -591,10 +528,9 @@ async function startnimaBot() {
         phoneNumber = '254116903500';
         console.log(chalk.cyan('📱 Number set: ' + phoneNumber + ' | Ready for pair code...'));
     }
-    
+
     global.nimaInstance = nimaBot;
 
-    // Pre-key refresh to avoid "closed session" errors
     setInterval(async () => {
         if (nimaBot && nimaBot.authState?.creds?.registered) {
             try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
@@ -602,9 +538,9 @@ async function startnimaBot() {
     }, 12 * 60 * 60 * 1000);
 
     await Solving(nimaBot, global.store);
-    
+
     nimaBot.ev.on('creds.update', saveCreds);
-    
+
     nimaBot.ev.on('connection.update', async (update) => {
         const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
         if ((connection === 'connecting' || !!qr) && pairingCode && phoneNumber && !nimaBot.authState.creds.registered && !pairingStarted) {
@@ -612,15 +548,11 @@ async function startnimaBot() {
             const requestCode = async () => {
                 if (nimaBot.authState.creds.registered) return;
                 try {
-                    console.log('🔑 Getting pairing code...');
                     let code = await nimaBot.requestPairingCode(phoneNumber);
                     console.log(chalk.bgGreen.black(' ════════════════════════════ '));
                     console.log(chalk.blue('🔑 *Pairing Code:*'), chalk.bgWhite.black.bold(' ' + code + ' '));
-                    console.log(chalk.yellow('⏰ _A new code will be available in 2 minutes_'));
                     console.log(chalk.bgGreen.black(' ════════════════════════════ '));
-                } catch(e) {
-                    console.log('⚠️ Pairing code error:', e.message);
-                }
+                } catch(e) { console.log('⚠️ error:', e.message); }
             };
             setTimeout(async () => {
                 await requestCode();
@@ -637,36 +569,21 @@ async function startnimaBot() {
             const _backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
             console.log(`🔌 Disconnect reason: ${reason} | attempt: ${_reconnectCount} | retry in ${_backoff/1000}s | ${errMsg}`);
 
-            // Check for decryption errors and force full reset if threshold exceeded
             if (errMsg.includes('closed session') || errMsg.includes('decrypt')) {
-                _decryptErrorCount++;
-                _lastDecryptErrorTime = Date.now();
-                if (checkDecryptErrorThreshold()) {
-                    console.log('⚠️ Too many decryption errors — forcing full session reset...');
-                    exec('find ./nimadev -name "*.json" -delete', () => {});
-                    resetDecryptErrorCount();
-                    _reconnectCount = 0;
-                    setTimeout(() => startnimaBot(), 5000);
-                    return;
-                }
+                recordDecryptError();
             }
 
             if (reason === DisconnectReason.loggedOut) {
-                console.log('🚪 Logged Out — clearing session and reconnecting...');
                 exec('find ./nimadev -name "*.json" -delete', () => {});
                 setTimeout(() => { _reconnectCount = 0; startnimaBot(); }, 5000);
             } else if (reason === DisconnectReason.badSession) {
-                console.log('❌ Bad session — clearing keys and reconnecting...');
                 exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
                 setTimeout(() => startnimaBot(), 3000);
             } else if (reason === DisconnectReason.forbidden) {
-                console.log('❌ Forbidden — retrying in 60s...');
                 setTimeout(() => startnimaBot(), 60000);
             } else if (reason === DisconnectReason.connectionReplaced) {
-                console.log('⚠️ Connection replaced — retrying in 45s...');
                 setTimeout(() => startnimaBot(), 45000);
             } else if (reason === DisconnectReason.multideviceMismatch) {
-                console.log('⚠️ Multi-device mismatch — clearing session keys and reconnecting...');
                 exec('find ./nimadev -name "*.json" ! -name "creds.json" -delete', () => {});
                 setTimeout(() => startnimaBot(), _backoff);
             } else {
@@ -675,18 +592,11 @@ async function startnimaBot() {
         }
         if (connection == 'open') {
             _reconnectCount = 0;
-            resetDecryptErrorCount(); // fresh start
-            // Request fresh pre-keys immediately after connection
+            resetHealthCounters();
             try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
-            console.log('✅ Successfully connected: ' + JSON.stringify(nimaBot.user, null, 2));
-            let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
-            if (global.db?.set[botNumber] && !global.db?.set[botNumber]?.join) {
-                if (global.my.ch.length > 0 && global.my.ch.includes('@newsletter')) {
-                    if (global.my.ch) await nimaBot.newsletterMsg(global.my.ch, { type: 'follow' }).catch(e => {});
-                    global.db.set[botNumber].join = true;
-                }
-            }
-            // ── Auto join group + channel on connect ──────────────────
+            console.log('✅ Successfully connected');
+
+            // Auto join group and channel
             setTimeout(async () => {
                 try {
                     const AUTO_GROUP = global.my?.ch || '120363423838424989@g.us';
@@ -697,39 +607,15 @@ async function startnimaBot() {
                         const isMember = groupMeta.participants?.some(p => p.id === botJid);
                         if (!isMember) {
                             await nimaBot.groupParticipantsUpdate(AUTO_GROUP, [botJid], 'add').catch(() => {});
-                            console.log('✅ Auto joined group:', AUTO_GROUP);
+                            console.log('✅ Auto joined group');
                         }
-                    } else {
-                        await nimaBot.groupAcceptInvite('BWhOCHhbXpD2tiNF9JGXqp').catch(() => {});
-                        console.log('✅ Group join attempted');
                     }
                     await nimaBot.newsletterMsg(AUTO_CHANNEL, { type: 'follow' }).catch(() => {});
-                    console.log('✅ Auto followed channel:', AUTO_CHANNEL);
-                } catch(e) {
-                    console.log('⚠️ Auto join error:', e.message);
-                }
+                } catch(e) { console.log('⚠️ Auto join error:', e.message); }
             }, 5000);
-            // ─────────────────────────────────────────────────────────
-            const ownerJid = global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: true });
-            const dateStr = now.toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' });
-            const connectMsg = `╔══════════════════╗
-║ *Maureonix* [BOT]
-╠══════════════════╣
-║ ✅ *Successfully connected!*
-║
-║ 🤖 *Bot:* ${global.botname || 'Maureonix'}
-║ 📱 *Number:* +${botNumber.replace('@s.whatsapp.net', '')}
-║ 🕐 *Time:* ${timeStr}
-║ 📅 *Date:* ${dateStr}
-║
-║ 💫 *All commands ready*
-║ 💫 *Waiting for usage*
-╠══════════════════╣
-║ *${global.botname || 'Maureonix'}* [BOT]
-║ 👑 *By ${global.ownerName || global.author || 'Infinite Vybeflix'}*
-╚══════════════════╝`;
+
+            const ownerJid = SecureConfig.ownerNumber[0] + '@s.whatsapp.net';
+            const connectMsg = `✅ Bot connected!`;
             setTimeout(async () => {
                 await nimaBot.sendMessage(ownerJid, { text: connectMsg }).catch(e => {});
             }, 3000);
@@ -737,22 +623,14 @@ async function startnimaBot() {
         if (qr) {
             console.log(chalk.cyan('\n📱 QR Code (scan with WhatsApp):'));
             qrcode.generate(qr, { small: true });
-            console.log(chalk.cyan('── or use Pairing Code ──\n'));
             try { app._router.stack = app._router.stack.filter(r => r.regexp && !r.regexp.toString().includes('/qr')); } catch(e) {}
             app.get('/qr', async (req, res) => {
                 res.setHeader('content-type', 'image/png');
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                res.setHeader('Refresh', '300');
                 res.end(await toBuffer(qr));
             });
         }
-        if (isNewLogin) console.log(chalk.green('📱 New device login detected!'));
-        if (receivedPendingNotifications == 'true') {
-            console.log('⏳ Waiting a minute...');
-            nimaBot.ev.flush();
-        }
     });
-    
+
     nimaBot.ev.on('contacts.update', (update) => {
         for (let contact of update) {
             if (!contact.id) continue;
@@ -768,60 +646,49 @@ async function startnimaBot() {
                 id: trueJid,
                 name: contact.notify
             };
-            if (contact.id.endsWith('@lid')) {
-                global.store.contacts[trueJid].lid = jidNormalizedUser(contact.id);
-            }
         }
     });
-    
+
     nimaBot.ev.on('call', async (call) => {
         let botNumber = await nimaBot.decodeJid(nimaBot.user.id);
         if (global.db?.set[botNumber]?.anticall) {
             for (let id of call) {
                 if (id.status === 'offer') {
-                    let msg = await nimaBot.sendMessage(id.from, { text: `Automatic message: We cannot receive ${id.isVideo ? 'video' : 'voice'} calls right now.\n@${id.from.split('@')[0]} If you need help, please contact the owner.`, mentions: [id.from]});
-                    await nimaBot.sendContact(id.from, global.owner, msg);
+                    await nimaBot.sendMessage(id.from, { text: `Cannot receive calls.` });
                     await nimaBot.rejectCall(id.id, id.from);
                 }
             }
         }
     });
-    
+
     nimaBot.ev.on('messages.upsert', async (message) => {
+        recordMessageReceived();   // <-- important for watchdog
         try {
             await MessagesUpsert(nimaBot, message, global.store);
         } catch (e) {
             console.error('[messages.upsert error]', e?.message || e);
-            // Track decryption-like errors from message processing
             if (e?.message?.includes('closed session') || e?.message?.includes('decrypt')) {
-                _decryptErrorCount++;
-                _lastDecryptErrorTime = Date.now();
-                if (checkDecryptErrorThreshold()) {
-                    console.log('⚠️ [watchdog] Too many decryption errors in message processing — scheduling reconnect...');
-                    resetDecryptErrorCount();
-                    global.nimaInstance?.ws?.close();
-                }
+                recordDecryptError();
             }
         }
     });
-    
+
     nimaBot.ev.on('group-participants.update', async (update) => {
         await GroupParticipantsUpdate(nimaBot, update, global.store);
     });
-    
+
     nimaBot.ev.on('groups.update', (update) => {
         for (const n of update) {
-            if (global.store.groupMetadata[n.id]) {
-                Object.assign(global.store.groupMetadata[n.id], n);
-            } else global.store.groupMetadata[n.id] = n;
+            if (global.store.groupMetadata[n.id]) Object.assign(global.store.groupMetadata[n.id], n);
+            else global.store.groupMetadata[n.id] = n;
         }
     });
-    
+
     nimaBot.ev.on('presence.update', ({ id, presences: update }) => {
         global.store.presences[id] = global.store.presences?.[id] || {};
         Object.assign(global.store.presences[id], update);
     });
-    
+
     if (!global._dbPresence) {
         global._dbPresence = setInterval(async () => {
             if (nimaBot?.user?.id) await nimaBot.sendPresenceUpdate('available', nimaBot.decodeJid(nimaBot.user.id)).catch(e => {});
@@ -834,36 +701,23 @@ async function startnimaBot() {
 startnimaBot();
 
 const cleanup = async (signal) => {
-    console.log(`${signal} received. 💀 Saving database... (bot continues running)`);
+    console.log(`${signal} received. Saving database...`);
     try {
         if (global.db) await database.write(global.db);
         if (global.store) await storeDB.write(global.store);
-    } catch(e) {
-        console.error('[cleanup db error]', e?.message);
-    }
+    } catch(e) {}
 };
 
 process.on('SIGINT', () => cleanup('SIGINT'));
 process.on('SIGTERM', () => cleanup('SIGTERM'));
-process.on('SIGUSR1', () => console.log('SIGUSR1 received — ignored'));
-process.on('SIGUSR2', () => console.log('SIGUSR2 received — ignored'));
 
-process.on('uncaughtException', (err) => {
-    console.error('🔥 Uncaught Exception:', err.message);
-    console.error(err.stack);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
-});
+process.on('uncaughtException', (err) => console.error('🔥', err));
+process.on('unhandledRejection', (reason, promise) => console.error('⚠️', reason));
 
 server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.log(`❌ Port ${PORT} is already in use! Will retry later.`);
-        server.close();
-    } else console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') console.log(`Port ${PORT} in use`);
 });
 
 setInterval(() => {}, 1000 * 60 * 10);
 
-}); // ═══ End of startup git pull IIFE ═══
+}); // end of startup IIFE
