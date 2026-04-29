@@ -392,4 +392,101 @@ module.exports = {
     study: async (nimesha, m, ctx) => { await module.exports.learn(nimesha, m, ctx); },
     quiz: async (nimesha, m, ctx) => { await module.exports.test(nimesha, m, ctx); },
     evaluate: async (nimesha, m, ctx) => { await module.exports.eval(nimesha, m, ctx); },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //   🧠 MAUREONIX CORE — Dashboard AI Chat (session-based, memory, retry)
+    // ═══════════════════════════════════════════════════════════════════════
+    dashboardAiChat: async function(sessionId, message) {
+        const { GROQ_API_KEY, AI_MODEL, GROQ_BASE } = require('../config/constants');
+        if (!GROQ_API_KEY) {
+            return { text: '⚠️ AI service is not configured. Please set the GROQ_API_KEY environment variable.' };
+        }
+
+        // In‑memory conversation store (per session)
+        if (!global._dashboardSessions) global._dashboardSessions = new Map();
+        let history = global._dashboardSessions.get(sessionId) || [];
+
+        // Append user message
+        history.push({ role: 'user', content: message });
+
+        // System prompt that embodies the Maureonix Core Intelligence principles
+        const systemPrompt = `You are MAUREONIX CORE, the central intelligence of the Maureonix platform.
+You are not a generic chatbot; you are an integrated system layer with deep knowledge of this platform.
+You operate on intent understanding, not keywords.
+
+Your capabilities:
+- Guide users through pairing their WhatsApp device.
+- Explain platform features (commands, modules, automation).
+- Help navigate the dashboard (mention sections like "Feature Matrix", "Pairing", "Neural Terminal").
+- Answer questions about Maureonix's 700+ commands, 50+ automations, 20+ platforms.
+- Provide troubleshooting steps for connection issues.
+- For admin users, you can discuss system status, but never execute destructive actions without explicit user confirmation.
+
+Rules:
+1. Always be helpful, concise, and forward‑moving.
+2. Never claim to be a generic language model; you are Maureonix Core.
+3. If you cannot answer, suggest the user try the admin panel or WhatsApp bot commands.
+4. If asked to perform an action (e.g., "enable auto‑reply"), explain how the user can do it themselves or confirm before any hypothetical execution.
+5. Format code snippets with triple backticks when showing command examples.
+6. Respond in plain text with proper line breaks.
+
+You are the intelligent face of the Maureonix Neural Interface.`;
+
+        // Construct messages array: system + history
+        const messages = [{ role: 'system', content: systemPrompt }, ...history];
+
+        let responseText = '';
+        let lastError = null;
+        const maxRetries = 2;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const res = await fetch(GROQ_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GROQ_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: AI_MODEL,
+                        messages,
+                        temperature: 0.7,
+                        max_tokens: 1024
+                    }),
+                    // No AbortController here; we rely on the outer timeout from the API route (implicit)
+                });
+
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    throw new Error(`Groq API responded with ${res.status}: ${errBody}`);
+                }
+
+                const data = await res.json();
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    responseText = data.choices[0].message.content.trim();
+                    break; // success
+                } else {
+                    throw new Error('Invalid response structure from Groq');
+                }
+            } catch (err) {
+                lastError = err;
+                if (attempt < maxRetries) {
+                    // Exponential back‑off: 500ms, 1500ms
+                    await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+                }
+            }
+        }
+
+        if (!responseText) {
+            console.error('dashboardAiChat failed after retries:', lastError?.message);
+            responseText = '❌ The neural network is temporarily unavailable. Please try again in a moment.';
+        }
+
+        // Save assistant response to history (limit to last 20 messages)
+        history.push({ role: 'assistant', content: responseText });
+        if (history.length > 20) history = history.slice(-20);
+        global._dashboardSessions.set(sessionId, history);
+
+        return { text: responseText };
+    }
 };

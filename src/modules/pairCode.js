@@ -20,11 +20,9 @@ function recordPairAttempt(ip) {
 }
 
 async function generatePairCode(number) {
-  const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('@whiskeysockets/baileys');
+  // Dynamic import to avoid top‑level require errors
+  const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
   const pino = require('pino');
-  const path = require('path');
-  const fs = require('fs');
-  const os = require('os');
 
   const cleanNumber = number.replace(/[^0-9]/g, '');
   if (cleanNumber.length < 9) throw new Error('Invalid phone number. Include country code.');
@@ -36,9 +34,24 @@ async function generatePairCode(number) {
   let sock = null;
   let codeResolved = false;
 
+  // Prevent duplicate cleanup errors
   function cleanup() {
-    if (sock) sock.ws?.close();
-    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch(e) {}
+    if (sock) {
+      try { sock.ws?.close(); } catch (_) {}
+      sock = null;
+    }
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
+  }
+
+  // Get a working WhatsApp Web version
+  let version;
+  try {
+    const { version: v } = await fetchLatestBaileysVersion();
+    version = v;
+  } catch (e) {
+    console.warn('[PAIR] fetchLatestBaileysVersion failed, using fallback. Error:', e.message);
+    // Fallback: a recent multi‑device compatible version (major, minor, build)
+    version = [2, 3000, 1017531287];
   }
 
   return new Promise(async (resolve, reject) => {
@@ -53,15 +66,6 @@ async function generatePairCode(number) {
     try {
       const { state } = await useMultiFileAuthState(tempDir);
 
-      // ── Robust version fetch with fallback ──
-      let version;
-      try {
-        version = (await fetchLatestWaWebVersion()).version;
-      } catch (e) {
-        console.warn('[PAIR] Could not fetch latest WA version, using fallback. Error:', e.message);
-        version = [2, 3000, 1017531287]; // stable fallback
-      }
-
       sock = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
@@ -74,27 +78,7 @@ async function generatePairCode(number) {
         emitOwnEvents: true,
       });
 
-      const codePromise = sock.requestPairingCode(cleanNumber);
-      codePromise.then(code => {
-        if (!codeResolved) {
-          codeResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          const formatted = code.match(/.{1,4}/g)?.join('-') || code;
-          resolve({ code: formatted, number: cleanNumber });
-        }
-      }).catch(err => {
-        if (!codeResolved) {
-          codeResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          let msg = err?.message || 'Unknown error';
-          if (msg.includes('Connection closed')) msg = 'Connection closed by WhatsApp. Please try again.';
-          else if (msg.includes('timed out')) msg = 'Request timed out. Check your internet and try again.';
-          reject(new Error(msg));
-        }
-      });
-
+      // Listen for premature disconnection
       sock.ev.on('connection.update', (update) => {
         if (update.connection === 'close' && !codeResolved) {
           const statusCode = update.lastDisconnect?.error?.output?.statusCode;
@@ -109,11 +93,26 @@ async function generatePairCode(number) {
           reject(new Error(userMessage));
         }
       });
+
+      // Request pairing code
+      const code = await sock.requestPairingCode(cleanNumber);
+      if (!codeResolved) {
+        codeResolved = true;
+        clearTimeout(timeout);
+        cleanup();
+        const formatted = code.match(/.{1,4}/g)?.join('-') || code;
+        resolve({ code: formatted, number: cleanNumber });
+      }
     } catch (err) {
-      codeResolved = true;
-      clearTimeout(timeout);
-      cleanup();
-      reject(err);
+      if (!codeResolved) {
+        codeResolved = true;
+        clearTimeout(timeout);
+        cleanup();
+        let msg = err?.message || 'Unknown error';
+        if (msg.includes('Connection closed')) msg = 'Connection closed by WhatsApp. Please try again.';
+        else if (msg.includes('timed out')) msg = 'Request timed out. Check your internet and try again.';
+        reject(new Error(msg));
+      }
     }
   });
 }

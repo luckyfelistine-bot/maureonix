@@ -11,10 +11,27 @@ module.exports = function getDashboardHtml(pkg) {
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
 <style>
-:root{--void:#000;--deep:#02040a;--panel:rgba(4,10,24,0.88);--panel-solid:#040a18;--border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.22);--cyan:#00f0ff;--blue:#0066ff;--green:#00ff88;--fox:#ff7b2c;--text:#eef6ff;--text-dim:#8a9bb8;--danger:#ff2a6d;--warning:#ffb020;--font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',monospace;--font-display:'Space Grotesk','Inter',sans-serif;--ease-out-expo:cubic-bezier(0.16,1,0.3,1)}
+/* ═══════════════════════════════════════════════════
+   MAUREONIX LANDING — ULTRA POLISH v2.0
+   Premium SaaS aesthetic, micro‑interactions
+   ═══════════════════════════════════════════════════ */
+:root{
+  --void:#000;--deep:#02040a;--panel:rgba(4,10,24,0.88);--panel-solid:#040a18;
+  --border:rgba(0,240,255,0.07);--border-bright:rgba(0,240,255,0.22);
+  --cyan:#00f0ff;--blue:#0066ff;--green:#00ff88;--fox:#ff7b2c;
+  --text:#eef6ff;--text-dim:#8a9bb8;--danger:#ff2a6d;--warning:#ffb020;
+  --font-main:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --font-display:'Space Grotesk','Inter',sans-serif;
+  --ease-out-expo:cubic-bezier(0.16,1,0.3,1);
+  --radius-sm:8px;--radius:12px;--radius-lg:16px;--spacing-xs:0.5rem;--spacing-sm:0.75rem;
+  --spacing:1rem;--spacing-lg:1.5rem;--spacing-xl:2rem;
+}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--border) var(--void)}
-body{background:var(--void);color:var(--text);font-family:var(--font-main);overflow-x:hidden;min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{
+  background:var(--void);color:var(--text);font-family:var(--font-main);
+  overflow-x:hidden;min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:var(--void)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
@@ -135,7 +152,7 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .prism-corners::before{top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:10px}
 .prism-corners::after{bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:10px}
 .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;margin:2rem 0 6rem}
-.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:1rem;padding:1.25rem;position:relative;overflow:hidden;transition:all 300ms var(--ease-out-expo);backdrop-filter:blur(10px);contain:paint layout}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;position:relative;overflow:hidden;transition:all 300ms var(--ease-out-expo);backdrop-filter:blur(10px);contain:paint layout}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--blue),var(--green));opacity:0.5}
 .stat-card:hover{border-color:var(--border-bright);transform:translateY(-5px);box-shadow:0 25px 50px rgba(0,0,0,.4),0 0 0 1px rgba(0,240,255,0.15)}
 .stat-value{font-family:var(--font-mono);font-size:clamp(1.4rem,2vw,1.8rem);font-weight:700;color:var(--cyan);margin-bottom:0.25rem;text-shadow:0 0 20px rgba(0,240,255,0.15)}
@@ -152,7 +169,7 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .marquee-track{display:flex;gap:0.75rem;width:max-content;animation:marqueeLeft 35s linear infinite;touch-action:pan-y}
 .marquee-wrapper:nth-child(2) .marquee-track{animation:marqueeRight 40s linear infinite}
 .marquee-wrapper:hover .marquee-track{animation-play-state:paused}
-.cat-card{width:200px;flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:1rem;padding:1.25rem;cursor:pointer;position:relative;overflow:hidden;transition:all 300ms var(--ease-out-expo);backdrop-filter:blur(10px);contain:paint layout}
+.cat-card{width:200px;flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;cursor:pointer;position:relative;overflow:hidden;transition:all 300ms var(--ease-out-expo);backdrop-filter:blur(10px);contain:paint layout}
 .cat-card::after{content:'';position:absolute;inset:0;background:radial-gradient(500px circle at var(--mouse-x,50%) var(--mouse-y,50%),rgba(0,240,255,0.15),transparent 40%);opacity:0;transition:opacity 300ms;pointer-events:none}
 .cat-card:hover::after{opacity:1}
 .cat-card:hover{border-color:var(--border-bright);transform:translateY(-5px) scale(1.02);box-shadow:0 15px 40px rgba(0,0,0,.4),0 0 0 1px rgba(0,240,255,0.15)}
@@ -172,7 +189,7 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .detail-header{display:flex;align-items:center;gap:1rem;margin-bottom:2rem}
 .detail-header h3{font-family:var(--font-display);font-size:1.6rem}
 .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem}
-.detail-item{padding:0.75rem 1rem;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:1rem;font-size:0.85rem;color:var(--text-dim);transition:all 300ms;display:flex;align-items:center;gap:0.75rem}
+.detail-item{padding:0.75rem 1rem;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;color:var(--text-dim);transition:all 300ms;display:flex;align-items:center;gap:0.75rem}
 .detail-item::before{content:'›';color:var(--cyan);font-weight:700;font-size:1.1rem}
 .detail-item:hover{border-color:var(--border-bright);color:var(--text);background:rgba(0,240,255,0.15);transform:translateX(4px)}
 .pair-section{margin:6rem 0;position:relative}
@@ -181,9 +198,9 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .steps-matrix-inner{background:rgba(2,4,10,.9);border-radius:1.5rem;padding:2rem;backdrop-filter:blur(40px);position:relative;overflow:hidden}
 .pair-steps{display:flex;gap:1.25rem;position:relative;z-index:1}
 .pair-steps::before{content:'';position:absolute;top:28px;left:15%;right:15%;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);opacity:0.3;z-index:0;animation:linePulse 3s ease-in-out infinite}
-.step-holo{flex:1;position:relative;background:var(--panel);border-radius:1rem;padding:2rem 1.25rem;text-align:center;z-index:1;transition:all 300ms ease}
-.step-holo::before{content:'';position:absolute;inset:-1.5px;border-radius:calc(1rem + 1.5px);background:linear-gradient(45deg,var(--cyan),var(--green),var(--fox),var(--blue),var(--cyan));background-size:300% 300%;animation:holoBorder 3s linear infinite;z-index:-1}
-.step-holo::after{content:'';position:absolute;inset:0;border-radius:1rem;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,0.035) 2px,rgba(0,240,255,0.035) 4px);pointer-events:none;z-index:2}
+.step-holo{flex:1;position:relative;background:var(--panel);border-radius:var(--radius);padding:2rem 1.25rem;text-align:center;z-index:1;transition:all 300ms ease}
+.step-holo::before{content:'';position:absolute;inset:-1.5px;border-radius:calc(var(--radius) + 1.5px);background:linear-gradient(45deg,var(--cyan),var(--green),var(--fox),var(--blue),var(--cyan));background-size:300% 300%;animation:holoBorder 3s linear infinite;z-index:-1}
+.step-holo::after{content:'';position:absolute;inset:0;border-radius:var(--radius);background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,0.035) 2px,rgba(0,240,255,0.035) 4px);pointer-events:none;z-index:2}
 .step-holo:hover{transform:translateY(-6px);box-shadow:0 20px 50px rgba(0,0,0,.5)}
 .p-step-num{width:48px;height:48px;border-radius:50%;background:var(--panel-solid);border:2px solid var(--border-bright);display:grid;place-items:center;margin:0 auto 0.75rem;font-family:var(--font-mono);font-weight:700;font-size:0.95rem;color:var(--cyan);transition:all 300ms;box-shadow:0 0 20px rgba(0,240,255,0.15);position:relative}
 .p-step-num::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--border-bright);animation:ringPulse 2s infinite}
@@ -201,11 +218,11 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .pair-btn{padding:0.75rem 2rem;border-radius:999px;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--void);font-family:var(--font-display);font-weight:700;font-size:0.9rem;cursor:pointer;white-space:nowrap;transition:all 300ms;box-shadow:0 4px 15px rgba(0,240,255,0.15);position:relative;overflow:hidden;min-height:44px}
 .pair-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,240,255,0.15)}
 .pair-btn:disabled{opacity:0.5;cursor:not-allowed}
-.result-box{max-width:520px;margin:0 auto;border-radius:1rem;padding:1.5rem;background:rgba(0,0,0,.3);border:1px solid var(--border);display:none;text-align:center;animation:fadeUp 0.5s var(--ease-out-expo);backdrop-filter:blur(10px);position:relative;z-index:3}
+.result-box{max-width:520px;margin:0 auto;border-radius:var(--radius);padding:1.5rem;background:rgba(0,0,0,.3);border:1px solid var(--border);display:none;text-align:center;animation:fadeUp 0.5s var(--ease-out-expo);backdrop-filter:blur(10px);position:relative;z-index:3}
 .result-box.show{display:block}
 .result-box.error{border-color:rgba(255,42,109,.25);background:rgba(255,42,109,.04)}
 .result-box.success{border-color:rgba(0,255,136,.25);background:rgba(0,255,136,.04)}
-.code-display{font-family:var(--font-mono);font-size:clamp(1.8rem,5vw,2.6rem);font-weight:700;letter-spacing:0.2em;color:var(--cyan);text-shadow:0 0 25px rgba(0,240,255,0.15);padding:1.25rem;background:rgba(0,0,0,.35);border-radius:1rem;margin:1rem 0;border:1px solid var(--border);user-select:all;position:relative}
+.code-display{font-family:var(--font-mono);font-size:clamp(1.8rem,5vw,2.6rem);font-weight:700;letter-spacing:0.2em;color:var(--cyan);text-shadow:0 0 25px rgba(0,240,255,0.15);padding:1.25rem;background:rgba(0,0,0,.35);border-radius:var(--radius);margin:1rem 0;border:1px solid var(--border);user-select:all;position:relative}
 .copy-btn{position:absolute;top:0.5rem;right:0.5rem;background:var(--panel);border:1px solid var(--border);color:var(--text-dim);padding:0.25rem 0.75rem;border-radius:0.5rem;font-size:0.7rem;font-family:var(--font-mono);cursor:pointer;transition:all 150ms}
 .copy-btn:hover{background:var(--cyan);color:var(--void);border-color:var(--cyan)}
 .timer-visual{display:flex;align-items:center;justify-content:center;gap:1.25rem;margin-top:1.25rem}
@@ -216,7 +233,7 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .timer-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:1.1rem;font-weight:700;color:var(--cyan)}
 .result-timer{font-family:var(--font-mono);font-size:0.75rem;color:var(--fox);margin-top:0.5rem}
 .terminal-section{margin:6rem 0;max-width:800px;margin-left:auto;margin-right:auto;content-visibility:auto}
-.terminal-window{background:var(--panel-solid);border:1px solid var(--border);border-radius:1rem;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 40px rgba(0,240,255,0.15);position:relative}
+.terminal-window{background:var(--panel-solid);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 40px rgba(0,240,255,0.15);position:relative}
 .terminal-window::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,240,255,0.035) 3px,rgba(0,240,255,0.035) 6px);pointer-events:none;z-index:2;opacity:0.6;border-radius:inherit}
 .terminal-header{display:flex;align-items:center;gap:0.5rem;padding:0.75rem 1rem;background:rgba(0,0,0,.4);border-bottom:1px solid var(--border);position:relative;z-index:3}
 .term-btn{width:11px;height:11px;border-radius:50%;flex-shrink:0}
@@ -231,7 +248,7 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdro
 .quote-author{margin-top:0.75rem;font-size:0.8rem;color:var(--fox);opacity:0;transition:opacity 0.6s;min-height:1.2rem}
 .quote-author.visible{opacity:1}
 .toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:10002;display:flex;flex-direction:column;gap:0.75rem;pointer-events:none}
-.toast{background:var(--panel-solid);border:1px solid var(--border-bright);color:var(--text);padding:0.75rem 1.25rem;border-radius:1rem;font-family:var(--font-mono);font-size:0.8rem;backdrop-filter:blur(20px);box-shadow:0 10px 30px rgba(0,0,0,.5);transform:translateX(120%);transition:transform 300ms var(--ease-out-expo);pointer-events:auto;display:flex;align-items:center;gap:0.75rem;max-width:320px}
+.toast{background:var(--panel-solid);border:1px solid var(--border-bright);color:var(--text);padding:0.75rem 1.25rem;border-radius:var(--radius);font-family:var(--font-mono);font-size:0.8rem;backdrop-filter:blur(20px);box-shadow:0 10px 30px rgba(0,0,0,.5);transform:translateX(120%);transition:transform 300ms var(--ease-out-expo);pointer-events:auto;display:flex;align-items:center;gap:0.75rem;max-width:320px}
 .toast.show{transform:translateX(0)}
 .toast.success{border-color:rgba(0,255,136,.3)}.toast.error{border-color:rgba(255,42,109,.3)}
 .back-to-top{position:fixed;bottom:1.5rem;left:1.5rem;z-index:10002;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--panel);color:var(--text);display:grid;place-items:center;cursor:pointer;opacity:0;transform:translateY(20px);transition:all 300ms var(--ease-out-expo);backdrop-filter:blur(10px);box-shadow:0 4px 15px rgba(0,0,0,.3)}
@@ -285,13 +302,31 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 @keyframes drawInfinity{to{stroke-dashoffset:0}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* NEURAL COMMAND CENTER v6.0 — Chat & Feedback */
-.chat-toggle-btn{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;font-size:1.6rem;cursor:pointer;z-index:10003;box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4);transition:all 0.3s var(--ease-out-expo);display:grid;place-items:center;animation:floatLogo 6s ease-in-out infinite}
-.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg);box-shadow:0 0 50px var(--glow)}
+/* ═══════════════════════════════════════
+   CHAT WIDGET (Floating, fixed, polished)
+   ═══════════════════════════════════════ */
+.chat-toggle-btn{
+  position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#000;
+  font-size:1.6rem;cursor:pointer;z-index:10003;
+  box-shadow:0 0 30px rgba(0,240,255,0.12),0 4px 20px rgba(0,0,0,0.4);
+  transition:all 0.3s var(--ease-out-expo);display:grid;place-items:center;
+  animation:floatLogo 6s ease-in-out infinite;
+}
+.chat-toggle-btn img{width:32px;height:32px;border-radius:50%;object-fit:cover}
+.chat-toggle-btn:hover{transform:scale(1.15) rotate(10deg);box-shadow:0 0 50px rgba(0,240,255,0.12)}
 .chat-toggle-btn::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--cyan);opacity:0;transition:opacity 0.3s}
 .chat-toggle-btn:hover::before{opacity:0.4;animation:ringPulse 2s infinite}
 .chat-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:0.65rem;font-weight:700;width:22px;height:22px;border-radius:50%;display:none;place-items:center;border:2px solid var(--void);font-family:var(--font-mono);box-shadow:0 0 10px var(--danger)}
-.chat-panel{position:fixed;bottom:96px;right:24px;width:440px;max-width:calc(100vw - 48px);height:600px;max-height:calc(100vh - 130px);background:rgba(4,10,24,0.96);border:1px solid var(--border-bright);border-radius:20px;display:none;flex-direction:column;z-index:10003;box-shadow:0 30px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(0,240,255,0.1),inset 0 0 60px rgba(0,240,255,0.02);overflow:hidden;animation:panelIn 0.5s var(--ease-out-expo);backdrop-filter:blur(40px);transform:translateZ(0);contain:paint layout}
+.chat-panel{
+  position:fixed;bottom:96px;right:24px;width:440px;max-width:calc(100vw - 48px);
+  height:600px;max-height:calc(100vh - 130px);
+  background:rgba(4,10,24,0.96);border:1px solid var(--border-bright);
+  border-radius:20px;display:none;flex-direction:column;z-index:10003;
+  box-shadow:0 30px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(0,240,255,0.1),inset 0 0 60px rgba(0,240,255,0.02);
+  overflow:hidden;animation:panelIn 0.5s var(--ease-out-expo);backdrop-filter:blur(40px);
+  transform:translateZ(0);contain:paint layout;
+}
 @keyframes panelIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);z-index:10}
 .chat-panel::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,240,255,0.015) 3px,rgba(0,240,255,0.015) 6px);pointer-events:none;z-index:0}
@@ -324,7 +359,7 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 .neural-chip:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,240,255,0.1);transform:translateY(-1px)}
 .chat-input-area{display:flex;gap:0.5rem;padding:0.875rem 1.25rem;border-top:1px solid var(--border);background:rgba(0,0,0,0.35);position:relative;z-index:5;align-items:flex-end}
 .neural-textarea-wrap{flex:1;position:relative}
-.neural-textarea-wrap textarea{width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:12px;padding:0.625rem 2.5rem 0.625rem 1rem;color:var(--text);font-family:var(--font-main);outline:none;font-size:0.9rem;resize:none;min-height:44px;max-height:120px;line-height:1.5;overflow-y:auto}
+.neural-textarea-wrap textarea{width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:var(--radius);padding:0.625rem 2.5rem 0.625rem 1rem;color:var(--text);font-family:var(--font-main);outline:none;font-size:0.9rem;resize:none;min-height:44px;max-height:120px;line-height:1.5;overflow-y:auto}
 .neural-textarea-wrap textarea:focus{border-color:var(--cyan);box-shadow:0 0 15px var(--glow)}
 .neural-textarea-wrap textarea::placeholder{color:var(--text-dim);opacity:0.4}
 #chatSend{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#000;cursor:pointer;display:grid;place-items:center;transition:all 0.2s;font-size:1.1rem;flex-shrink:0;box-shadow:0 4px 15px var(--glow)}
@@ -336,11 +371,11 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 .star-rating{display:flex;gap:0.5rem;justify-content:center;margin:1rem 0 1.25rem;font-size:2.2rem;cursor:pointer;user-select:none}
 .star-rating span{color:var(--border);transition:color 0.2s,transform 0.2s var(--ease-out-expo);line-height:1}
 .star-rating span.active,.star-rating span:hover,.star-rating span.hovered{color:var(--warning);transform:scale(1.25);text-shadow:0 0 15px rgba(255,176,32,.4)}
-.cyber-modal textarea,.cyber-modal input[type="text"]{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:1rem;padding:0.75rem;color:var(--text);font-family:var(--font-main);margin-bottom:0.75rem;outline:none;font-size:0.9rem;resize:vertical}
+.cyber-modal textarea,.cyber-modal input[type="text"]{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem;color:var(--text);font-family:var(--font-main);margin-bottom:0.75rem;outline:none;font-size:0.9rem;resize:vertical}
 .cyber-modal textarea:focus,.cyber-modal input:focus{border-color:var(--cyan);box-shadow:0 0 12px var(--glow)}
 .cyber-modal textarea{min-height:80px}
 .cyber-modal .btn-row{display:flex;gap:0.75rem;margin-top:0.5rem}
-.cyber-modal .btn-row button{flex:1;padding:0.75rem;border-radius:1rem;border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--void);font-weight:700;cursor:pointer;font-family:var(--font-display);transition:transform 0.2s,box-shadow 0.2s}
+.cyber-modal .btn-row button{flex:1;padding:0.75rem;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--void);font-weight:700;cursor:pointer;font-family:var(--font-display);transition:transform 0.2s,box-shadow 0.2s}
 .cyber-modal .btn-row button:hover{transform:translateY(-2px);box-shadow:0 8px 25px var(--glow)}
 .cyber-modal .btn-row .ghost-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
 .cyber-modal .btn-row .ghost-btn:hover{border-color:var(--danger);color:var(--danger);box-shadow:none}
@@ -349,6 +384,7 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
 </style>
 </head>
 <body>
+<!-- ══════════ Background layers ══════════ -->
 <div class="scroll-progress" id="scrollProgress" role="progressbar" aria-label="Page scroll progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
 <a href="#mainContent" class="skip-link">Skip to main content</a>
 <div class="border-scan top" aria-hidden="true"></div><div class="border-scan bottom" aria-hidden="true"></div><div class="border-scan left" aria-hidden="true"></div><div class="border-scan right" aria-hidden="true"></div>
@@ -469,7 +505,7 @@ footer{border-top:1px solid var(--border);margin-top:6rem;padding:2.5rem 0;posit
   <div class="btn-row"><button id="submitFeedback">Transmit Feedback</button><button class="ghost-btn" id="closeFeedback">Cancel</button></div>
 </div></div>
 
-<button class="chat-toggle-btn" id="chatToggle" aria-label="Open Neural Assistant" aria-expanded="false">🧠</button>
+<button class="chat-toggle-btn" id="chatToggle" aria-label="Open Neural Assistant" aria-expanded="false"><img src="https://i.ibb.co/fVD4078t/maureonix-logo.png" alt="MX" onerror="this.textContent='🧠'"></button>
 <div class="chat-panel" id="chatPanel" role="dialog" aria-label="Neural Assistant" aria-hidden="true">
   <div class="chat-header"><span><span class="neural-status"></span> Neural Assistant</span><button onclick="toggleChat()" aria-label="Close chat">×</button></div>
   <div class="chat-messages" id="chatMessages" aria-live="polite" aria-atomic="false"></div>
@@ -512,7 +548,80 @@ const quotes=[{text:"The future is already here — it is just not evenly distri
 let qIdx=0,qChar=0,qPhase='typing';let typewriterTimeout;function startTypewriter(){const textEl=$('#typewriter'),authEl=$('#quoteAuthor');if(!textEl)return;function loop(){const q=quotes[qIdx];if(qPhase==='typing'){textEl.textContent=q.text.substring(0,qChar+1);qChar++;if(qChar===q.text.length){authEl.textContent='— '+q.author;authEl.classList.add('visible');qPhase='waiting';typewriterTimeout=setTimeout(loop,5000);return;}typewriterTimeout=setTimeout(loop,28+Math.random()*18);}else if(qPhase==='waiting'){qPhase='deleting';typewriterTimeout=setTimeout(loop,800);}else if(qPhase==='deleting'){textEl.textContent='';authEl.classList.remove('visible');qChar=0;qIdx=(qIdx+1)%quotes.length;qPhase='typing';typewriterTimeout=setTimeout(loop,600);}}loop();}
 async function fetchStatus(){try{const r=await fetch('/');const ct=r.headers.get('content-type')||'';if(!ct.includes('application/json'))return;const d=await r.json();if(d.uptime){const sec=parseInt(d.uptime),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;const str=(h>0?h+'h ':'')+m+'m '+s+'s';const uptimeVal=$('#uptimeVal');if(uptimeVal)uptimeVal.textContent=str;const navUptime=$('#navUptime');if(navUptime)navUptime.textContent='UP '+str;}}catch(e){}}fetchStatus();const statusInterval=setInterval(fetchStatus,30000);
 let timerInterval;function startTimer(seconds){if(timerInterval)clearInterval(timerInterval);let remaining=seconds;const box=$('#resultBox');const circle=$('#timerProgress');const text=$('#timerText');const circumference=2*Math.PI*45;if(circle){circle.style.strokeDasharray=circumference;circle.style.strokeDashoffset=0;}timerInterval=setInterval(()=>{remaining--;if(text)text.textContent=remaining;if(circle)circle.style.strokeDashoffset=circumference*(1-remaining/seconds);const timerEl=box.querySelector('.result-timer');if(timerEl&&remaining>0)timerEl.textContent='⏱ Expires in '+remaining+' seconds';else if(timerEl){timerEl.textContent='⏱ EXPIRED — Request new code';timerEl.style.color='var(--danger)';clearInterval(timerInterval);}},1000);}
-async function getPairCode(){const btn=$('#pairBtn'),input=$('#phoneInput'),box=$('#resultBox');const num=input.value.trim().replace(/[^0-9]/g,'');if(!num||num.length<7){showResult('error','<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">⚠️ INVALID INPUT</div><div style="font-size:0.8rem;color:var(--text-dim)">Please enter a valid phone number with country code.</div>');showToast('Invalid phone number','error');return;}btn.disabled=true;btn.innerHTML='<span style="display:inline-block;animation:spin 1s linear infinite">⟳</span> Processing...';box.className='result-box';box.style.display='none';try{const r=await fetch('/pair?number='+encodeURIComponent(num));const d=await r.json();if(d.status){showResult('success','<div style="font-weight:600;color:var(--green);margin-bottom:0.8rem;font-size:1rem">✅ PAIR CODE GENERATED</div><div class="code-display" id="pairCodeDisplay">'+d.code+'<button class="copy-btn" id="copyPairBtn" aria-label="Copy pair code">COPY</button></div><div style="color:var(--text-dim);font-size:0.8rem">Enter this code in WhatsApp Linked Devices immediately</div><div class="timer-visual"><div class="timer-ring"><svg viewBox="0 0 100 100"><circle class="timer-track" cx="50" cy="50" r="45"/><circle class="timer-progress" cx="50" cy="50" r="45" id="timerProgress"/></svg><span class="timer-text" id="timerText">60</span></div></div><div class="result-timer">⏱ Expires in 60 seconds</div>');const copyBtn=$('#copyPairBtn');if(copyBtn){copyBtn.addEventListener('click',()=>{navigator.clipboard.writeText(d.code).then(()=>{copyBtn.textContent='COPIED';showToast('Pair code copied to clipboard','success');setTimeout(()=>copyBtn.textContent='COPY',2000);}).catch(()=>showToast('Failed to copy','error'));});}startTimer(60);showToast('Pair code generated successfully','success');}else{showResult('error','<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">❌ ERROR</div><div style="font-size:0.8rem;color:var(--text-dim)">'+(d.message||'Failed to generate pairing code.')+'</div>');showToast(d.message||'Failed to generate code','error');}}catch(e){showResult('error','<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">❌ CONNECTION FAILED</div><div style="font-size:0.8rem;color:var(--text-dim)">Neural link interrupted. Please retry.</div>');showToast('Connection failed. Please retry.','error');}btn.disabled=false;btn.innerHTML='Get Pair Code';}
+async function getPairCode() {
+  const btn = document.getElementById('pairBtn');
+  const input = document.getElementById('phoneInput');
+  const box = document.getElementById('resultBox');
+  const num = input.value.trim().replace(/[^0-9]/g, '');
+  if (!num || num.length < 7) {
+    showResult('error', '<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">⚠️ INVALID INPUT</div><div style="font-size:0.8rem;color:var(--text-dim)">Please enter a valid phone number with country code.</div>');
+    showToast('Invalid phone number', 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite">⟳</span> Processing...';
+  box.className = 'result-box';
+  box.style.display = 'none';
+
+  // AbortController for a 30-second client‑side timeout (server has 45s)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const r = await fetch('/pair?number=' + encodeURIComponent(num), { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!r.ok) {
+      // Handle HTTP errors (e.g., 429, 500) gracefully
+      let errMsg = 'Server error. Please try again.';
+      try {
+        const errData = await r.json();
+        errMsg = errData.message || errMsg;
+      } catch (_) {}
+      showResult('error', '<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">❌ ERROR</div><div style="font-size:0.8rem;color:var(--text-dim)">' + errMsg + '</div>');
+      showToast(errMsg, 'error');
+      return;
+    }
+
+    const d = await r.json();
+    if (d.status) {
+      showResult('success',
+        '<div style="font-weight:600;color:var(--green);margin-bottom:0.8rem;font-size:1rem">✅ PAIR CODE GENERATED</div>' +
+        '<div class="code-display" id="pairCodeDisplay">' + d.code +
+        '<button class="copy-btn" id="copyPairBtn" aria-label="Copy pair code">COPY</button></div>' +
+        '<div style="color:var(--text-dim);font-size:0.8rem">Enter this code in WhatsApp Linked Devices immediately</div>' +
+        '<div class="timer-visual"><div class="timer-ring"><svg viewBox="0 0 100 100"><circle class="timer-track" cx="50" cy="50" r="45"/><circle class="timer-progress" cx="50" cy="50" r="45" id="timerProgress"/></svg><span class="timer-text" id="timerText">60</span></div></div>' +
+        '<div class="result-timer">⏱ Expires in 60 seconds</div>'
+      );
+      const copyBtn = document.getElementById('copyPairBtn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(d.code).then(() => {
+            copyBtn.textContent = 'COPIED';
+            showToast('Pair code copied to clipboard', 'success');
+            setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
+          }).catch(() => showToast('Failed to copy', 'error'));
+        });
+      }
+      startTimer(60);
+      showToast('Pair code generated successfully', 'success');
+    } else {
+      showResult('error', '<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">❌ ERROR</div><div style="font-size:0.8rem;color:var(--text-dim)">' + (d.message || 'Failed to generate pairing code.') + '</div>');
+      showToast(d.message || 'Failed to generate code', 'error');
+    }
+  } catch (e) {
+    clearTimeout(timeoutId);
+    let message = 'Connection failed. Please retry.';
+    if (e.name === 'AbortError') {
+      message = 'Request timed out. Please check your internet and try again.';
+    }
+    showResult('error', '<div style="font-weight:600;color:var(--danger);margin-bottom:0.5rem">❌ CONNECTION FAILED</div><div style="font-size:0.8rem;color:var(--text-dim)">' + message + '</div>');
+    showToast(message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Get Pair Code';
+  }
+}
 function showResult(type,html){const box=$('#resultBox');box.className='result-box show '+type;box.innerHTML=html;box.style.display='block';}
 function showToast(message,type='info'){const container=$('#toastContainer');if(!container)return;const toast=document.createElement('div');toast.className='toast '+type;toast.textContent=message;container.appendChild(toast);requestAnimationFrame(()=>toast.classList.add('show'));setTimeout(()=>{toast.classList.remove('show');setTimeout(()=>toast.remove(),400);},4000);}
 document.addEventListener('click',(e)=>{const target=e.target.closest('.cat-card');if(target){openDetail(target.dataset.id);}if(e.target.closest('#detailClose')){closeDetail();}if(e.target.closest('#pairBtn')){getPairCode();}if(e.target.closest('#audioToggle')){toggleAudio();}if(e.target.closest('#backToTop')){window.scrollTo({top:0,behavior:prefersReducedMotion?'auto':'smooth'});}});
