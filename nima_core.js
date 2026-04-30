@@ -159,15 +159,14 @@ const coreHandler = async (nimesha, m, msg, store) => {
             error: '❌ An error occurred.',
         };
         
-                // ─── MISSING GLOBALS FROM ORIGINAL nima_core.js ───
-        const listprefix = ['.', '#', '!', '/', '?', ';', ':', ','];
+        // ─── MISSING GLOBALS (do not redeclare listprefix – it already exists)
         const listv = ['┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃'];
         const limit = global.limit || { free: 20, premium: 50, vip: 100 };
         const tempatDB = global.tempatDB || 'database.json';
         const fake = global.fake || { name: 'Maureonix', number: '254116903500' };
         const my = global.my || { ch: null };
-        
-        // Load cases from nima.js to enable "did you mean" feature
+
+        // Load cases from nima.js for "did you mean" feature
         let cases = [];
         try {
             const nimaJsContent = fs.readFileSync('./nima.js', 'utf-8');
