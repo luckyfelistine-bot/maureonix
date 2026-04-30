@@ -30,9 +30,9 @@ const PhoneNum = require('awesome-phonenumber');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
-const memoryStore = require('./lib/memoryStore');   // <-- ADD THIS LINE
+const memoryStore = require('./lib/memoryStore');
 
-// Core helpers (original)
+// Core helpers
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
 const {
@@ -52,10 +52,9 @@ const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, for
 const { writeExif } = require('./lib/exif');
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  NEW ULTIMATE LIBRARIES (v5.0.0)
+//  NEW ULTIMATE LIBRARIES
 // ═══════════════════════════════════════════════════════════════════════════
-
-const AI = require('./lib/ai');   // now AI.askModel, AI.imagine, etc. work
+const AI = require('./lib/ai');
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
 const Fun = require('./lib/fun');
@@ -71,7 +70,7 @@ const Food = require('./lib/food');
 const { generateQuantumMenu } = require('./lib/menuimage');
 
 // ═══════════════════════════════════════════════════════════════════
-//  GODMODE IMPORTS (v6.0.0)
+//  GODMODE IMPORTS
 // ═══════════════════════════════════════════════════════════════════
 const {
   TicTacToe, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
@@ -82,14 +81,11 @@ const {
 } = require('./lib/game');
 
 const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
-
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
 
 // ═══════════════════════════════════════════════════════════════
-//  PROACTIVE SCHEDULER – runs on module load
+//  PROACTIVE SCHEDULER
 // ═══════════════════════════════════════════════════════════════
-
-// Morning briefing every day at 7 AM Nairobi time
 cron.schedule('0 7 * * *', async () => {
     const ownerJid = global.owner[0] + '@s.whatsapp.net';
     const briefing = `🌅 *Good Morning!*\n\n📅 ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\nHere's your briefing:\n- Check your reminders\n- Today's weather: .weather Nairobi\n- Top news: .news\n\nHave a great day! 🚀`;
@@ -99,9 +95,8 @@ cron.schedule('0 7 * * *', async () => {
 }, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  HELPER: fetchApi (fallback chain)
+//  HELPER: fetchApi
 // ═══════════════════════════════════════════════════════════════════════════
-
 async function fetchApi(endpoint, data, options = {}) {
     const base = global.APIs?.nima || 'https://api.nima.biz.id';
     const key = global.APIKeys?.[base] || '';
@@ -126,138 +121,111 @@ async function fetchApi(endpoint, data, options = {}) {
 // ═══════════════════════════════════════════════════════════════════════════
 //  GLOBAL VARIABLES
 // ═══════════════════════════════════════════════════════════════════════════
-
 const menfesTimeouts = new Map();
 const settingsPath = path.join(__dirname, 'settings.js');
 const cases = global.db && global.db.cases ? global.db.cases : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js', 'utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(match => match[1]));
 
-// This function lets the auto‑AI execute internal bot commands
 async function handleAutoCommand(nimesha, m, ctx, aiResult) {
     const { command, args } = aiResult;
-    // We need the full switch statement from nima_commands.js.
-    // The cleanest way is to call the same command handler but with a synthetic context.
     const handleCommand = require('./nima_commands');
-    
-    // Build the context object that the command handler expects.
-    // You must pass all necessary properties; the easiest is to reuse the existing ctx
-    // but override `command`, `args`, `text`, `q`, and set `isCmd` to true.
     const syntheticCtx = {
-        // Copy all existing ctx variables (db, store, set, AI, etc.)
         ...ctx,
         command: command,
         args: args,
         text: args.join(' ') || '',
         q: args.join(' ') || '',
-        isCmd: true,          // tell the handler that this is a command
-        prefix: ctx.prefix,   // keep the prefix so commands like .menu still work
-        // The bot's socket is already passed as nimesha, so no change needed
+        isCmd: true,
+        prefix: ctx.prefix,
     };
-    
     await handleCommand(nimesha, m, syntheticCtx);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MAIN HANDLER EXPORT (will be wrapped by nima.js)
+//  MAIN HANDLER – wrapped in a single try-catch to avoid brace mismatches
 // ═══════════════════════════════════════════════════════════════════════════
-
 const coreHandler = async (nimesha, m, msg, store) => {
-    await LoadDataBase(nimesha, m);
-
-    // Ensure db is defined even if LoadDataBase failed partially
-    if (!global.db) {
-        global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
-    }
-    if (!global.db.database) global.db.database = {};
-    
-    const botNumber = nimesha.decodeJid(nimesha.user.id);
-
-    // Helper to send replies that work for both regular chats and newsletters
-    const sendReply = async (jid, content, options = {}) => {
-        // Always normalise content to an object with a `text` property if it's a string
-        let messageContent;
-        if (typeof content === 'string') {
-            messageContent = { text: content, ...options };
-        } else {
-            // Merge provided options into the content object if needed
-            messageContent = { ...content, ...options };
-        }
-
-        if (jid.endsWith('@newsletter')) {
-            return nimesha.newsletterMsg(jid, messageContent).catch(e => {
-                console.error('[newsletter send error]', e?.message);
-            });
-        }
-        return nimesha.sendMessage(jid, messageContent);
-    };
-    
-    // ── Message Handled Flag – prevents multiple replies per message ──
-    let messageHandled = false;
-    
-    // Common reply messages
-    const mess = {
-        wait: '⏳ Please wait...',
-        owner: '❌ This command is only for the bot owner!',
-        group: '❌ This command can only be used in a group!',
-        admin: '❌ You must be a group admin to use this command!',
-        botAdmin: '❌ The bot must be a group admin to perform this action!',
-        private: '❌ This command can only be used in private chat!',
-        premium: '❌ This feature is for premium users only!',
-        limit: '❌ You have reached your daily limit!',
-        banned: '❌ You are banned from using the bot!',
-        nsfw: '❌ NSFW commands are disabled in this group!',
-        error: '❌ An error occurred. Please try again later.',
-    };
-    
-    // Read Database
-    const sewa = db.sewa;
-    const premium = db.premium;
-    const set = db.set[botNumber];
-    
-    // Database Game
-    let suit = db.game.suit;
-    let chess = db.game.chess;
-    let chat_ai = db.game.chat_ai;
-    if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
-    let gemini_autoreply = db.game.gemini_autoreply;
-    if (!db.game.gemini_history) db.game.gemini_history = {};
-    let gemini_history = db.game.gemini_history;
-    let menfes = db.game.menfes;
-    let tekateki = db.game.tekateki;
-    let akinator = db.game.akinator;
-    let tictactoe = db.game.tictactoe;
-    let tebaklirik = db.game.tebaklirik;
-    let kuismath = db.game.kuismath;
-    let blackjack = db.game.blackjack;
-    let tebaklagu = db.game.tebaklagu;
-    let tebakkata = db.game.tebakkata;
-    let family100 = db.game.family100;
-    let susunkata = db.game.susunkata;
-    let tebakbom = db.game.tebakbom;
-    let ulartangga = db.game.ulartangga;
-    let tebakkimia = db.game.tebakkimia;
-    let caklontong = db.game.caklontong;
-    let tebakangka = db.game.tebakangka;
-    let tebaknegara = db.game.tebaknegara;
-    let tebakgambar = db.game.tebakgambar;
-    let tebakbendera = db.game.tebakbendera;
-    
-    const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
-    
-    if (set.antidelete === undefined) set.antidelete = false;
-    if (set.autostatus === undefined) set.autostatus = false;
-    if (set.autostatusreact === undefined) set.autostatusreact = false;
-    if (set.autorecording === undefined) set.autorecording = false;
-    
     try {
-        await GroupUpdate(nimesha, m, store);
+        // ──────────────────────────────────────────────────────────────────
+        //  INITIALIZATION & DATABASE LOADING
+        // ──────────────────────────────────────────────────────────────────
+        await LoadDataBase(nimesha, m);
 
-        // Skip bot's own messages — prevent loops, but allow owner self-chat commands
+        if (!global.db) {
+            global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
+        }
+        if (!global.db.database) global.db.database = {};
+        
+        const botNumber = nimesha.decodeJid(nimesha.user.id);
+        const sendReply = async (jid, content, options = {}) => {
+            let messageContent;
+            if (typeof content === 'string') {
+                messageContent = { text: content, ...options };
+            } else {
+                messageContent = { ...content, ...options };
+            }
+            if (jid.endsWith('@newsletter')) {
+                return nimesha.newsletterMsg(jid, messageContent).catch(e => console.error('[newsletter send error]', e?.message));
+            }
+            return nimesha.sendMessage(jid, messageContent);
+        };
+        
+        let messageHandled = false;
+        const mess = {
+            wait: '⏳ Please wait...',
+            owner: '❌ This command is only for the bot owner!',
+            group: '❌ This command can only be used in a group!',
+            admin: '❌ You must be a group admin to use this command!',
+            botAdmin: '❌ The bot must be a group admin to perform this action!',
+            private: '❌ This command can only be used in private chat!',
+            premium: '❌ This feature is for premium users only!',
+            limit: '❌ You have reached your daily limit!',
+            banned: '❌ You are banned from using the bot!',
+            nsfw: '❌ NSFW commands are disabled in this group!',
+            error: '❌ An error occurred. Please try again later.',
+        };
+        
+        const sewa = db.sewa;
+        const premium = db.premium;
+        const set = db.set[botNumber];
+        
+        let suit = db.game.suit;
+        let chess = db.game.chess;
+        let chat_ai = db.game.chat_ai;
+        if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
+        let gemini_autoreply = db.game.gemini_autoreply;
+        if (!db.game.gemini_history) db.game.gemini_history = {};
+        let gemini_history = db.game.gemini_history;
+        let menfes = db.game.menfes;
+        let tekateki = db.game.tekateki;
+        let akinator = db.game.akinator;
+        let tictactoe = db.game.tictactoe;
+        let tebaklirik = db.game.tebaklirik;
+        let kuismath = db.game.kuismath;
+        let blackjack = db.game.blackjack;
+        let tebaklagu = db.game.tebaklagu;
+        let tebakkata = db.game.tebakkata;
+        let family100 = db.game.family100;
+        let susunkata = db.game.susunkata;
+        let tebakbom = db.game.tebakbom;
+        let ulartangga = db.game.ulartangga;
+        let tebakkimia = db.game.tebakkimia;
+        let caklontong = db.game.caklontong;
+        let tebakangka = db.game.tebakangka;
+        let tebaknegara = db.game.tebaknegara;
+        let tebakgambar = db.game.tebakgambar;
+        let tebakbendera = db.game.tebakbendera;
+        
+        const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
+        if (set.antidelete === undefined) set.antidelete = false;
+        if (set.autostatus === undefined) set.autostatus = false;
+        if (set.autostatusreact === undefined) set.autostatusreact = false;
+        if (set.autorecording === undefined) set.autorecording = false;
+        
+        // Skip bot's own messages
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         if (m.fromMe && !_isOwnerSelf) return;
         
-        // ═══════════════════════════════════════════════════════
-        //  ROBUST BODY EXTRACTION (handles decryption failures)
-        // ═══════════════════════════════════════════════════════
+        // Robust body extraction
         let body = '';
         try {
             body = ((m.type === 'conversation') ? m.message.conversation :
@@ -274,22 +242,15 @@ const coreHandler = async (nimesha, m, msg, store) => {
             (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
             (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
         } catch (err) {
-            // Decryption error → body may be undefined or impossible to extract.
-            body = '';  // set empty string to avoid crashes
+            body = '';
             console.error('[body extraction error]', err.message);
-            // Skip further processing for this message if no media either
             if (!m.isMedia) return;
         }
         
         const budy = (typeof m.text == 'string' ? m.text : '') || body;
-
-        // Override m.reply to ensure footer is always added and to set messageHandled = true
         const footerText = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
         m.reply = async (content, options = {}) => {
-            if (messageHandled) {
-                console.warn('[Multiple reply attempt blocked]');
-                return;  // already handled
-            }
+            if (messageHandled) return;
             messageHandled = true;
             if (typeof content === 'string') {
                 content += footerText;
@@ -301,6 +262,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         };
 
         const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
+        const listprefix = ['.', '#', '!', '/', '?', ';', ':', ','];
         const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
         const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
         const args = body.trim().split(/ +/).slice(1);
@@ -312,11 +274,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const author = set.author = global.author || 'Infinite Vybeflix';
         const packname = set.packname = global.packname || 'Maureonix';
         const botname = set.botname = global.botname || 'Maureonix';
-        const _dayMap = {
-            'Sunday':'Sunday','Monday':'Monday','Tuesday':'Tuesday',
-            'Wednesday':'Wednesday','Thursday':'Thursday',
-            'Friday':'Friday','Saturday':'Saturday'
-        };
+        const _dayMap = { 'Sunday':'Sunday','Monday':'Monday','Tuesday':'Tuesday','Wednesday':'Wednesday','Thursday':'Thursday','Friday':'Friday','Saturday':'Saturday' };
         const dayName = _dayMap[moment.tz('Africa/Nairobi').format('dddd')] || moment.tz('Africa/Nairobi').format('dddd');
         const tanggal = moment.tz('Africa/Nairobi').format('DD/MM/YYYY');
         const jam = moment.tz('Africa/Nairobi').format('HH:mm:ss');
@@ -334,7 +292,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isPremium = isCreator || checkStatus(m.sender, premium) || false;
         const isNsfw = m.isGroup ? db.groups[m.chat].nsfw : false;
         
-        // Fake
         const fkontak = {
             key: {
                 remoteJid: '0@s.whatsapp.net',
@@ -376,10 +333,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                 }
             }
-        }, {
-            scheduled: true,
-            timezone: 'Africa/Nairobi'
-        });
+        }, { scheduled: true, timezone: 'Africa/Nairobi' });
         
         // Auto Bio
         if (set.autobio) {
@@ -389,7 +343,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
         
-                // Set Mode (newsletters are always allowed)
+        // Mode handling
         const isNewsletter = m.chat.endsWith('@newsletter');
         if (!isCreator) {
             if ((set.grouponly === set.privateonly)) {
@@ -400,15 +354,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (m.isGroup) return;
             }
         }
-
-        // ══════════════════════════════════════════════
-        //  LEARNING MODE OVERRIDE (with exit commands allowed)
-        // ══════════════════════════════════════════════
+        
+        // Learning Mode Override
         if (global.learningMode && global.learningMode[m.sender] && global.learningEngine) {
-            // Allow exit / stop commands to bypass learning mode
             const lowerText = (text || '').toLowerCase();
             if (isCmd && (command === 'exitlearn' || command === 'stop' || command === 'exit' || command === 'quit')) {
-                // Don't intercept, let the command handler process it and exit learning mode
+                // let command handler process it
             } else {
                 try {
                     const result = await global.learningEngine.processLearningQuery(budy, m.sender);
@@ -424,22 +375,16 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 }
             }
         }
-
-        // ===== ENHANCED AUTO‑AI MODE with unified handling =====
+        
+        // ===== ENHANCED SELF‑CHAT (Owner, no prefix) =====
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
               
-        // ══════════════════════════════════════════════════
-        //  ULTIMATE SELF-CHAT (Owner, no prefix) – FIXED
-        // ══════════════════════════════════════════════════
         if (isSelfChat && set.autoai_selfchat && !isCmd && !messageHandled) {
-            // Per-user lock to avoid overlapping messages (simple queue)
             const userId = m.sender;
             if (!global._selfChatQueues) global._selfChatQueues = new Map();
             if (!global._selfChatQueues.has(userId)) global._selfChatQueues.set(userId, Promise.resolve());
             const queue = global._selfChatQueues.get(userId);
-            
-            // Chain the new task
             global._selfChatQueues.set(userId, queue.then(async () => {
                 const now = Date.now();
                 const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
@@ -448,8 +393,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 db.lastSelfReply[m.sender] = now;
 
                 let userMessage = (body || budy).trim();
-
-                // Process file attachments if no text
                 if ((!userMessage || userMessage.length < 3) && m.isMedia) {
                     try {
                         const mediaBuffer = await m.download();
@@ -465,7 +408,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         userMessage = `[File could not be processed: ${m.mime}]`;
                     }
                 } else if (!userMessage) {
-                    return; // no text and no media → skip
+                    return;
                 }
 
                 if (set.autotyping) {
@@ -474,8 +417,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
                 try {
                     const { selfChatAI, sendLongMessage, ALL_COMMANDS } = require('./lib/ai');
-
-                    // Build conversation context from recent messages
                     const recentContext = [];
                     if (store?.messages?.[m.chat]?.array) {
                         const msgs = store.messages[m.chat].array.slice(-6);
@@ -487,7 +428,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         }
                     }
 
-                    // Detect active game modes
                     const activeModes = [];
                     if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) activeModes.push('connect4');
                     if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) activeModes.push('chess');
@@ -495,8 +435,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     if (recentContext.some(t => /truth or dare/i.test(t.content))) activeModes.push('truth_or_dare');
 
                     let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
-
-                    // ── Pure conversation ──
                     if (result.type !== 'function' || !result.function) {
                         await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text || '...'}`, { quoted: m });
                         return;
@@ -505,8 +443,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     const cmd = String(result.function).toLowerCase().trim();
                     const args = Array.isArray(result.args) ? result.args : [];
                     const syntheticText = [cmd, ...args].join(' ');
-
-                    // ── SYSTEM COMMANDS (owner‑only, never routed to nima_commands) ──
                     const systemHandled = await (async () => {
                         switch (cmd) {
                             case 'sysinfo':
@@ -618,8 +554,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     })();
 
                     if (systemHandled) return;
-
-                    // ── COMMAND WHITELIST ──
                     const AI_ALLOWED = new Set(ALL_COMMANDS);
                     ['s','vid','ytmp4','ytmp3','music','audio','sp','spot','c4','bj','dep','with','pay','inv','h','linkgc','del','d','blokir','unblokir','sched','cuaca','g','tr','aiimage','draw','create','askai','coding','program','8b','wouldyourather','wyr','ss','clips','store','gamesearch','eps','ontv','livescore','table','headtohead','prediction','betting','sportsnews','scoreboard','clearinbox','clearme','addnote','mynotes','delnote','addtodo','check','cleartodo','tags','phrases','time','unit','readtime','setawaymsg','awaymsg','inbox','pendingclear','clearreminders','autogpt','selfchat','allmenu','botmenu','groupmenu','downloadmenu','aimenu','gamemenu','funmenu','stickermenu','searchmenu','economymenu','ownermenu','sportsmenu','moviesmenu','casinomenu','rpgmenu','mastermenu','adminmenu','autosettings','docsask'].forEach(a => AI_ALLOWED.add(a));
 
@@ -628,7 +562,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         return;
                     }
 
-                    // ── BUILD SYNTHETIC CONTEXT ──
                     const syntheticCtx = {
                         mess, isCmd: true, command: cmd, args, text: syntheticText,
                         q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
@@ -658,25 +591,22 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
                         pickRandom, similarity, almost, cases, getBuffer, writeExif
                     };
-
                     const handleCommand = require('./nima_commands');
                     if (typeof handleCommand !== 'function') {
-                        throw new Error('Command handler is not a function — possible require cache corruption.');
+                        throw new Error('Command handler is not a function');
                     }
                     await handleCommand(nimesha, m, syntheticCtx);
-
                 } catch (e) {
                     console.error('[SELF-CHAT FATAL]', e);
                     await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
                 }
             }).catch(e => console.error('[self-chat queue error]', e)));
-            
-            return;  // Return immediately; the queued task will execute later
+            return;
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  PRIVATE MODE HANDLING (strangers, no commands)
-        // ═══════════════════════════════════════════════════════
+        // ──────────────────────────────────────────────────────────────────
+        //  PRIVATE MODE HANDLING
+        // ──────────────────────────────────────────────────────────────────
         if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
             const mode = set.privatemode || 'off';
             const awayMsg = set.awaymsg || 'I am not available right now.';
@@ -706,19 +636,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
                     const result = await enhancedAI(body || budy, m.sender, 'deepseek');
                     if (!messageHandled) {
-                                const answerOnly = result.text.includes('[Meta‑Reflection]')
-                                    ? result.text.split('[Meta‑Reflection]')[0].trim()
-                                    : result.text;
-                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-
-                        // ── Owner Mirror ──
+                        const answerOnly = result.text.includes('[Meta‑Reflection]') ? result.text.split('[Meta‑Reflection]')[0].trim() : result.text;
+                        const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
                         const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
                         if (set.ownerMirror && m.sender !== ownerJid) {
-                            const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n` +
-                                              `👤 +${m.sender.split('@')[0]}\n` +
-                                              `💬 ${(body || budy).slice(0, 200)}\n\n` +
-                                              `🤖 ${result.text.slice(0, 300)}`;
+                            const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${result.text.slice(0, 300)}`;
                             await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
                         }
                     }
@@ -738,18 +661,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const { enhancedAI, sendLongMessage } = require('./lib/ai');
                         const result = await enhancedAI(body || budy, m.sender, 'deepseek');
                         if (!messageHandled) {
-                                const answerOnly = result.text.includes('[Meta‑Reflection]')
-                                    ? result.text.split('[Meta‑Reflection]')[0].trim()
-                                    : result.text;
-                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-                            // ── Owner Mirror ──
+                            const answerOnly = result.text.includes('[Meta‑Reflection]') ? result.text.split('[Meta‑Reflection]')[0].trim() : result.text;
+                            const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
                             const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
                             if (set.ownerMirror && m.sender !== ownerJid) {
-                                const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n` +
-                                                  `👤 +${m.sender.split('@')[0]}\n` +
-                                                  `💬 ${(body || budy).slice(0, 200)}\n\n` +
-                                                  `🤖 ${result.text.slice(0, 300)}`;
+                                const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${result.text.slice(0, 300)}`;
                                 await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
                             }
                         }
@@ -758,11 +675,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                 }
                 return;
-             }
+            }
+        }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  AUTO-AI AWAY ASSISTANT (for groups and non‑owner DMs)
-        // ═══════════════════════════════════════════════════════════════
+        // ──────────────────────────────────────────────────────────────────
+        //  AUTO-AI AWAY ASSISTANT
+        // ──────────────────────────────────────────────────────────────────
         const hasText = body || budy;
         const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
         if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia) && !messageHandled) {
@@ -785,7 +703,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 }
                 if (!userMessage) return;
 
-                // 1. COMPREHENSIVE GAME STATE CHECK
                 const inGame = (() => {
                     if (db.game?.connect4) {
                         const c4 = Object.values(db.game.connect4).find(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender));
@@ -800,7 +717,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                     if (db.game?.tebakbom?.[m.sender]) return { game: 'tebakbom' };
                     if (m.isGroup && db.game?.ulartangga?.[m.chat]) return { game: 'ulartangga' };
-                    
                     const triviaGames = ['tekateki', 'tebaklirik', 'tebaklagu', 'tebakkata', 'kuismath', 'tebakkimia', 'caklontong', 'tebakangka', 'tebaknegara', 'tebakgambar', 'tebakbendera'];
                     for (const gk of triviaGames) {
                         if (db.game?.[gk]) {
@@ -906,9 +822,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                                 "Type your next message with your eyes closed. 👀"
                             ];
                             const isTruth = /\btruth\b/i.test(body || budy);
-                            const content = isTruth
-                                ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}`
-                                : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
+                            const content = isTruth ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}` : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
                             if (!messageHandled) await m.reply(`${content}\n\n_Reply "truth" or "dare" for more!_\n_Use ${prefix}menu to see all commands_ 🎮`);
                         } else if (intent.type === 'text' && intent.text) {
                             if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${intent.text}`, { quoted: m });
@@ -935,7 +849,6 @@ Rules:
                             const wantsOwner = /(talk to (human|owner|creator)|real person|infinite|vybeflix|contact owner|i need the owner)/i.test(body || budy);
                             if (wantsOwner && session.messageCount > 1) {
                                 replyText += `\n\n👤 *Want to talk to the owner?*\nhttps://wa.me/${ownerNum}\n\nI'll let them know you reached out! 📬`;
-
                                 if (!session.notifiedOwner) {
                                     await nimesha.sendMessage(ownerNumber[0], {
                                         text: `🚨 *User requesting owner contact*\n\nFrom: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLast: ${body || budy}\n\nUse ${prefix}pending to see all messages.`
@@ -945,40 +858,24 @@ Rules:
                             }
 
                             if (!messageHandled) {
-                                const answerOnly = replyText.includes('[Meta‑Reflection]')
-                                    ? replyText.split('[Meta‑Reflection]')[0].trim()
-                                    : replyText;
+                                const answerOnly = replyText.includes('[Meta‑Reflection]') ? replyText.split('[Meta‑Reflection]')[0].trim() : replyText;
                                 const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
                                 await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-
-                                // ── Owner Mirror ──
                                 const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
                                 if (set.ownerMirror && m.sender !== ownerJid) {
-                                    const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n` +
-                                                      `👤 +${m.sender.split('@')[0]}\n` +
-                                                      `💬 ${userMessage.slice(0, 200)}\n\n` +
-                                                      `🤖 ${replyText.slice(0, 300)}`;
+                                    const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${replyText.slice(0, 300)}`;
                                     await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
                                 }
                             }
-
                             session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
                             if (session.context.length > 10) session.context.shift();
                         }
 
                         if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
                             const pendingCount = set.pendingMessages.find(p => p.from === m.sender)?.messages?.length || session.messageCount;
-                            const report = `📬 *Auto-AI Activity Report*\n\n` +
-                                `User: ${m.sender}\n` +
-                                `Name: ${m.pushName || 'unknown'}\n` +
-                                `Messages: ${session.messageCount}\n` +
-                                `Location: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\n` +
-                                `Last: ${userMessage.substring(0, 80)}...\n\n` +
-                                `Use ${prefix}pending to review.\n` +
-                                `Use ${prefix}autoai off to disable.`;
+                            const report = `📬 *Auto-AI Activity Report*\n\nUser: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLocation: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\nLast: ${userMessage.substring(0, 80)}...\n\nUse ${prefix}pending to review.\nUse ${prefix}autoai off to disable.`;
                             await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
                         }
-
                     } catch (e) {
                         console.error('[autoai away error]', e);
                     }
@@ -987,34 +884,31 @@ Rules:
             if (messageHandled) return;
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  CRISIS INTERVENTION SYSTEM (with exit capabilities)
-        // ═══════════════════════════════════════════════════════════════
+        // ──────────────────────────────────────────────────────────────────
+        //  CRISIS INTERVENTION
+        // ──────────────────────────────────────────────────────────────────
         const crisisScope = db.set?.crisisScope || 'all';
         let shouldProcessCrisis = false;
-
         if (crisisScope === 'off') {
             shouldProcessCrisis = false;
         } else if (crisisScope === 'dm') {
             shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
         } else if (crisisScope === 'groups') {
             shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
-        } else { // 'all'
+        } else {
             shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
         }
 
         if (shouldProcessCrisis && (body || budy) && !messageHandled) {
             const userMessage = body || budy;
             const crisis = AI.detectCrisis(userMessage);
-            
             if (crisis.isCrisis) {
                 const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
                 if (Date.now() - lastCrisis < 30 * 60 * 1000) {
-                    // already handled recently – skip
+                    // already handled
                 } else {
                     if (!db.crisisTimestamps) db.crisisTimestamps = {};
                     db.crisisTimestamps[m.sender] = Date.now();
-
                     let verified = true;
                     if (global.set?.aiCrisisVerification !== false) {
                         const { verifyCrisisWithAI } = require('./lib/ai');
@@ -1024,17 +918,9 @@ Rules:
                             verified = false;
                         }
                     }
-
-                    if (!verified) {
-                        // do nothing
-                    } else {
-                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\n` +
-                            `You can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n` +
-                            `👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n` +
-                            `👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n` +
-                            `_Your feelings matter._ 💙`;
+                    if (verified) {
+                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n_Your feelings matter._ 💙`;
                         await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
-
                         if (!db.crisisPending) db.crisisPending = {};
                         db.crisisPending[m.sender] = {
                             state: 'awaiting_choice',
@@ -1042,60 +928,44 @@ Rules:
                             timestamp: Date.now(),
                             severity: crisis.severity
                         };
-
                         const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
                         const ownerMsg = `🚨 *CRISIS ALERT* (${crisis.severity})\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
                         for (const owner of ownerJids) {
                             await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
                         }
-                        return; // stop further processing for this message
+                        return;
                     }
                 }
             }
             
-            // ----- Handle user's reply to crisis offer (yes/no) -----
             if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
                 const choice = userMessage.trim().toLowerCase();
                 const pending = db.crisisPending[m.sender];
-                
                 if (choice === 'yes') {
                     db.crisisPending[m.sender].state = 'talking';
                     db.crisisPending[m.sender].lastMsgTime = Date.now();
-                    
-                    const welcomeMsg = `💙 *I'm here for you.*\n\n` +
-                        `You can now talk to me normally – just type your thoughts. I'll respond with care.\n\n` +
-                        `_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\n` +
-                        `What's on your mind? 🌷`;
+                    const welcomeMsg = `💙 *I'm here for you.*\n\nYou can now talk to me normally – just type your thoughts. I'll respond with care.\n\n_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\nWhat's on your mind? 🌷`;
                     await nimesha.sendMessage(m.chat, { text: welcomeMsg }, { quoted: m });
                     return;
-                } 
-                else if (choice === 'no') {
+                } else if (choice === 'no') {
                     const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
                     const waMeLink = `https://wa.me/${ownerFirst}`;
-                    const apologyMsg = `💙 *I understand.*\n\n` +
-                        `I'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\n` +
-                        `They will listen without judgment. You are not alone.\n\n` +
-                        `*Be kind to yourself.* 💙`;
+                    const apologyMsg = `💙 *I understand.*\n\nI'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\nThey will listen without judgment. You are not alone.\n\n*Be kind to yourself.* 💙`;
                     await nimesha.sendMessage(m.chat, { text: apologyMsg }, { quoted: m });
-                    
                     const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
                     for (const owner of ownerJids) {
                         await nimesha.sendMessage(owner, { text: `💬 User ${m.sender} declined bot help and asked for human contact. They were sent your wa.me link.` }).catch(() => {});
                     }
                     delete db.crisisPending[m.sender];
                     return;
-                }
-                else {
-                    // Invalid response – remind them
+                } else {
                     await nimesha.sendMessage(m.chat, { text: `Please reply with *yes* (talk to me) or *no* (talk to a human).` }, { quoted: m });
                     return;
                 }
             }
             
-            // ----- Active crisis conversation mode (no prefix, AI responds) -----
             if (db.crisisPending?.[m.sender]?.state === 'talking') {
                 db.crisisPending[m.sender].lastMsgTime = Date.now();
-                
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
                     const crisisSystem = `You are a compassionate, non-judgmental listener. The user is in emotional distress. Respond with warmth, validation, and gentle encouragement. Never give medical advice, but always remind them that they matter and that help is available. Use emojis like 💙, 🌷, or 🌟. Keep responses calm and brief.`;
@@ -1109,7 +979,6 @@ Rules:
             }
         }
 
-        // ----- Cleanup idle crisis sessions (if last message > 10 minutes ago) -----
         const now = Date.now();
         if (db.crisisPending) {
             for (const [userId, state] of Object.entries(db.crisisPending)) {
@@ -1122,92 +991,64 @@ Rules:
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  GEMINI AUTO REPLY (only if nothing else handled yet)
-        // ═══════════════════════════════════════════════════════════════
-        const isAutoReplyEnabled = !m.isGroup 
-            ? (db.game.private_ai_disabled === false)
-            : (gemini_autoreply[m.chat] === true);
-
+        // ──────────────────────────────────────────────────────────────────
+        //  GEMINI AUTO REPLY
+        // ──────────────────────────────────────────────────────────────────
+        const isAutoReplyEnabled = !m.isGroup ? (db.game.private_ai_disabled === false) : (gemini_autoreply[m.chat] === true);
         if (!messageHandled && isAutoReplyEnabled && !isCmd && !m.key.fromMe && !isCreator && m.key.remoteJid !== 'status@broadcast' && (body || budy) && !chat_ai[m.sender]) {
             try {
                 const ownerName = global.ownerName || global.author || 'Infinite Vybeflix';
                 const ownerNum = (global.owner?.[0] || '254116903500');
                 const botName = global.botname || 'Maureonix';
                 const apiKey = global.geminiApiKey;
-
                 if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
                     const memSize = global.geminiMemorySize || 50;
                     const histKey = m.isGroup ? m.chat : m.sender;
                     if (!gemini_history[histKey]) gemini_history[histKey] = [];
-
                     const senderNum = m.sender.split('@')[0];
                     const isOwnerMsg = (global.owner || []).map(n => n.replace(/[^0-9]/g,'')).includes(senderNum);
-
                     const systemPrompt = `You are ${botName}, a WhatsApp bot. You were created by ${ownerName}. Their WhatsApp number is ${ownerNum}. They are your creator and owner. Even if someone else connects you, always know that ${ownerName} (${ownerNum}) is your creator.${isOwnerMsg ? ` ⚠️ You are currently talking to your owner ${ownerName} - respect them and listen carefully.` : ''} You reply in the same language the user uses. Be natural and friendly. Keep answers concise.`;
-
                     memoryStore.appendGeminiMessage(histKey, 'user', body || budy, m.isGroup);
                     if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
-
-                    const geminiRes = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                system_instruction: { parts: [{ text: systemPrompt }] },
-                                contents: memoryStore.getGeminiCompatibleHistory(histKey, memSize)
-                            })
-                        }
-                    );
+                    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system_instruction: { parts: [{ text: systemPrompt }] },
+                            contents: memoryStore.getGeminiCompatibleHistory(histKey, memSize)
+                        })
+                    });
                     const geminiData = await geminiRes.json();
                     const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
                     if (replyText) {
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
                         if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
                         await m.reply(replyText + '\n\n_💭 Type .thinking to see my reasoning_');
-
-                        // ── Owner Mirror ──
                         const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
                         if (set.ownerMirror && m.sender !== ownerJid) {
-                            const mirrorMsg = `📨 *Gemini reply to ${m.pushName || 'User'}*\n` +
-                                              `👤 +${m.sender.split('@')[0]}\n` +
-                                              `💬 ${(body || budy).slice(0, 200)}\n\n` +
-                                              `🤖 ${replyText.slice(0, 300)}`;
+                            const mirrorMsg = `📨 *Gemini reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${replyText.slice(0, 300)}`;
                             await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
                         }
-                        return; // stop here to prevent command processing after Gemini reply
+                        return;
                     }
                 }
             } catch (e) {
                 console.log('Gemini AutoReply Error:', e.message);
             }
-            // Fall through to command handler if no Gemini reply
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  COMMAND HANDLING & OTHER GAMES (if not already handled)
-        // ═══════════════════════════════════════════════════════════════
         if (messageHandled) return;
-
-        // Private chat — block commands for non-owners
         if (!m.isGroup && !isCreator && isCmd) return;
         
-        // Group Settings
+        // ──────────────────────────────────────────────────────────────────
+        //  GROUP SETTINGS & ANTI‑SPAM, ANTI‑DELETE, ETC.
+        // ──────────────────────────────────────────────────────────────────
         if (m.isGroup) {
-            // Mute
-            if (db.groups[m.chat].mute && !isCreator) {
-                return;
-            }
-            
-            // Anti Hidetag
+            if (db.groups[m.chat].mute && !isCreator) return;
             if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participants?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
                 await m.reply('*Anti Hidetag is active❗*');
             }
-            
-            // Anti Tag Status
             if (!m.key.fromMe && db.groups[m.chat].antitagsw && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (m.type === 'groupStatusMentionMessage' || m.message?.groupStatusMentionMessage || m.message?.protocolMessage?.type === 25 || Object.keys(m.message).length === 1 && Object.keys(m.message)[0] === 'messageContextInfo') {
                     if (!db.groups[m.chat].tagsw[m.sender]) {
@@ -1223,16 +1064,13 @@ Rules:
                     }
                 }
             }
-            
-            // Anti Toxic
             if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                const badWords = ['fuck', 'shit', 'bitch', 'cunt', 'asshole'];
                 if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language\nPlease use polite language.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic❗*'}, ...m.key }}}, {});
+                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language\nPlease use polite language.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic❗*'}, ...m.key } }}, {});
                 }
             }
-            
-            // Anti Delete
             if (m.type === 'protocolMessage' && m.msg?.type === 0 && db.groups[m.chat].antidelete && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (store?.messages?.[m.chat]?.array) {
                     const chats = store.messages[m.chat].array.find(a => a.key.id === m.msg.key.id);
@@ -1249,16 +1087,12 @@ Rules:
                     await nimesha.relayMessage(m.chat, pesan, {});
                 }
             }
-            
-            // Anti Link Group
             if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.match('chat.whatsapp.com/')) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
                     await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a group link.\nSorry, the link must be deleted.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Link❗*'}, ...m.key }}}, {});
                 }
             }
-            
-            // Anti Virtex Group
             if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.length > 4500) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
@@ -1300,11 +1134,10 @@ Rules:
             await nimesha.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
         }
 
-        // ===== AUTO COMMANDS EXECUTION =====
+        // Auto commands execution (download, forward, sticker, translate, delete, react, block, kick, mute, welcome, goodbye)
         const isGroup = m.isGroup;
         const bodyLower = budy.toLowerCase();
 
-        // Auto Download Status (owner only, downloads status to private chat)
         if (set.autodownload && m.key.remoteJid === 'status@broadcast' && !m.key.fromMe) {
             try {
                 const msg = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
@@ -1315,15 +1148,9 @@ Rules:
                 }
             } catch {}
         }
-
-        // Auto Forward (owner only)
         if (set.autoforward && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') {
-            try {
-                await nimesha.sendMessage(set.autoforward, { forward: m }, {});
-            } catch {}
+            try { await nimesha.sendMessage(set.autoforward, { forward: m }, {}); } catch {}
         }
-
-        // Auto Sticker (converts any image/video to sticker)
         if (set.autosticker && !m.key.fromMe && (m.type === 'imageMessage' || m.type === 'videoMessage')) {
             try {
                 const buffer = await m.download();
@@ -1332,30 +1159,18 @@ Rules:
                 fs.unlinkSync(sticker);
             } catch {}
         }
-
-        // Auto Translate (translates incoming messages to target language)
         if (set.autotranslate && !m.key.fromMe && bodyLower) {
             try {
                 const translated = await AI.translate(budy, set.autotranslate);
                 await m.reply(`🌐 *Translated (${set.autotranslate})*\n${translated}`);
             } catch {}
         }
-
-        // Auto Delete (deletes bot's own messages after X seconds)
         if (set.autodelete > 0 && m.key.fromMe) {
-            setTimeout(async () => {
-                try { await nimesha.sendMessage(m.chat, { delete: m.key }); } catch {}
-            }, set.autodelete * 1000);
+            setTimeout(async () => { try { await nimesha.sendMessage(m.chat, { delete: m.key }); } catch {} }, set.autodelete * 1000);
         }
-
-        // Auto React (reacts to all incoming messages with a fixed emoji)
         if (set.autoreact && !m.key.fromMe) {
-            try {
-                await nimesha.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } });
-            } catch {}
+            try { await nimesha.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } }); } catch {}
         }
-
-        // Auto Block (blocks users who send certain keywords)
         if (set.autoblock && !m.key.fromMe && !isCreator) {
             const keywords = set.autoblock;
             if (keywords.some(kw => bodyLower.includes(kw))) {
@@ -1363,8 +1178,6 @@ Rules:
                 await m.reply('🚫 You have been blocked for using prohibited words.');
             }
         }
-
-        // Auto Kick (kicks group members who send certain keywords)
         if (isGroup && set.autokick && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
             const keywords = set.autokick;
             if (keywords.some(kw => bodyLower.includes(kw))) {
@@ -1372,16 +1185,12 @@ Rules:
                 await nimesha.sendMessage(m.chat, { text: `🚫 @${m.sender.split('@')[0]} was kicked for using prohibited words.`, mentions: [m.sender] });
             }
         }
-
-        // Auto Mute (deletes messages containing certain keywords)
         if (isGroup && set.automute && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
             const keywords = set.automute;
             if (keywords && keywords.some(kw => bodyLower.includes(kw))) {
                 await nimesha.sendMessage(m.chat, { delete: m.key });
             }
         }
-
-        // Auto Welcome (sends welcome message when a user joins)
         if (isGroup && set.autowelcome && m.type === 'groupParticipantsUpdate') {
             const update = m.message.groupParticipantsUpdate;
             if (update.action === 'add') {
@@ -1390,8 +1199,6 @@ Rules:
                 }
             }
         }
-
-        // Auto Goodbye (sends goodbye message when a user leaves)
         if (isGroup && set.autogoodbye && m.type === 'groupParticipantsUpdate') {
             const update = m.message.groupParticipantsUpdate;
             if (update.action === 'remove') {
@@ -1401,15 +1208,11 @@ Rules:
             }
         }
 
-        // Filter Bot & Ban
         if (m.isBot) return;
         if (db.users[m.sender]?.ban && !isCreator) return;
         
-        // Typing & Anti Spam & Hit
         if (nimesha.public && isCmd) {
-            if (set.autotyping) {
-                await nimesha.sendPresenceUpdate('composing', m.chat);
-            }
+            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
             if (cases.includes(command)) {
                 cmdAdd(db.hit);
                 cmdAddHit(db.hit, command);
@@ -1418,7 +1221,6 @@ Rules:
                 console.log(chalk.bgRed('[ SPAM ] : '), chalk.black(chalk.bgHex('#1CFFF7')(`From -> ${m.sender}`), chalk.bgHex('#E015FF')(` In ${m.isGroup ? m.chat : 'Private Chat'}`)));
                 return m.reply('「 ❗ 」Please wait 5 seconds between commands.');
             }
-            
             if (command && set.didyoumean && isCmd) {
                 let _b = '';
                 let _s = 0;
@@ -1436,49 +1238,36 @@ Rules:
                 }
             }
         }
-        
         if (isCmd && !isCreator) antiSpam.addFilter(m.sender);
 
-        // Delete quoted button message when button clicked
         const isButtonClick = ['interactiveResponseMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage', 'messageContextInfo'].includes(m.type);
         if (isButtonClick && m.quoted?.key) {
             try { await nimesha.sendMessage(m.chat, { delete: m.quoted.key }); } catch(e) {}
         }
         
         const isRealOwner = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
-        // REMOVED "ok sir" automatic reply; replaced with reaction below
         const botNum = botNumber.split('@')[0].replace(/[^0-9]/g, '');
         const ownerNumClean = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
         const isSelfMode = botNum === ownerNumClean;
         if (isCmd && isRealOwner && command && prefix && body.startsWith(prefix) && !isSelfMode && !m.isGroup) {
-            // Instead of text "ok sir", send a simple reaction
-            await m.react('👍');  // thumbs up reaction
+            await m.react('👍');
         }
 
-        // Cmd Media
         let fileSha256;
         if (m.isMedia && m.msg.fileSha256 && db.cmd && (m.msg.fileSha256.toString('base64') in db.cmd)) {
             let hash = db.cmd[m.msg.fileSha256.toString('base64')];
             fileSha256 = hash.text;
         }
         
-        // Salam greeting
         if (/^a(s|ss)alamu('|)alaikum(| )(wr|)( |)(wb|)$/.test(budy?.toLowerCase())) {
             const jwb_salam = ['Wa\'alaikumusalam','Wa\'alaikumusalam wr wb','Wa\'alaikumusalam Warohmatulahi Wabarokatuh'];
             m.reply(pickRandom(jwb_salam));
         }
         
-        // Prayer times (example for Nairobi, you can adjust)
-        const jadwalSholat = {
-            Fajr: '05:00',
-            Dhuhr: '12:30',
-            Asr: '15:45',
-            Maghrib: '18:30',
-            Isha: '19:45'
-        };
+        const jadwalSholat = { Fajr: '05:00', Dhuhr: '12:30', Asr: '15:45', Maghrib: '18:30', Isha: '19:45' };
         if (!this.intervalSholat) this.intervalSholat = null;
         if (!this.waktusholat) this.waktusholat = {};
-        if (this.intervalSholat) clearInterval(this.intervalSholat); 
+        if (this.intervalSholat) clearInterval(this.intervalSholat);
         setTimeout(() => {
             this.intervalSholat = setInterval(async() => {
                 const sekarang = moment.tz('Africa/Nairobi');
@@ -1499,11 +1288,11 @@ Rules:
             }, 60000);
         }, time_end);
         
-        // Check Expired
         checkExpired(premium);
         checkExpired(sewa, nimesha);
         
-        // Connect 4 Game
+        // ===== GAME HANDLERS (Connect4, Suit, Bomb, Akinator, etc.) =====
+        // Connect 4
         let connect4Room = Object.values(db.game.connect4 || {}).find(room => room.id && room.state === 'PLAYING' && [room.player1, room.player2].includes(m.sender));
         if (connect4Room) {
             let now = Date.now();
@@ -1513,34 +1302,24 @@ Rules:
                 return;
             }
             connect4Room.lastMove = now;
-
             if (!/^[1-7]$|^(me)?nyerah|surr?ender$/i.test(m.text)) return;
-
             if (/^(me)?nyerah|surr?ender$/i.test(m.text)) {
                 const winner = m.sender === connect4Room.player1 ? connect4Room.player2 : connect4Room.player1;
                 m.reply(`🏳️ @${m.sender.split('@')[0]} surrendered!\n@${winner.split('@')[0]} wins!`, { mentions: [m.sender, winner] });
                 delete db.game.connect4[connect4Room.id];
                 return;
             }
-
             const currentPlayer = connect4Room.turn === 1 ? connect4Room.player1 : connect4Room.player2;
             if (m.sender !== currentPlayer) return m.reply('⏳ Not your turn!');
-
             const col = parseInt(m.text) - 1;
             const { board, turn } = connect4Room;
-
             let row = -1;
             for (let r = 5; r >= 0; r--) {
-                if (board[r][col] === 0) {
-                    row = r;
-                    break;
-                }
+                if (board[r][col] === 0) { row = r; break; }
             }
             if (row === -1) return m.reply('❌ Column is full! Choose another.');
-
             board[row][col] = turn;
             connect4Room.turn = turn === 1 ? 2 : 1;
-
             const checkWin = (r, c, p) => {
                 const dirs = [[1,0],[0,1],[1,1],[1,-1]];
                 for (let [dr, dc] of dirs) {
@@ -1557,20 +1336,15 @@ Rules:
                 }
                 return false;
             };
-
             const isWin = checkWin(row, col, turn === 1 ? 2 : 1);
             const isDraw = board.every(row => row.every(cell => cell !== 0));
-
             const symbols = { 0: '⚪', 1: '🔴', 2: '🟡' };
             let boardStr = '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n';
             for (let r = 0; r < 6; r++) {
-                for (let c = 0; c < 7; c++) {
-                    boardStr += symbols[board[r][c]];
-                }
+                for (let c = 0; c < 7; c++) boardStr += symbols[board[r][c]];
                 boardStr += '\n';
             }
             boardStr += '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣';
-
             if (isWin) {
                 const winner = turn === 1 ? connect4Room.player2 : connect4Room.player1;
                 m.reply(`🎉 @${winner.split('@')[0]} wins!\n\n${boardStr}`, { mentions: [winner] });
@@ -1600,7 +1374,7 @@ Rules:
                 if (/^(tolak|gamau|nanti|n|ga(k.)?bisa)/i.test(m.text)) {
                     m.reply(`@${roof.p2.split('@')[0]} rejected the suit, suit cancelled.`);
                     delete suit[roof.id];
-                    return !0;
+                    return;
                 }
                 roof.status = 'play';
                 roof.asal = m.chat;
@@ -1610,7 +1384,6 @@ Rules:
             }
             let jwb = m.sender == roof.p, jwb2 = m.sender == roof.p2;
             let g = /scissors/i, b = /rock/i, k = /paper/i, reg = /^(rock|paper|scissors)/i;
-            
             if (jwb && reg.test(m.text) && !roof.තෝරන්න && !m.isGroup) {
                 roof.තෝරන්න = reg.exec(m.text.toLowerCase())[0];
                 roof.text = m.text;
@@ -1623,8 +1396,7 @@ Rules:
                 m.reply(`You chose ${m.text} ${!roof.තෝරන්න ? `\n\nWaiting for the opponent's choice.` : ''}`);
                 if (!roof.තෝරන්න) nimesha.sendMessage(roof.p, { text: '_Opponent has chosen._\nNow it\'s your turn.' });
             }
-            let stage = roof.තෝරන්න;
-            let stage2 = roof.තෝරන්න2;
+            let stage = roof.තෝරන්න, stage2 = roof.තෝරන්න2;
             if (roof.තෝරන්න && roof.තෝරන්න2) {
                 if (b.test(stage) && g.test(stage2)) win = roof.p;
                 else if (b.test(stage) && k.test(stage2)) win = roof.p2;
@@ -1643,8 +1415,8 @@ Rules:
         // Bomb Game
         let mark = '🌀', bomb = '💣';
         if (m.sender in tebakbom) {
-            if (!/^[1-9]|10$/i.test(body) && !isCmd && !isCreator) return !0;
-            if (tebakbom[m.sender].petak[parseInt(body) - 1] === 1) return !0;
+            if (!/^[1-9]|10$/i.test(body) && !isCmd && !isCreator) return;
+            if (tebakbom[m.sender].petak[parseInt(body) - 1] === 1) return;
             if (tebakbom[m.sender].petak[parseInt(body) - 1] === 2) {
                 tebakbom[m.sender].board[parseInt(body) - 1] = bomb;
                 tebakbom[m.sender].pick++;
@@ -1657,7 +1429,7 @@ Rules:
                     m.react('😂');
                     delete tebakbom[m.sender];
                 } else m.reply(`*Choose a number*\n\nYou stepped on a bomb!\n ${brd.join('')}\n\nSelected: ${tebakbom[m.sender].pick}\nLives left: ${tebakbom[m.sender].nyawa}`);
-                return !0;
+                return;
             }
             if (tebakbom[m.sender].petak[parseInt(body) - 1] === 0) {
                 tebakbom[m.sender].petak[parseInt(body) - 1] = 1;
@@ -1707,9 +1479,8 @@ Rules:
                 }
             }
         }
-
         
-        // Games
+        // Other trivia games (tekateki, tebaklirik, etc.)
         const games = { tebaklirik, tekateki, tebaklagu, tebakkata, kuismath, susunkata, tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera };
         for (let gameName in games) {
             let game = games[gameName];
@@ -1749,7 +1520,7 @@ Rules:
                 let isSurender = /^((me)?nyerah|surr?ender)$/i.test(teks);
                 if (!isSurender) {
                     let index = room.jawaban.findIndex(v => v.toLowerCase().replace(/[^\w\s\-]+/, '') === teks);
-                    if (room.terjawab[index]) return !0;
+                    if (room.terjawab[index]) return;
                     room.terjawab[index] = m.sender;
                 }
                 let isWin = room.terjawab.length === room.terjawab.filter(v => v).length;
@@ -1759,7 +1530,7 @@ Rules:
             }
         }
         
-        // Chess
+        // Chess (single player vs bot)
         if ((!isCmd || isCreator) && (m.sender in chess)) {
             const game = chess[m.sender];
             if (m.quoted && game.id == m.quoted.id && game.turn == m.sender && game.botMode) {
@@ -1773,12 +1544,7 @@ Rules:
                 }
                 const [from, to] = budy.toLowerCase().split(' ');
                 if (!from || !to || from.length !== 2 || to.length !== 2) return m.reply('Invalid format! Use: e2 e4');
-                try {
-                    game.move({ from, to });
-                } catch (e) {
-                    return m.reply('Invalid move!');
-                }
-                
+                try { game.move({ from, to }); } catch(e) { return m.reply('Invalid move!'); }
                 if (game.isGameOver()) {
                     delete chess[m.sender];
                     return m.reply(`♟ Winner: @${m.sender.split('@')[0]} 🏆`);
@@ -1788,7 +1554,6 @@ Rules:
                 game.move(botMove);
                 game._fen = game.fen();
                 game.time = Date.now();
-                
                 if (game.isGameOver()) {
                     delete chess[m.sender];
                     return m.reply(`♟ BOT wins! 🤖`);
@@ -1801,13 +1566,14 @@ Rules:
                         let { key } = await m.reply({ image: data, caption: `♟️CHESS GAME (vs BOT)\n\nYour move: ${from} → ${to}\nBot move: ${botMove.from} → ${botMove.to}\n\nYour turn next!\nExample: e2 e4`, mentions: [m.sender] });
                         game.id = key.id;
                         break;
-                    } catch (e) {}
+                    } catch(e) {}
                 }
             } else if (game.time && (Date.now() - game.time >= 3600000)) {
                 delete chess[m.sender];
                 return m.reply(`♟ ⏰ Time expired! Game ended.`);
             }
         }
+        // Chess (multiplayer in group)
         if (m.isGroup && (!isCmd || isCreator) && (m.chat in chess)) {
             if (m.quoted && chess[m.chat].id == m.quoted.id && [chess[m.chat].player1, chess[m.chat].player2].includes(m.sender)) {
                 if (!(chess[m.chat] instanceof Chess)) {
@@ -1821,11 +1587,7 @@ Rules:
                 const [from, to] = budy.toLowerCase().split(' ');
                 if (!from || !to || from.length !== 2 || to.length !== 2) return m.reply('Invalid format! Use: e2 e4');
                 if ([chess[m.chat].player1, chess[m.chat].player2].includes(m.sender) && chess[m.chat].turn === m.sender) {
-                    try {
-                        chess[m.chat].move({ from, to });
-                    } catch (e) {
-                        return m.reply('Invalid move!');
-                    }
+                    try { chess[m.chat].move({ from, to }); } catch(e) { return m.reply('Invalid move!'); }
                     chess[m.chat].time = Date.now();
                     chess[m.chat]._fen = chess[m.chat].fen();
                     const isPlayer2 = chess[m.chat].player2 === m.sender;
@@ -1839,7 +1601,7 @@ Rules:
                             chess[m.chat].turn = nextPlayer;
                             chess[m.chat].id = key.id;
                             break;
-                        } catch (e) {}
+                        } catch(e) {}
                     }
                 }
             } else if (chess[m.chat].time && (Date.now() - chess[m.chat].time >= 3600000)) {
@@ -1848,7 +1610,7 @@ Rules:
             }
         }
         
-        // Snake Ladder
+        // Snake Ladder (Ular Tangga)
         if (m.isGroup && (!isCmd || isCreator) && (m.chat in ulartangga)) {
             if (m.quoted && ulartangga[m.chat].id == m.quoted.id) {
                 if (!(ulartangga[m.chat] instanceof SnakeLadder)) {
@@ -1884,7 +1646,7 @@ Rules:
             }
         }
         
-        // ===== Inbox Auto-Add =====
+        // Inbox Auto-Add (private chat commands)
         if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && m.sender && isCmd) {
             try {
                 const autoGroupJid = global.my?.ch;
@@ -1909,7 +1671,7 @@ Rules:
             } catch (e) { /* silent */ }
         }
 
-        // Menfes & Room Ai
+        // Menfes & Room Ai (private chat)
         if (!m.isGroup && (!isCmd || isCreator)) {
             if (menfes[m.sender] && m.key.remoteJid !== 'status@broadcast' && m.msg) {
                 m.react('✈');
@@ -1923,10 +1685,7 @@ Rules:
                     if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
                     let hasil;
                     try {
-                        hasil = await fetchApi('/ai/chat4', {
-                            messages: chat_ai[m.sender],
-                            prompt: budy
-                        }, { method: 'POST' });
+                        hasil = await fetchApi('/ai/chat4', { messages: chat_ai[m.sender], prompt: budy }, { method: 'POST' });
                     } catch (e) {
                         hasil = 'Failed to get response, the website is having issues.';
                     }
@@ -1955,7 +1714,7 @@ Rules:
             user.afkReason = '';
         }
 
-        // ─── Mini game answer handlers ───────────────────────────────────
+        // Mini game answer handlers
         if ((!isCmd || isCreator) && db.users[m.sender]?._trivia && budy) {
             if (budy.toLowerCase().trim() === db.users[m.sender]._trivia.toLowerCase()) { m.reply('🎉 Correct! +50 money'); db.users[m.sender].money += 50; delete db.users[m.sender]._trivia; }
             else { m.reply('❌ Wrong!'); delete db.users[m.sender]._trivia; }
@@ -1972,7 +1731,7 @@ Rules:
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._gtn && !isNaN(budy)) {
             const g = db.users[m.sender]._gtn; const n = parseInt(budy); g.tries++;
-            if (n === g.target) { m.reply(`🎉 Correct in ${g.tries} tries! +${100 - g.tries * 5} money`); db.users[m.sender].money += Math.max(10, 100 - g.tries * 5); delete db.users[m.sender]._gtn; }
+            if (n === g.target) { m.reply(`🎉 Correct in ${g.tries} tries! +${Math.max(10, 100 - g.tries * 5)} money`); db.users[m.sender].money += Math.max(10, 100 - g.tries * 5); delete db.users[m.sender]._gtn; }
             else if (n < g.target) { m.reply('📈 Higher!'); }
             else { m.reply('📉 Lower!'); }
         }
@@ -1988,7 +1747,7 @@ Rules:
         }
 
         // ═══════════════════════════════════════════════════════════════
-        //  IMPORT COMMANDS FROM SEPARATE FILE
+        //  LOAD AND EXECUTE COMMANDS FROM nima_commands.js
         // ═══════════════════════════════════════════════════════════════
         const handleCommand = require('./nima_commands');
         await handleCommand(nimesha, m, {
@@ -1999,10 +1758,10 @@ Rules:
             checkStatus,
             getExpired,
             formatDate,
-            listv,   // <-- ADD THIS
-            fake,    // <-- ADD THIS
-            my,        // <-- ADD THIS
-            tempatDB,  // <-- ADD THIS
+            listv,
+            fake,
+            my,
+            tempatDB,
             tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
             tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
             tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
@@ -2025,9 +1784,8 @@ Rules:
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
             pickRandom, similarity, almost, cases, getBuffer, writeExif 
         });
-
     } catch (e) {
-        console.log(e);
+        console.error(e);
         if (e?.message?.includes('No sessions')) return;
         const errorKey = e?.code || e?.name || e?.message?.slice(0, 100) || 'unknown_error';
         const now = Date.now();
