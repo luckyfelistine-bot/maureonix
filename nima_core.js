@@ -706,7 +706,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
                     const result = await enhancedAI(body || budy, m.sender, 'deepseek');
                     if (!messageHandled) {
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                                const answerOnly = result.text.includes('[Meta‑Reflection]')
+                                    ? result.text.split('[Meta‑Reflection]')[0].trim()
+                                    : result.text;
+                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
 
                         // ── Owner Mirror ──
                         const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
@@ -734,8 +738,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const { enhancedAI, sendLongMessage } = require('./lib/ai');
                         const result = await enhancedAI(body || budy, m.sender, 'deepseek');
                         if (!messageHandled) {
-                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
-
+                                const answerOnly = result.text.includes('[Meta‑Reflection]')
+                                    ? result.text.split('[Meta‑Reflection]')[0].trim()
+                                    : result.text;
+                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
                             // ── Owner Mirror ──
                             const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
                             if (set.ownerMirror && m.sender !== ownerJid) {
@@ -751,25 +758,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                 }
                 return;
-            } else if (mode === 'both') {
-                if (!user._awayNotified) {
-                    await m.reply(awayMsg);
-                    user._awayNotified = true;
-                    await sleep(1000);
-                }
-                if (!messageHandled) {
-                    if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                    try {
-                        const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                        const result = await enhancedAI(body || budy, m.sender, 'deepseek');
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
-                    } catch (e) {
-                        console.error('[privat AI error]', e);
-                    }
-                }
-                return;
-            }
-        }
+             }
 
         // ═══════════════════════════════════════════════════════════════
         //  AUTO-AI AWAY ASSISTANT (for groups and non‑owner DMs)
@@ -955,8 +944,13 @@ Rules:
                                 }
                             }
 
-                    if (!messageHandled) {
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
+                        if (!messageHandled) {
+                            const answerOnly = replyText.includes('[Meta‑Reflection]')
+                                ? replyText.split('[Meta‑Reflection]')[0].trim()
+                                : replyText;
+                            const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
+                        }
 
                         // ── Owner Mirror ──
                         const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
@@ -1175,7 +1169,7 @@ Rules:
                     if (replyText) {
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
                         if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
-                        await m.reply(replyText);
+                        await m.reply(replyText + '\n\n_💭 Type .thinking to see my reasoning_');
 
                         // ── Owner Mirror ──
                         const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
