@@ -944,24 +944,23 @@ Rules:
                                 }
                             }
 
-                        if (!messageHandled) {
-                            const answerOnly = replyText.includes('[Meta‑Reflection]')
-                                ? replyText.split('[Meta‑Reflection]')[0].trim()
-                                : replyText;
-                            const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-                        }
+                            if (!messageHandled) {
+                                const answerOnly = replyText.includes('[Meta‑Reflection]')
+                                    ? replyText.split('[Meta‑Reflection]')[0].trim()
+                                    : replyText;
+                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
+                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
 
-                        // ── Owner Mirror ──
-                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
-                        if (set.ownerMirror && m.sender !== ownerJid) {
-                            const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n` +
-                                              `👤 +${m.sender.split('@')[0]}\n` +
-                                              `💬 ${userMessage.slice(0, 200)}\n\n` +
-                                              `🤖 ${replyText.slice(0, 300)}`;
-                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
-                        }
-                    }
+                                // ── Owner Mirror ──
+                                const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
+                                if (set.ownerMirror && m.sender !== ownerJid) {
+                                    const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n` +
+                                                      `👤 +${m.sender.split('@')[0]}\n` +
+                                                      `💬 ${userMessage.slice(0, 200)}\n\n` +
+                                                      `🤖 ${replyText.slice(0, 300)}`;
+                                    await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                                }
+                            }
 
                             session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
                             if (session.context.length > 10) session.context.shift();
@@ -985,8 +984,7 @@ Rules:
                     }
                 }
             }
-            // Since we are in auto-AI block, we'll let it continue but not return; game handlers may still need to process.
-            // However, we set messageHandled if a reply was sent, so subsequent blocks will be skipped.
+            // guard: stop further processing if we sent a reply
             if (messageHandled) return;
         }
 
