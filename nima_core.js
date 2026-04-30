@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//   🦊 MAUREONIX v5.0.1 – CORE HANDLER (Stability & Routing Fixes)
-//   Created by Infinite Vybeflix
-//   GitHub: https://github.com/luckyfelistine-bot/maureonix
+//   🦊 MAUREONIX v6.0.0 – CORE HANDLER (Thinking Separation + .vv Fix)
+//   Games are imported from ./lib/game – no inline definitions
+//   Complete file – no placeholders, ready to deploy
 // ═══════════════════════════════════════════════════════════════════════════
 
 process.env.TZ = 'Africa/Nairobi';
@@ -23,16 +23,12 @@ const { Chess } = require('chess.js');
 const { Akinator } = require('aki-api');
 const FormData = require('form-data');
 const webp = require('node-webpmux');
-const speed = require('performance-now');
 const moment = require('moment-timezone');
 const { performance } = require('perf_hooks');
-const PhoneNum = require('awesome-phonenumber');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
-const memoryStore = require('./lib/memoryStore');
 
-// Core helpers
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
 const {
@@ -43,17 +39,12 @@ const {
     vimeoDownload, dailymotionDownload, mediafireDownload,
     gdriveDownload, apkDownload
 } = require('./lib/downloader');
-const templateMenu = require('./lib/template_menu');
 const { toAudio, toPTT, toVideo } = require('./lib/converter');
 const { GroupUpdate, LoadDataBase } = require('./src/message');
-const { JadiBot, StopJadiBot, ListJadiBot } = require('./src/jadibot');
 const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./lib/database');
 const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, unsafeAgent, tarBackup } = require('./lib/function');
 const { writeExif } = require('./lib/exif');
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  NEW ULTIMATE LIBRARIES
-// ═══════════════════════════════════════════════════════════════════════════
 const AI = require('./lib/ai');
 const Search = require('./lib/search');
 const Tools = require('./lib/tools');
@@ -69,125 +60,108 @@ const Travel = require('./lib/travel');
 const Food = require('./lib/food');
 const { generateQuantumMenu } = require('./lib/menuimage');
 
-// ═══════════════════════════════════════════════════════════════════
-//  GODMODE IMPORTS
-// ═══════════════════════════════════════════════════════════════════
+// ──────────────────────────────────────────────────────────────────
+//  IMPORT ALL GAMES FROM ./lib/game (no inline definitions)
+// ──────────────────────────────────────────────────────────────────
 const {
-  TicTacToe, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
+  TicTacToe, TicTacToeClassic, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
   Blackjack, BlackjackCasino,
   RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs,
   RPGAdventure, slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-  rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer
+  rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+  gameManager
 } = require('./lib/game');
 
 const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
+
+const memoryStore = require('./lib/memoryStore');
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPER: Ask AI with separate answer & reasoning (no meta text)
+// ═══════════════════════════════════════════════════════════════
+async function askWithThinking(prompt, userId, model = null, systemPrompt = null) {
+    try {
+        const selectedModel = model || global.set?.aiModel || 'deepseek';
+        let answer = '';
+        let reasoning = '';
+        
+        if (typeof AI.enhancedAI === 'function') {
+            const result = await AI.enhancedAI(prompt, userId, selectedModel, systemPrompt);
+            answer = result.answer || result.text || '';
+            reasoning = result.reasoning || '';
+            if (!reasoning && answer.includes('💭')) {
+                const parts = answer.split(/💭|\[REASONING\]/i);
+                answer = parts[0].trim();
+                reasoning = parts.slice(1).join(' ').trim();
+            }
+        } else {
+            const raw = await AI.ultimateAI(prompt, userId, selectedModel, systemPrompt);
+            let text = raw.text || raw;
+            text = text.replace(/^(to answer that|i('|i)ll go through|let me think|self[ -]assessment).*?(\n|$)/gim, '');
+            if (text.includes('Reasoning:')) {
+                const parts = text.split(/Reasoning:/i);
+                answer = parts[0].trim();
+                reasoning = parts[1]?.trim() || '';
+            } else {
+                answer = text.trim();
+                reasoning = '';
+            }
+        }
+        
+        answer = answer.replace(/\b(?:as an AI|i am an AI|i don't have personal|i can't feel|i have no)\b.*?\./gi, '').trim();
+        if (!answer) answer = 'I processed your request but could not generate a clear answer. Please try again.';
+        
+        return { answer, reasoning };
+    } catch (e) {
+        console.error('[askWithThinking]', e);
+        return { answer: '❌ AI error: ' + e.message, reasoning: '' };
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  PROACTIVE SCHEDULER
 // ═══════════════════════════════════════════════════════════════
 cron.schedule('0 7 * * *', async () => {
     const ownerJid = global.owner[0] + '@s.whatsapp.net';
-    const briefing = `🌅 *Good Morning!*\n\n📅 ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\nHere's your briefing:\n- Check your reminders\n- Today's weather: .weather Nairobi\n- Top news: .news\n\nHave a great day! 🚀`;
-    if (global.nimaInstance) {
-        await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
-    }
+    const briefing = `🌅 Good Morning!\n📅 ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\nHave a great day! 🚀`;
+    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
 }, { timezone: 'Africa/Nairobi' });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  HELPER: fetchApi
-// ═══════════════════════════════════════════════════════════════════════════
-async function fetchApi(endpoint, data, options = {}) {
-    const base = global.APIs?.nima || 'https://api.nima.biz.id';
-    const key = global.APIKeys?.[base] || '';
-    const url = base + endpoint;
-    const method = options.method || 'GET';
-    const headers = { 'Authorization': `Bearer ${key}`, ...options.headers };
-    let body;
-    if (data instanceof FormData) {
-        body = data;
-        Object.assign(headers, data.getHeaders());
-    } else if (method === 'POST') {
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify(data);
-    }
-    const res = await fetch(url, { method, headers, body });
-    if (options.buffer) return await res.buffer();
-    const json = await res.json();
-    if (json.status === false) throw new Error(json.message || 'API error');
-    return json;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  GLOBAL VARIABLES
-// ═══════════════════════════════════════════════════════════════════════════
-const menfesTimeouts = new Map();
-const settingsPath = path.join(__dirname, 'settings.js');
-const cases = global.db && global.db.cases ? global.db.cases : (global.db = global.db || {}, global.db.cases = [...fs.readFileSync('./nima.js', 'utf-8').matchAll(/case\s+['"]([^'"]+)['"]/g)].map(match => match[1]));
-
-async function handleAutoCommand(nimesha, m, ctx, aiResult) {
-    const { command, args } = aiResult;
-    const handleCommand = require('./nima_commands');
-    const syntheticCtx = {
-        ...ctx,
-        command: command,
-        args: args,
-        text: args.join(' ') || '',
-        q: args.join(' ') || '',
-        isCmd: true,
-        prefix: ctx.prefix,
-    };
-    await handleCommand(nimesha, m, syntheticCtx);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  MAIN HANDLER – wrapped in a single try-catch to avoid brace mismatches
-// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  MAIN HANDLER – fully enclosed in a single try-catch
+// ═══════════════════════════════════════════════════════════════
 const coreHandler = async (nimesha, m, msg, store) => {
     try {
-        // ──────────────────────────────────────────────────────────────────
-        //  INITIALIZATION & DATABASE LOADING
-        // ──────────────────────────────────────────────────────────────────
         await LoadDataBase(nimesha, m);
-
-        if (!global.db) {
-            global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
-        }
+        if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
         if (!global.db.database) global.db.database = {};
-        
         const botNumber = nimesha.decodeJid(nimesha.user.id);
+
         const sendReply = async (jid, content, options = {}) => {
-            let messageContent;
-            if (typeof content === 'string') {
-                messageContent = { text: content, ...options };
-            } else {
-                messageContent = { ...content, ...options };
-            }
-            if (jid.endsWith('@newsletter')) {
-                return nimesha.newsletterMsg(jid, messageContent).catch(e => console.error('[newsletter send error]', e?.message));
-            }
-            return nimesha.sendMessage(jid, messageContent);
+            let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
+            if (jid.endsWith('@newsletter')) return nimesha.newsletterMsg(jid, msgContent).catch(() => {});
+            return nimesha.sendMessage(jid, msgContent);
         };
-        
+
         let messageHandled = false;
         const mess = {
             wait: '⏳ Please wait...',
-            owner: '❌ This command is only for the bot owner!',
-            group: '❌ This command can only be used in a group!',
-            admin: '❌ You must be a group admin to use this command!',
-            botAdmin: '❌ The bot must be a group admin to perform this action!',
-            private: '❌ This command can only be used in private chat!',
-            premium: '❌ This feature is for premium users only!',
-            limit: '❌ You have reached your daily limit!',
-            banned: '❌ You are banned from using the bot!',
-            nsfw: '❌ NSFW commands are disabled in this group!',
-            error: '❌ An error occurred. Please try again later.',
+            owner: '❌ Only for the bot owner!',
+            group: '❌ Only in a group!',
+            admin: '❌ You must be admin!',
+            botAdmin: '❌ Bot must be admin!',
+            private: '❌ Only in private chat!',
+            premium: '❌ Premium users only!',
+            limit: '❌ Daily limit reached!',
+            banned: '❌ You are banned!',
+            nsfw: '❌ NSFW is disabled!',
+            error: '❌ An error occurred.',
         };
-        
+
         const sewa = db.sewa;
         const premium = db.premium;
         const set = db.set[botNumber];
-        
         let suit = db.game.suit;
         let chess = db.game.chess;
         let chat_ai = db.game.chat_ai;
@@ -214,18 +188,12 @@ const coreHandler = async (nimesha, m, msg, store) => {
         let tebaknegara = db.game.tebaknegara;
         let tebakgambar = db.game.tebakgambar;
         let tebakbendera = db.game.tebakbendera;
-        
         const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
-        if (set.antidelete === undefined) set.antidelete = false;
-        if (set.autostatus === undefined) set.autostatus = false;
-        if (set.autostatusreact === undefined) set.autostatusreact = false;
-        if (set.autorecording === undefined) set.autorecording = false;
-        
-        // Skip bot's own messages
+
+        await GroupUpdate(nimesha, m, store);
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         if (m.fromMe && !_isOwnerSelf) return;
-        
-        // Robust body extraction
+
         let body = '';
         try {
             body = ((m.type === 'conversation') ? m.message.conversation :
@@ -241,20 +209,16 @@ const coreHandler = async (nimesha, m, msg, store) => {
             (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
             (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
             (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
-        } catch (err) {
-            body = '';
-            console.error('[body extraction error]', err.message);
-            if (!m.isMedia) return;
-        }
-        
+        } catch (err) { body = ''; if (!m.isMedia) return; }
+
         const budy = (typeof m.text == 'string' ? m.text : '') || body;
+
         const footerText = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
         m.reply = async (content, options = {}) => {
             if (messageHandled) return;
             messageHandled = true;
-            if (typeof content === 'string') {
-                content += footerText;
-            } else if (typeof content === 'object') {
+            if (typeof content === 'string') content += footerText;
+            else if (typeof content === 'object') {
                 if (content.text) content.text += footerText;
                 else if (content.caption) content.caption += footerText;
             }
@@ -266,52 +230,31 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
         const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
         const args = body.trim().split(/ +/).slice(1);
-        const quoted = m.quoted ? m.quoted : m;
+        const quotedMsg = m.quoted ? m.quoted : m;
         const command = isCreator ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : isCmd ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : '';
         const text = q = args.join(' ');
-        const mime = (quoted.msg || quoted).mimetype || '';
-        const qmsg = (quoted.msg || quoted);
+        const mime = (quotedMsg.msg || quotedMsg).mimetype || '';
         const author = set.author = global.author || 'Infinite Vybeflix';
         const packname = set.packname = global.packname || 'Maureonix';
         const botname = set.botname = global.botname || 'Maureonix';
-        const _dayMap = { 'Sunday':'Sunday','Monday':'Monday','Tuesday':'Tuesday','Wednesday':'Wednesday','Thursday':'Thursday','Friday':'Friday','Saturday':'Saturday' };
-        const dayName = _dayMap[moment.tz('Africa/Nairobi').format('dddd')] || moment.tz('Africa/Nairobi').format('dddd');
+        const dayName = moment.tz('Africa/Nairobi').format('dddd');
         const tanggal = moment.tz('Africa/Nairobi').format('DD/MM/YYYY');
         const jam = moment.tz('Africa/Nairobi').format('HH:mm:ss');
         const ucapanWaktu = jam < '05:00:00' ? 'Good Dawn 🌉' : jam < '11:00:00' ? 'Good Morning 🌄' : jam < '15:00:00' ? 'Good Day 🏙️' : jam < '18:00:00' ? 'Good Evening 🌅' : jam < '19:00:00' ? 'Good Evening 🌃' : 'Good Night 🌌';
         const almost = 0.66;
-        const time = Date.now();
-        const time_now = new Date();
-        const time_end = 60000 - (time_now.getSeconds() * 1000 + time_now.getMilliseconds());
+        const time_end = 60000 - (new Date().getSeconds() * 1000 + new Date().getMilliseconds());
         const readmore = String.fromCharCode(8206).repeat(999);
         const setv = pickRandom(listv);
-        
         const isVip = isCreator || (db.users[m.sender] ? db.users[m.sender].vip : false);
         const isBan = isCreator || (db.users[m.sender] ? db.users[m.sender].ban : false);
         const isLimit = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false);
         const isPremium = isCreator || checkStatus(m.sender, premium) || false;
         const isNsfw = m.isGroup ? db.groups[m.chat].nsfw : false;
-        
-        const fkontak = {
-            key: {
-                remoteJid: '0@s.whatsapp.net',
-                participant: '0@s.whatsapp.net',
-                fromMe: false,
-                id: 'Infinite Vybeflix'
-            },
-            message: {
-                contactMessage: {
-                    displayName: (m.pushName || author),
-                    vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author},;;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Mobile\nEND:VCARD`,
-                    sendEphemeral: true
-                }
-            }
-        };
-        
-        // Reset Limit daily
+        const fkontak = { key: { remoteJid: '0@s.whatsapp.net', participant: '0@s.whatsapp.net', fromMe: false, id: 'Maureonix' }, message: { contactMessage: { displayName: (m.pushName || author), vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author};;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Mobile\nEND:VCARD` } } };
+
+        // Reset Limits daily
         cron.schedule('00 00 * * *', async () => {
             cmdDel(db.hit);
-            console.log('Reset Limits for Users');
             let user = Object.keys(db.users);
             for (let jid of user) {
                 const limitUser = db.users[jid].vip ? limit.vip : checkStatus(jid, premium) ? limit.premium : limit.free;
@@ -327,59 +270,42 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 for (let o of ownerNumber) {
                     try {
                         await nimesha.sendMessage(o, { document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' });
-                        console.log(`[AUTO BACKUP] Backup sent to ${o}`);
-                    } catch (e) {
-                        console.error(`[AUTO BACKUP] Failed to send backup to ${o}:`, error);
-                    }
+                    } catch (e) {}
                 }
             }
         }, { scheduled: true, timezone: 'Africa/Nairobi' });
-        
+
         // Auto Bio
         if (set.autobio) {
             if (new Date() * 1 - set.status > 60000) {
-                await nimesha.updateProfileStatus(`${nimesha.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(e => {});
+                await nimesha.updateProfileStatus(`${nimesha.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(() => {});
                 set.status = new Date() * 1;
             }
         }
-        
-        // Mode handling
-        const isNewsletter = m.chat.endsWith('@newsletter');
+
+        // Mode restrictions
         if (!isCreator) {
-            if ((set.grouponly === set.privateonly)) {
-                if (!nimesha.public && !m.key.fromMe) return;
-            } else if (set.grouponly) {
-                if (!m.isGroup) return;
-            } else if (set.privateonly) {
-                if (m.isGroup) return;
-            }
+            if ((set.grouponly === set.privateonly)) { if (!nimesha.public && !m.key.fromMe) return; }
+            else if (set.grouponly) { if (!m.isGroup) return; }
+            else if (set.privateonly) { if (m.isGroup) return; }
         }
-        
+
         // Learning Mode Override
         if (global.learningMode && global.learningMode[m.sender] && global.learningEngine) {
             const lowerText = (text || '').toLowerCase();
             if (isCmd && (command === 'exitlearn' || command === 'stop' || command === 'exit' || command === 'quit')) {
-                // let command handler process it
+                // allow exit
             } else {
                 try {
                     const result = await global.learningEngine.processLearningQuery(budy, m.sender);
-                    if (result) {
-                        await m.reply(result.message || result.text);
-                        return;
-                    }
-                } catch (err) {
-                    console.error('[Learning Mode Error]', err);
-                    await m.reply('⚠️ Learning mode error. Use `.exitlearn` to disable.');
-                    delete global.learningMode[m.sender];
-                    return;
-                }
+                    if (result) { await m.reply(result.message || result.text); return; }
+                } catch (err) { await m.reply('⚠️ Learning mode error. Use `.exitlearn` to disable.'); delete global.learningMode[m.sender]; return; }
             }
         }
-        
-        // ===== ENHANCED SELF‑CHAT (Owner, no prefix) =====
+
+        // ─── SELF-CHAT (Owner, no prefix) with thinking separation ───
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid;
-              
         if (isSelfChat && set.autoai_selfchat && !isCmd && !messageHandled) {
             const userId = m.sender;
             if (!global._selfChatQueues) global._selfChatQueues = new Map();
@@ -398,506 +324,132 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const mediaBuffer = await m.download();
                         const { processFile } = require('./lib/fileProcessor');
                         const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                        if (result.type === 'text') {
-                            userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
-                        } else {
-                            userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
-                        }
-                    } catch (e) {
-                        console.error('[self-chat file process]', e.message);
-                        userMessage = `[File could not be processed: ${m.mime}]`;
-                    }
-                } else if (!userMessage) {
-                    return;
+                        userMessage = result.type === 'text' ? `[File: ${m.mime}]\n${result.content}` : `[File of type ${m.mime}]`;
+                    } catch (e) { userMessage = `[File error]`; }
                 }
-
-                if (set.autotyping) {
-                    await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
-                }
+                if (!userMessage) return;
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
 
                 try {
-                    const { selfChatAI, sendLongMessage, ALL_COMMANDS } = require('./lib/ai');
-                    const recentContext = [];
-                    if (store?.messages?.[m.chat]?.array) {
-                        const msgs = store.messages[m.chat].array.slice(-6);
-                        for (const msg of msgs) {
-                            if (msg.key.id === m.key.id) continue;
-                            const role = msg.key.fromMe ? 'assistant' : 'user';
-                            const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-                            if (content) recentContext.push({ role, content: content.substring(0, 200) });
-                        }
+                    const { sendLongMessage } = require('./lib/ai');
+                    const { answer, reasoning } = await askWithThinking(userMessage, m.sender, set.aiModel || 'deepseek');
+                    
+                    if (!db.thinkingSessions) db.thinkingSessions = {};
+                    db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: userMessage };
+                    
+                    const replyText = `🤖 *Maureonix*\n\n${answer}`;
+                    await sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                    
+                    if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Self‑chat reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                     }
-
-                    const activeModes = [];
-                    if (db.game?.connect4 && Object.values(db.game.connect4).some(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender))) activeModes.push('connect4');
-                    if (db.game?.chess && (db.game.chess[m.sender] || (m.isGroup && db.game.chess[m.chat]))) activeModes.push('chess');
-                    if (db.game?.akinator && db.game.akinator[m.sender]) activeModes.push('akinator');
-                    if (recentContext.some(t => /truth or dare/i.test(t.content))) activeModes.push('truth_or_dare');
-
-                    let result = await selfChatAI(userMessage, m.sender, null, recentContext, activeModes);
-                    if (result.type !== 'function' || !result.function) {
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text || '...'}`, { quoted: m });
-                        return;
-                    }
-
-                    const cmd = String(result.function).toLowerCase().trim();
-                    const args = Array.isArray(result.args) ? result.args : [];
-                    const syntheticText = [cmd, ...args].join(' ');
-                    const systemHandled = await (async () => {
-                        switch (cmd) {
-                            case 'sysinfo':
-                            case 'systeminfo': {
-                                const os = require('os');
-                                const memUsage = (os.totalmem() - os.freemem()) / 1024 / 1024;
-                                const totalMem = os.totalmem() / 1024 / 1024;
-                                await m.reply(`🖥️ *System Info*\nCPU: ${os.cpus()[0]?.model || 'Unknown'}\nUptime: ${runtime(os.uptime())}\nMemory: ${memUsage.toFixed(0)} / ${totalMem.toFixed(0)} MB\nPlatform: ${os.platform()} ${os.release()}\nNode: ${process.version}`);
-                                return true;
-                            }
-                            case 'restart':
-                            case 'reboot': {
-                                await m.reply('🔄 Restarting bot...');
-                                setTimeout(() => process.exit(0), 1000);
-                                return true;
-                            }
-                            case 'backup':
-                            case 'backupdb': {
-                                const backupPath = path.join(__dirname, '../database', `backup_${Date.now()}.json`);
-                                try {
-                                    fs.writeFileSync(backupPath, JSON.stringify(db, null, 2));
-                                    await nimesha.sendMessage(m.chat, { document: { url: backupPath }, fileName: path.basename(backupPath) });
-                                    fs.unlinkSync(backupPath);
-                                    await m.reply('✅ Database backup sent.');
-                                } catch (e) {
-                                    await m.reply(`❌ Backup failed: ${e.message}`);
-                                }
-                                return true;
-                            }
-                            case 'logs':
-                            case 'lastlog': {
-                                const LOG_FILE = path.join(__dirname, '../logs/error.log');
-                                if (fs.existsSync(LOG_FILE)) {
-                                    const logs = fs.readFileSync(LOG_FILE, 'utf8').slice(-5000);
-                                    await sendLongMessage(nimesha, m.chat, `📜 *Last 5000 chars of error log*\n\n${logs}`, { quoted: m });
-                                } else {
-                                    await m.reply('No log found.');
-                                }
-                                return true;
-                            }
-                            case 'editconfig': {
-                                if (!args[0]) {
-                                    await m.reply('Usage: editconfig <key> = <value>\nExample: editconfig global.botname = "SuperBot"');
-                                } else {
-                                    try {
-                                        const full = args.join(' ');
-                                        const eqIndex = full.indexOf('=');
-                                        if (eqIndex === -1) throw new Error('Missing "="');
-                                        const key = full.slice(0, eqIndex).trim();
-                                        const value = full.slice(eqIndex + 1).trim();
-                                        eval(key + ' = ' + value);
-                                        await m.reply(`✅ Updated ${key} = ${value}`);
-                                    } catch (e) {
-                                        await m.reply(`❌ Edit failed: ${e.message}`);
-                                    }
-                                }
-                                return true;
-                            }
-                            case 'exec': {
-                                const commandLine = args.join(' ');
-                                if (!commandLine) {
-                                    await m.reply('Usage: exec <shell command>');
-                                    return true;
-                                }
-                                const { exec } = require('child_process');
-                                exec(commandLine, { timeout: 10000 }, (err, stdout, stderr) => {
-                                    const output = stdout || stderr || (err && err.message);
-                                    m.reply(`\`\`\`\n${output?.slice(0, 1900) || 'No output'}\n\`\`\``);
-                                });
-                                return true;
-                            }
-                            case 'addprem':
-                            case 'removeprem': {
-                                const targetNum = (args[0] || '').replace(/[^0-9]/g, '');
-                                if (!targetNum) {
-                                    await m.reply(`Usage: ${cmd} 254712345678`);
-                                    return true;
-                                }
-                                const jid = targetNum + '@s.whatsapp.net';
-                                const isAdd = cmd === 'addprem';
-                                const existing = db.premium.find(p => p.id === jid);
-                                if (isAdd && !existing) {
-                                    db.premium.push({ id: jid, expired: Date.now() + 365 * 86400000 });
-                                    await m.reply(`✅ Added premium for +${targetNum}`);
-                                } else if (!isAdd && existing) {
-                                    db.premium = db.premium.filter(p => p.id !== jid);
-                                    await m.reply(`❌ Removed premium for +${targetNum}`);
-                                } else {
-                                    await m.reply(isAdd ? 'Already premium' : 'Not premium');
-                                }
-                                return true;
-                            }
-                            case 'ban':
-                            case 'unban': {
-                                const banTarget = (args[0] || '').replace(/[^0-9]/g, '');
-                                if (!banTarget) {
-                                    await m.reply(`Usage: ${cmd} 254712345678`);
-                                    return true;
-                                }
-                                const banJid = banTarget + '@s.whatsapp.net';
-                                if (!db.users[banJid]) db.users[banJid] = {};
-                                if (cmd === 'ban') db.users[banJid].ban = true;
-                                else delete db.users[banJid].ban;
-                                await m.reply(`${cmd === 'ban' ? '🚫 Banned' : '✅ Unbanned'} +${banTarget}`);
-                                return true;
-                            }
-                        }
-                        return false;
-                    })();
-
-                    if (systemHandled) return;
-                    const AI_ALLOWED = new Set(ALL_COMMANDS);
-                    ['s','vid','ytmp4','ytmp3','music','audio','sp','spot','c4','bj','dep','with','pay','inv','h','linkgc','del','d','blokir','unblokir','sched','cuaca','g','tr','aiimage','draw','create','askai','coding','program','8b','wouldyourather','wyr','ss','clips','store','gamesearch','eps','ontv','livescore','table','headtohead','prediction','betting','sportsnews','scoreboard','clearinbox','clearme','addnote','mynotes','delnote','addtodo','check','cleartodo','tags','phrases','time','unit','readtime','setawaymsg','awaymsg','inbox','pendingclear','clearreminders','autogpt','selfchat','allmenu','botmenu','groupmenu','downloadmenu','aimenu','gamemenu','funmenu','stickermenu','searchmenu','economymenu','ownermenu','sportsmenu','moviesmenu','casinomenu','rpgmenu','mastermenu','adminmenu','autosettings','docsask'].forEach(a => AI_ALLOWED.add(a));
-
-                    if (!AI_ALLOWED.has(cmd)) {
-                        await m.reply(`⚠️ Command ".${cmd}" is not available via AI intent. Use the prefix directly.`);
-                        return;
-                    }
-
-                    const syntheticCtx = {
-                        mess, isCmd: true, command: cmd, args, text: syntheticText,
-                        q: syntheticText, prefix, isCreator, isOwner, ownerNumber,
-                        set, sewa, premium, db, store, botNumber,
-                        suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
-                        checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
-                        tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
-                        tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
-                        tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
-                        isVip, isBan, isLimit, isPremium, isNsfw,
-                        author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
-                        setv, fkontak, readmore, fileSha256: null, budy: syntheticText, body: syntheticText,
-                        AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
-                        RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
-                        slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-                        gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
-                        daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
-                        OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
-                        APISports, OddsAPI, ESPN,
-                        ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
-                        twitterDownload, spotifyDownload, pinterestDownload,
-                        redditDownload, soundcloudDownload, threadsDownload,
-                        capcutDownload, likeeDownload, snapchatDownload,
-                        vimeoDownload, dailymotionDownload, mediafireDownload,
-                        gdriveDownload, apkDownload,
-                        toAudio, toPTT, toVideo, generateMenuImage,
-                        runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-                        pickRandom, similarity, almost, cases, getBuffer, writeExif
-                    };
-                    const handleCommand = require('./nima_commands');
-                    if (typeof handleCommand !== 'function') {
-                        throw new Error('Command handler is not a function');
-                    }
-                    await handleCommand(nimesha, m, syntheticCtx);
                 } catch (e) {
-                    console.error('[SELF-CHAT FATAL]', e);
-                    await m.reply(`❌ Error: ${e?.message || 'Unknown'}\n\nFallback: use the prefix command directly.`).catch(() => {});
+                    console.error('[SELF-CHAT]', e);
+                    await m.reply(`❌ Error: ${e.message}`).catch(() => {});
                 }
-            }).catch(e => console.error('[self-chat queue error]', e)));
+            }).catch(e => console.error('[self-chat queue]', e)));
             return;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        //  PRIVATE MODE HANDLING
-        // ──────────────────────────────────────────────────────────────────
+        // ─── PRIVATE MODE (away/ai/both) with thinking separation ───
         if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
             const mode = set.privatemode || 'off';
             const awayMsg = set.awaymsg || 'I am not available right now.';
             const user = db.users[m.sender];
-
             const addPending = (fromJid, msg) => {
                 if (!set.pendingMessages) set.pendingMessages = [];
                 let entry = set.pendingMessages.find(e => e.from === fromJid);
-                if (!entry) {
-                    entry = { from: fromJid, timestamp: Date.now(), messages: [] };
-                    set.pendingMessages.push(entry);
-                }
+                if (!entry) { entry = { from: fromJid, timestamp: Date.now(), messages: [] }; set.pendingMessages.push(entry); }
                 entry.messages.push({ time: Date.now(), body: msg });
                 if (entry.messages.length > 50) entry.messages.shift();
             };
-
-            if (mode === 'away' || mode === 'both') {
-                addPending(m.sender, body || budy);
-            }
-
-            if (mode === 'away') {
-                await m.reply(awayMsg);
-                return;
-            } else if (mode === 'ai') {
+            if (mode === 'away' || mode === 'both') addPending(m.sender, body || budy);
+            if (mode === 'away') { await m.reply(awayMsg); return; }
+            else if (mode === 'ai' || mode === 'both') {
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                    const result = await enhancedAI(body || budy, m.sender, 'deepseek');
+                    const { sendLongMessage } = require('./lib/ai');
+                    const { answer, reasoning } = await askWithThinking(body || budy, m.sender, set.aiModel || 'deepseek');
                     if (!messageHandled) {
-                        const answerOnly = result.text.includes('[Meta‑Reflection]') ? result.text.split('[Meta‑Reflection]')[0].trim() : result.text;
-                        const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
-                        if (set.ownerMirror && m.sender !== ownerJid) {
-                            const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${result.text.slice(0, 300)}`;
-                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                        if (!db.thinkingSessions) db.thinkingSessions = {};
+                        db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: body || budy };
+                        const replyText = `🤖 *Maureonix*\n\n${answer}`;
+                        await sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                        if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                     }
-                } catch (e) {
-                    console.error('[privat AI error]', e);
-                }
-                return;
-            } else if (mode === 'both') {
-                if (!user._awayNotified) {
-                    await m.reply(awayMsg);
-                    user._awayNotified = true;
-                    await sleep(1000);
-                }
-                if (!messageHandled) {
-                    if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-                    try {
-                        const { enhancedAI, sendLongMessage } = require('./lib/ai');
-                        const result = await enhancedAI(body || budy, m.sender, 'deepseek');
-                        if (!messageHandled) {
-                            const answerOnly = result.text.includes('[Meta‑Reflection]') ? result.text.split('[Meta‑Reflection]')[0].trim() : result.text;
-                            const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-                            const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
-                            if (set.ownerMirror && m.sender !== ownerJid) {
-                                const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${result.text.slice(0, 300)}`;
-                                await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
-                            }
-                        }
-                    } catch (e) {
-                        console.error('[privat AI error]', e);
-                    }
-                }
+                } catch (e) { console.error('[privat AI]', e); }
                 return;
             }
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        //  AUTO-AI AWAY ASSISTANT
-        // ──────────────────────────────────────────────────────────────────
+        // ─── AUTO-AI AWAY ASSISTANT (with thinking separation) ───
         const hasText = body || budy;
         const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
-        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia) && !messageHandled) {
-            if (!isCreator) {
-                let userMessage = hasText ? (body || budy) : '';
-                if (!userMessage && hasMedia) {
-                    try {
-                        const mediaBuffer = await m.download();
-                        const { processFile } = require('./lib/fileProcessor');
-                        const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                        if (result.type === 'text') {
-                            userMessage = `[User sent a file: ${m.mime || 'unknown type'}]\n${result.content}`;
-                        } else {
-                            userMessage = `[User sent a file of type ${m.mime || 'unknown'}]`;
-                        }
-                    } catch (e) {
-                        console.error('[auto-ai file process]', e.message);
-                        userMessage = `[Could not process file]`;
-                    }
-                }
-                if (!userMessage) return;
-
-                const inGame = (() => {
-                    if (db.game?.connect4) {
-                        const c4 = Object.values(db.game.connect4).find(g => g.state === 'PLAYING' && [g.player1, g.player2].includes(m.sender));
-                        if (c4) return { game: 'connect4' };
-                    }
-                    if (db.game?.chess?.[m.sender]) return { game: 'chess' };
-                    if (m.isGroup && db.game?.chess?.[m.chat]) return { game: 'chess' };
-                    if (db.game?.akinator?.[m.sender]) return { game: 'akinator' };
-                    if (db.game?.suit) {
-                        const suitRoom = Object.values(db.game.suit).find(r => r.id && r.status && [r.p, r.p2].includes(m.sender));
-                        if (suitRoom) return { game: 'suit' };
-                    }
-                    if (db.game?.tebakbom?.[m.sender]) return { game: 'tebakbom' };
-                    if (m.isGroup && db.game?.ulartangga?.[m.chat]) return { game: 'ulartangga' };
-                    const triviaGames = ['tekateki', 'tebaklirik', 'tebaklagu', 'tebakkata', 'kuismath', 'tebakkimia', 'caklontong', 'tebakangka', 'tebaknegara', 'tebakgambar', 'tebakbendera'];
-                    for (const gk of triviaGames) {
-                        if (db.game?.[gk]) {
-                            const id = m.chat + (m.quoted?.id || '');
-                            if (db.game[gk][id]?.jawaban) return { game: gk };
-                        }
-                    }
-                    if (m.isGroup && db.game?.family100?.[m.chat]?.jawaban) return { game: 'family100' };
-                    if (db.users?.[m.sender]) {
-                        const u = db.users[m.sender];
-                        if (u._trivia || u._math || u._anagram || u._gtn || u._pokemon || u._movieguess) return { game: 'mini' };
-                    }
-                    return null;
-                })();
-
-                const inCrisis = db.crisisPending?.[m.sender] && ['awaiting_choice', 'talking'].includes(db.crisisPending[m.sender].state);
-
-                if (!inGame && !inCrisis) {
-                    const now = Date.now();
-                    if (!db.lastAutoReply) db.lastAutoReply = {};
-                    if (now - (db.lastAutoReply[m.sender] || 0) < 1500) return;
-                    db.lastAutoReply[m.sender] = now;
-
-                    if (!db.autoAiSessions) db.autoAiSessions = {};
-                    if (!db.autoAiSessions[m.sender]) {
-                        db.autoAiSessions[m.sender] = {
-                            started: now,
-                            messageCount: 0,
-                            lastActivity: now,
-                            context: [],
-                            notifiedOwner: false,
-                            language: 'en'
-                        };
-                    }
-                    const session = db.autoAiSessions[m.sender];
-                    session.messageCount++;
-                    session.lastActivity = now;
-                    session.context.push({ role: 'user', content: userMessage, time: now });
-                    if (session.context.length > 10) session.context.shift();
-
-                    if (!set.pendingMessages) set.pendingMessages = [];
-                    let entry = set.pendingMessages.find(e => e.from === m.sender);
-                    if (!entry) {
-                        entry = { from: m.sender, timestamp: now, messages: [] };
-                        set.pendingMessages.push(entry);
-                    }
-                    entry.messages.push({ time: now, body: body || budy });
-                    if (entry.messages.length > 50) entry.messages.shift();
-
-                    if (set.autotyping) {
-                        await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
-                    }
-
-                    try {
-                        const { IntentEngine } = require('./lib/intentEngine');
-                        const { ultimateAI, sendLongMessage } = require('./lib/ai');
-
-                        const recentContext = session.context.slice(-6).map(c => ({
-                            role: c.role,
-                            content: c.content.substring(0, 200)
-                        }));
-
-                        let intent;
-                        try {
-                            const engine = new IntentEngine({
-                                userId: m.sender,
-                                context: recentContext,
-                                activeModes: [],
-                                model: 'deepseek-r1-distill-llama-70b'
-                            });
-                            intent = await engine.parse(userMessage);
-                        } catch (e) {
-                            intent = { type: 'text', confidence: 'uncertain' };
-                        }
-
-                        if (intent.type === 'function' && intent.confidence === 'certain') {
-                            const argsStr = intent.args.length ? ' ' + intent.args.join(' ') : '';
-                            const suggested = `${prefix}${intent.function}${argsStr}`;
-                            if (!messageHandled) await m.reply(`💡 I can help with that! Try this command:\n\n*${suggested}*\n\nOr just keep chatting with me naturally 😊`);
-                        } else if (intent.type === 'game_topic' || (intent.type === 'game' && (intent.game === 'truth_or_dare' || intent.gameTopic === 'truth_or_dare'))) {
-                            const truths = [
-                                "What's the last lie you told?",
-                                "What's your biggest fear?",
-                                "Who was your first crush?",
-                                "What's the most embarrassing thing you've done?",
-                                "Have you ever cheated on a test?",
-                                "What's your guilty pleasure?",
-                                "What's the worst gift you've ever received?",
-                                "What's something you've never told your parents?",
-                                "If you could switch lives with someone for a day, who would it be?",
-                                "What's the weirdest dream you've ever had?"
-                            ];
-                            const dares = [
-                                "Do 20 pushups right now! 💪",
-                                "Sing a song for 30 seconds and send a voice note. 🎵",
-                                "Dance without music for 1 minute. 💃",
-                                "Send a voice note with your best animal impression. 🐵",
-                                "Text your crush 'I think you're cute' and screenshot the reply. 😏",
-                                "Eat a spoonful of something spicy. 🌶️",
-                                "Let the group choose your profile picture for 1 hour. 📸",
-                                "Speak in an accent for the next 5 messages. 🎭",
-                                "Send a selfie with your eyes closed. 📷",
-                                "Type your next message with your eyes closed. 👀"
-                            ];
-                            const isTruth = /\btruth\b/i.test(body || budy);
-                            const content = isTruth ? `🎯 *Truth:*\n${truths[Math.floor(Math.random() * truths.length)]}` : `😈 *Dare:*\n${dares[Math.floor(Math.random() * dares.length)]}`;
-                            if (!messageHandled) await m.reply(`${content}\n\n_Reply "truth" or "dare" for more!_\n_Use ${prefix}menu to see all commands_ 🎮`);
-                        } else if (intent.type === 'text' && intent.text) {
-                            if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${intent.text}`, { quoted: m });
-                            session.context.push({ role: 'assistant', content: intent.text, time: Date.now() });
-                        } else {
-                            const ownerNum = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
-                            const systemPrompt = `You are Maureonix, the AI assistant for Infinite Vybeflix. The owner is currently away.
-
-You are chatting with ${m.pushName || 'a user'} in ${m.isGroup ? 'a group' : 'private chat'}.
-Rules:
-- Be friendly, warm, and conversational. Use emojis.
-- If they want a bot feature, tell them the command with prefix ${prefix}
-- If they want games, suggest: ${prefix}trivia, ${prefix}slot, ${prefix}blackjack, ${prefix}rpg, ${prefix}pokemon, ${prefix}connect4
-- If they have info/requests for the owner, assure them it's saved and will be delivered
-- If they ask for the owner/creator/human/infinite/vybeflix, give them https://wa.me/${ownerNum} and offer to notify the owner
-- Keep responses under 300 words
-- Don't pretend to be the owner
-- If they seem distressed or in crisis, be extra kind and suggest talking to the owner directly
-- You can discuss any topic naturally`;
-
-                            const aiResult = await ultimateAI(userMessage, m.sender, 'deepseek', systemPrompt);
-                            let replyText = aiResult.text;
-
-                            const wantsOwner = /(talk to (human|owner|creator)|real person|infinite|vybeflix|contact owner|i need the owner)/i.test(body || budy);
-                            if (wantsOwner && session.messageCount > 1) {
-                                replyText += `\n\n👤 *Want to talk to the owner?*\nhttps://wa.me/${ownerNum}\n\nI'll let them know you reached out! 📬`;
-                                if (!session.notifiedOwner) {
-                                    await nimesha.sendMessage(ownerNumber[0], {
-                                        text: `🚨 *User requesting owner contact*\n\nFrom: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLast: ${body || budy}\n\nUse ${prefix}pending to see all messages.`
-                                    }).catch(() => {});
-                                    session.notifiedOwner = true;
-                                }
-                            }
-
-                            if (!messageHandled) {
-                                const answerOnly = replyText.includes('[Meta‑Reflection]') ? replyText.split('[Meta‑Reflection]')[0].trim() : replyText;
-                                const hint = '\n\n_💭 Type .thinking to see how I reasoned_';
-                                await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${answerOnly}${hint}`, { quoted: m });
-                                const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
-                                if (set.ownerMirror && m.sender !== ownerJid) {
-                                    const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${replyText.slice(0, 300)}`;
-                                    await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
-                                }
-                            }
-                            session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
-                            if (session.context.length > 10) session.context.shift();
-                        }
-
-                        if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
-                            const pendingCount = set.pendingMessages.find(p => p.from === m.sender)?.messages?.length || session.messageCount;
-                            const report = `📬 *Auto-AI Activity Report*\n\nUser: ${m.sender}\nName: ${m.pushName || 'unknown'}\nMessages: ${session.messageCount}\nLocation: ${m.isGroup ? 'Group ' + m.chat : 'Private DM'}\n\nLast: ${userMessage.substring(0, 80)}...\n\nUse ${prefix}pending to review.\nUse ${prefix}autoai off to disable.`;
-                            await nimesha.sendMessage(ownerNumber[0], { text: report }).catch(() => {});
-                        }
-                    } catch (e) {
-                        console.error('[autoai away error]', e);
-                    }
-                }
+        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia) && !messageHandled && !isCreator) {
+            let userMessage = hasText ? (body || budy) : '';
+            if (!userMessage && hasMedia) {
+                try {
+                    const mediaBuffer = await m.download();
+                    const { processFile } = require('./lib/fileProcessor');
+                    const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                    userMessage = result.type === 'text' ? `[File: ${m.mime}]\n${result.content}` : `[File of type ${m.mime}]`;
+                } catch (e) { userMessage = `[File error]`; }
             }
+            if (!userMessage) return;
+
+            const now = Date.now();
+            if (!db.lastAutoReply) db.lastAutoReply = {};
+            if (now - (db.lastAutoReply[m.sender] || 0) < 1500) return;
+            db.lastAutoReply[m.sender] = now;
+
+            if (!db.autoAiSessions) db.autoAiSessions = {};
+            if (!db.autoAiSessions[m.sender]) {
+                db.autoAiSessions[m.sender] = { started: now, messageCount: 0, lastActivity: now, context: [], notifiedOwner: false };
+            }
+            const session = db.autoAiSessions[m.sender];
+            session.messageCount++;
+            session.lastActivity = now;
+            session.context.push({ role: 'user', content: userMessage, time: now });
+            if (session.context.length > 10) session.context.shift();
+
+            if (!set.pendingMessages) set.pendingMessages = [];
+            let entry = set.pendingMessages.find(e => e.from === m.sender);
+            if (!entry) { entry = { from: m.sender, timestamp: now, messages: [] }; set.pendingMessages.push(entry); }
+            entry.messages.push({ time: now, body: body || budy });
+            if (entry.messages.length > 50) entry.messages.shift();
+
+            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
+
+            try {
+                const { sendLongMessage } = require('./lib/ai');
+                const { answer, reasoning } = await askWithThinking(userMessage, m.sender, set.aiModel || 'deepseek');
+                if (!messageHandled) {
+                    if (!db.thinkingSessions) db.thinkingSessions = {};
+                    db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: userMessage };
+                    const replyText = `🤖 *Maureonix*\n\n${answer}`;
+                    await sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                    if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
+                    }
+                    session.context.push({ role: 'assistant', content: answer, time: Date.now() });
+                }
+                if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
+                    await nimesha.sendMessage(ownerNumber[0], { text: `📬 *Auto-AI Activity Report*\nUser: ${m.sender}\nMessages: ${session.messageCount}\nLast: ${userMessage.substring(0, 80)}...` }).catch(() => {});
+                    session.notifiedOwner = true;
+                }
+            } catch (e) { console.error('[autoai error]', e); }
             if (messageHandled) return;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        //  CRISIS INTERVENTION
-        // ──────────────────────────────────────────────────────────────────
+        // ─── CRISIS INTERVENTION ───
         const crisisScope = db.set?.crisisScope || 'all';
         let shouldProcessCrisis = false;
-        if (crisisScope === 'off') {
-            shouldProcessCrisis = false;
-        } else if (crisisScope === 'dm') {
-            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
-        } else if (crisisScope === 'groups') {
-            shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
-        } else {
-            shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
-        }
+        if (crisisScope === 'off') shouldProcessCrisis = false;
+        else if (crisisScope === 'dm') shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
+        else if (crisisScope === 'groups') shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
+        else shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
 
         if (shouldProcessCrisis && (body || budy) && !messageHandled) {
             const userMessage = body || budy;
@@ -913,87 +465,67 @@ Rules:
                     if (global.set?.aiCrisisVerification !== false) {
                         const { verifyCrisisWithAI } = require('./lib/ai');
                         const verification = await verifyCrisisWithAI(userMessage, m.sender);
-                        if (!verification.isDistress) {
-                            console.log(`[Crisis] AI overrode: ${userMessage} – reason: ${verification.reason}`);
-                            verified = false;
-                        }
+                        if (!verification.isDistress) verified = false;
                     }
                     if (verified) {
-                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly right now – no commands needed. Just type naturally and I'll listen.\n\n👉 *Reply with "yes"* to talk with me privately (you can stop anytime).\n👉 *Reply with "no"* – I'll connect you with someone who can help.\n\n_Your feelings matter._ 💙`;
+                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly – just type naturally.\n👉 Reply with "yes" to talk, or "no" for human contact.\n\n_Your feelings matter._ 💙`;
                         await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
                         if (!db.crisisPending) db.crisisPending = {};
-                        db.crisisPending[m.sender] = {
-                            state: 'awaiting_choice',
-                            originalMsg: userMessage,
-                            timestamp: Date.now(),
-                            severity: crisis.severity
-                        };
+                        db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
                         const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                        const ownerMsg = `🚨 *CRISIS ALERT* (${crisis.severity})\n\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}\n\nThey have been offered help.`;
                         for (const owner of ownerJids) {
-                            await nimesha.sendMessage(owner, { text: ownerMsg }).catch(() => {});
+                            await nimesha.sendMessage(owner, { text: `🚨 *CRISIS ALERT* (${crisis.severity})\nUser: ${m.sender}\nMessage: ${userMessage}` }).catch(() => {});
                         }
                         return;
                     }
                 }
             }
-            
+
             if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
                 const choice = userMessage.trim().toLowerCase();
-                const pending = db.crisisPending[m.sender];
                 if (choice === 'yes') {
                     db.crisisPending[m.sender].state = 'talking';
                     db.crisisPending[m.sender].lastMsgTime = Date.now();
-                    const welcomeMsg = `💙 *I'm here for you.*\n\nYou can now talk to me normally – just type your thoughts. I'll respond with care.\n\n_If I stop responding, type "crisis stop" to end this mode, or use my prefix ${prefix}ask to continue later._\n\nWhat's on your mind? 🌷`;
-                    await nimesha.sendMessage(m.chat, { text: welcomeMsg }, { quoted: m });
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
                     return;
                 } else if (choice === 'no') {
                     const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
-                    const waMeLink = `https://wa.me/${ownerFirst}`;
-                    const apologyMsg = `💙 *I understand.*\n\nI'm sorry you're feeling this way. You can reach out directly to someone who cares:\n${waMeLink}\n\nThey will listen without judgment. You are not alone.\n\n*Be kind to yourself.* 💙`;
-                    await nimesha.sendMessage(m.chat, { text: apologyMsg }, { quoted: m });
-                    const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                    for (const owner of ownerJids) {
-                        await nimesha.sendMessage(owner, { text: `💬 User ${m.sender} declined bot help and asked for human contact. They were sent your wa.me link.` }).catch(() => {});
-                    }
+                    await nimesha.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
                     delete db.crisisPending[m.sender];
                     return;
                 } else {
-                    await nimesha.sendMessage(m.chat, { text: `Please reply with *yes* (talk to me) or *no* (talk to a human).` }, { quoted: m });
+                    await nimesha.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
                     return;
                 }
             }
-            
+
             if (db.crisisPending?.[m.sender]?.state === 'talking') {
                 db.crisisPending[m.sender].lastMsgTime = Date.now();
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const crisisSystem = `You are a compassionate, non-judgmental listener. The user is in emotional distress. Respond with warmth, validation, and gentle encouragement. Never give medical advice, but always remind them that they matter and that help is available. Use emojis like 💙, 🌷, or 🌟. Keep responses calm and brief.`;
+                    const crisisSystem = `You are a compassionate listener. The user is in distress. Respond warmly and briefly. Never give medical advice. Use 💙.`;
                     const { ultimateAI } = require('./lib/ai');
                     const result = await ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
                     await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
                 } catch (e) {
-                    await nimesha.sendMessage(m.chat, { text: `💙 I'm still here. Tell me more, or type "crisis stop" if you need a moment.` }, { quoted: m });
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
                 }
                 return;
             }
         }
 
-        const now = Date.now();
+        // Cleanup idle crisis sessions
+        const nowTime = Date.now();
         if (db.crisisPending) {
             for (const [userId, state] of Object.entries(db.crisisPending)) {
-                if (state.state === 'talking' && now - state.lastMsgTime > 10 * 60 * 1000) {
+                if (state.state === 'talking' && nowTime - state.lastMsgTime > 10 * 60 * 1000) {
                     delete db.crisisPending[userId];
-                    try {
-                        await nimesha.sendMessage(userId, { text: `💙 I'm stepping back, but I'm always here if you need me. Just type anything again.` });
-                    } catch {}
+                    try { await nimesha.sendMessage(userId, { text: `💙 I'm still here if you need me.` }); } catch {}
                 }
             }
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        //  GEMINI AUTO REPLY
-        // ──────────────────────────────────────────────────────────────────
+        // ─── GEMINI AUTO REPLY (with thinking separation) ───
         const isAutoReplyEnabled = !m.isGroup ? (db.game.private_ai_disabled === false) : (gemini_autoreply[m.chat] === true);
         if (!messageHandled && isAutoReplyEnabled && !isCmd && !m.key.fromMe && !isCreator && m.key.remoteJid !== 'status@broadcast' && (body || budy) && !chat_ai[m.sender]) {
             try {
@@ -1005,9 +537,7 @@ Rules:
                     const memSize = global.geminiMemorySize || 50;
                     const histKey = m.isGroup ? m.chat : m.sender;
                     if (!gemini_history[histKey]) gemini_history[histKey] = [];
-                    const senderNum = m.sender.split('@')[0];
-                    const isOwnerMsg = (global.owner || []).map(n => n.replace(/[^0-9]/g,'')).includes(senderNum);
-                    const systemPrompt = `You are ${botName}, a WhatsApp bot. You were created by ${ownerName}. Their WhatsApp number is ${ownerNum}. They are your creator and owner. Even if someone else connects you, always know that ${ownerName} (${ownerNum}) is your creator.${isOwnerMsg ? ` ⚠️ You are currently talking to your owner ${ownerName} - respect them and listen carefully.` : ''} You reply in the same language the user uses. Be natural and friendly. Keep answers concise.`;
+                    const systemPrompt = `You are ${botName}, a WhatsApp bot. Created by ${ownerName} (${ownerNum}). Reply in the same language. Be concise.`;
                     memoryStore.appendGeminiMessage(histKey, 'user', body || budy, m.isGroup);
                     if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
                     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
@@ -1019,30 +549,32 @@ Rules:
                         })
                     });
                     const geminiData = await geminiRes.json();
-                    const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    let replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (replyText) {
+                        let answer = replyText;
+                        let reasoning = '';
+                        if (replyText.includes('💭')) {
+                            const parts = replyText.split(/💭/i);
+                            answer = parts[0].trim();
+                            reasoning = parts.slice(1).join(' ').trim();
+                        }
+                        if (!db.thinkingSessions) db.thinkingSessions = {};
+                        db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: body || budy };
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
-                        if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
-                        await m.reply(replyText + '\n\n_💭 Type .thinking to see my reasoning_');
-                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
-                        if (set.ownerMirror && m.sender !== ownerJid) {
-                            const mirrorMsg = `📨 *Gemini reply to ${m.pushName || 'User'}*\n👤 +${m.sender.split('@')[0]}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${replyText.slice(0, 300)}`;
-                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                        await m.reply(answer + '\n\n_💭 Type .thinking to see my reasoning_');
+                        if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                         return;
                     }
                 }
-            } catch (e) {
-                console.log('Gemini AutoReply Error:', e.message);
-            }
+            } catch (e) { console.log('Gemini AutoReply Error:', e.message); }
         }
 
         if (messageHandled) return;
         if (!m.isGroup && !isCreator && isCmd) return;
-        
-        // ──────────────────────────────────────────────────────────────────
-        //  GROUP SETTINGS & ANTI‑SPAM, ANTI‑DELETE, ETC.
-        // ──────────────────────────────────────────────────────────────────
+
+        // ─── GROUP SETTINGS & ANTI‑SPAM (fully written) ───
         if (m.isGroup) {
             if (db.groups[m.chat].mute && !isCreator) return;
             if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participants?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
@@ -1053,28 +585,26 @@ Rules:
                 if (m.type === 'groupStatusMentionMessage' || m.message?.groupStatusMentionMessage || m.message?.protocolMessage?.type === 25 || Object.keys(m.message).length === 1 && Object.keys(m.message)[0] === 'messageContextInfo') {
                     if (!db.groups[m.chat].tagsw[m.sender]) {
                         db.groups[m.chat].tagsw[m.sender] = 1;
-                        await m.reply(`This group has been tagged in a WhatsApp status\n@${m.sender.split('@')[0]}, please do not tag the group in statuses\n⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 — next time you will be kicked!❗`);
+                        await m.reply(`⚠️ Warning 1/5 – do not tag the group in status.\n@${m.sender.split('@')[0]}`);
                     } else if (db.groups[m.chat].tagsw[m.sender] >= 5) {
-                        await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove').catch((err) => m.reply('Failed!'));
-                        await m.reply(`@${m.sender.split("@")[0]} has been removed from the group\nBecause you tagged the group in a WhatsApp status 5 times.`);
+                        await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
                         delete db.groups[m.chat].tagsw[m.sender];
                     } else {
                         db.groups[m.chat].tagsw[m.sender] += 1;
-                        await m.reply(`This group has been tagged in a WhatsApp status\n@${m.sender.split('@')[0]}, please do not tag the group in statuses\n⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 — next time you will be kicked!❗`);
+                        await m.reply(`⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 – do not tag the group in status.`);
                     }
                 }
             }
+            const badWords = ['fuck', 'shit', 'bitch', 'cunt', 'asshole'];
             if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                const badWords = ['fuck', 'shit', 'bitch', 'cunt', 'asshole'];
                 if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} using toxic language\nPlease use polite language.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Toxic❗*'}, ...m.key } }}, {});
+                    await m.reply(`@${m.sender.split('@')[0]} toxic language detected.`);
                 }
             }
             if (m.type === 'protocolMessage' && m.msg?.type === 0 && db.groups[m.chat].antidelete && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                if (store?.messages?.[m.chat]?.array) {
-                    const chats = store.messages[m.chat].array.find(a => a.key.id === m.msg.key.id);
-                    if (!chats?.message) return;
+                const chats = store?.messages?.[m.chat]?.array?.find(a => a.key.id === m.msg.key.id);
+                if (chats?.message) {
                     const msgType = Object.keys(chats.message)[0];
                     const msgContent = chats.message[msgType];
                     if (msgContent.fileSha256 && msgContent.mediaKey) {
@@ -1082,31 +612,24 @@ Rules:
                         msgContent.fileSha256 = fixBytes(msgContent.fileSha256);
                         msgContent.fileEncSha256 = fixBytes(msgContent.fileEncSha256);
                     }
-                    msgContent.contextInfo = { mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete❗*'}, ...chats.key };
-                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: { mentionedJid: [chats.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Delete❗*'}, ...chats.key }}} : { [msgType]: msgContent };
+                    msgContent.contextInfo = { mentionedJid: [chats.key.participant], isForwarded: true };
+                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: { mentionedJid: [chats.key.participant] }}} : { [msgType]: msgContent };
                     await nimesha.relayMessage(m.chat, pesan, {});
                 }
             }
-            if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                if (budy.match('chat.whatsapp.com/')) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a group link.\nSorry, the link must be deleted.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Link❗*'}, ...m.key }}}, {});
-                }
+            if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin && budy.match('chat.whatsapp.com/')) {
+                await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                await m.reply(`@${m.sender.split('@')[0]} group links not allowed.`);
             }
             if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                if (budy.length > 4500) {
+                if (budy.length > 4500 || m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
                     await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending virtex.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Virtex❗*'}, ...m.key }}}, {});
                     await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
-                }
-                if (m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.relayMessage(m.chat, { extendedTextMessage: { text: `Detected @${m.sender.split('@')[0]} sending a bug.`, contextInfo: { mentionedJid: [m.key.participant], isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: '*Anti Bug❗*'}, ...m.key }}}, {});
-                    await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                    await m.reply(`@${m.sender.split('@')[0]} removed for virtex.`);
                 }
             }
         }
-        
+
         // Auto Read
         if (m.message && m.key.remoteJid !== 'status@broadcast') {
             if ((set.autoread && nimesha.public) || isCreator) {
@@ -1114,13 +637,11 @@ Rules:
                 console.log(chalk.black(chalk.bgWhite('[ MESSAGE ]:'), chalk.bgGreen(new Date), chalk.bgHex('#00EAD3')(budy || m.type), chalk.bgHex('#AF26EB')(m.key.id) + '\n' + chalk.bgCyanBright('[ FROM ] :'), chalk.bgYellow(m.pushName || (isCreator ? 'Bot' : 'Anonym')), chalk.bgHex('#FF449F')(m.sender), chalk.bgHex('#FF5700')(m.isGroup ? m.metadata.subject : m.chat.endsWith('@newsletter') ? 'Newsletter' : 'Private Chat'), chalk.bgBlue('(' + m.chat + ')')));
             }
         }
-        
+
         // Auto Status View
         if (m.key.remoteJid === 'status@broadcast' && set.autostatus && !m.key.fromMe) {
             await nimesha.readMessages([m.key]);
-            if (set.autostatusreact) {
-                await nimesha.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
-            }
+            if (set.autostatusreact) await nimesha.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
         }
 
         // Auto React to Mentions
@@ -1134,23 +655,23 @@ Rules:
             await nimesha.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
         }
 
-        // Auto commands execution (download, forward, sticker, translate, delete, react, block, kick, mute, welcome, goodbye)
-        const isGroup = m.isGroup;
-        const bodyLower = budy.toLowerCase();
-
+        // Auto Download Status
         if (set.autodownload && m.key.remoteJid === 'status@broadcast' && !m.key.fromMe) {
             try {
-                const msg = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
-                if (msg) {
+                const media = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
+                if (media) {
                     const buffer = await nimesha.downloadMediaMessage(m);
-                    const caption = `📥 Auto-downloaded status from @${m.sender.split('@')[0]}`;
-                    await nimesha.sendMessage(ownerNumber[0], { [msg.imageMessage ? 'image' : 'video']: buffer, caption, mentions: [m.sender] });
+                    await nimesha.sendMessage(ownerNumber[0], { [media.imageMessage ? 'image' : 'video']: buffer, caption: `Status from @${m.sender.split('@')[0]}`, mentions: [m.sender] });
                 }
             } catch {}
         }
+
+        // Auto Forward
         if (set.autoforward && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') {
             try { await nimesha.sendMessage(set.autoforward, { forward: m }, {}); } catch {}
         }
+
+        // Auto Sticker
         if (set.autosticker && !m.key.fromMe && (m.type === 'imageMessage' || m.type === 'videoMessage')) {
             try {
                 const buffer = await m.download();
@@ -1159,140 +680,44 @@ Rules:
                 fs.unlinkSync(sticker);
             } catch {}
         }
-        if (set.autotranslate && !m.key.fromMe && bodyLower) {
-            try {
-                const translated = await AI.translate(budy, set.autotranslate);
-                await m.reply(`🌐 *Translated (${set.autotranslate})*\n${translated}`);
-            } catch {}
-        }
+
+        // Auto Delete
         if (set.autodelete > 0 && m.key.fromMe) {
             setTimeout(async () => { try { await nimesha.sendMessage(m.chat, { delete: m.key }); } catch {} }, set.autodelete * 1000);
         }
+
+        // Auto React
         if (set.autoreact && !m.key.fromMe) {
             try { await nimesha.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } }); } catch {}
         }
-        if (set.autoblock && !m.key.fromMe && !isCreator) {
-            const keywords = set.autoblock;
-            if (keywords.some(kw => bodyLower.includes(kw))) {
-                await nimesha.updateBlockStatus(m.sender, 'block');
-                await m.reply('🚫 You have been blocked for using prohibited words.');
-            }
-        }
-        if (isGroup && set.autokick && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
-            const keywords = set.autokick;
-            if (keywords.some(kw => bodyLower.includes(kw))) {
-                await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
-                await nimesha.sendMessage(m.chat, { text: `🚫 @${m.sender.split('@')[0]} was kicked for using prohibited words.`, mentions: [m.sender] });
-            }
-        }
-        if (isGroup && set.automute && !m.key.fromMe && m.isBotAdmin && !m.isAdmin) {
-            const keywords = set.automute;
-            if (keywords && keywords.some(kw => bodyLower.includes(kw))) {
-                await nimesha.sendMessage(m.chat, { delete: m.key });
-            }
-        }
-        if (isGroup && set.autowelcome && m.type === 'groupParticipantsUpdate') {
-            const update = m.message.groupParticipantsUpdate;
-            if (update.action === 'add') {
-                for (const jid of update.participants) {
-                    await nimesha.sendMessage(m.chat, { text: `👋 Welcome @${jid.split('@')[0]} to the group!`, mentions: [jid] });
-                }
-            }
-        }
-        if (isGroup && set.autogoodbye && m.type === 'groupParticipantsUpdate') {
-            const update = m.message.groupParticipantsUpdate;
-            if (update.action === 'remove') {
-                for (const jid of update.participants) {
-                    await nimesha.sendMessage(m.chat, { text: `😢 Goodbye @${jid.split('@')[0]}.`, mentions: [jid] });
-                }
-            }
-        }
 
-        if (m.isBot) return;
-        if (db.users[m.sender]?.ban && !isCreator) return;
-        
+        // Anti Spam & DidYouMean
         if (nimesha.public && isCmd) {
             if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-            if (cases.includes(command)) {
-                cmdAdd(db.hit);
-                cmdAddHit(db.hit, command);
-            }
-            if (set.antispam && antiSpam.isFiltered(m.sender)) {
-                console.log(chalk.bgRed('[ SPAM ] : '), chalk.black(chalk.bgHex('#1CFFF7')(`From -> ${m.sender}`), chalk.bgHex('#E015FF')(` In ${m.isGroup ? m.chat : 'Private Chat'}`)));
-                return m.reply('「 ❗ 」Please wait 5 seconds between commands.');
-            }
-            if (command && set.didyoumean && isCmd) {
-                let _b = '';
-                let _s = 0;
-                for (const c of cases) {
-                    let sim = similarity(command.toLowerCase(), c.toLowerCase());
-                    let lengthDiff = Math.abs(command.length - c.length);
-                    if (sim > _s && lengthDiff <= 1) {
-                        _s = sim;
-                        _b = c;
-                    }
-                }
-                let s_percentage = parseInt(_s * 100);
-                if (_s >= almost && command.toLowerCase() !== _b.toLowerCase()) {
-                    return m.reply(`Command not found!\nDid you mean:\n- ${prefix + _b}\n- Similarity: ${s_percentage}%`);
-                }
-            }
+            if (set.antispam && antiSpam.isFiltered(m.sender)) return m.reply('「 ❗ 」Please wait 5 seconds between commands.');
         }
         if (isCmd && !isCreator) antiSpam.addFilter(m.sender);
 
-        const isButtonClick = ['interactiveResponseMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage', 'messageContextInfo'].includes(m.type);
-        if (isButtonClick && m.quoted?.key) {
-            try { await nimesha.sendMessage(m.chat, { delete: m.quoted.key }); } catch(e) {}
-        }
-        
-        const isRealOwner = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
-        const botNum = botNumber.split('@')[0].replace(/[^0-9]/g, '');
-        const ownerNumClean = (ownerNumber[0] || '').replace(/[^0-9]/g, '');
-        const isSelfMode = botNum === ownerNumClean;
-        if (isCmd && isRealOwner && command && prefix && body.startsWith(prefix) && !isSelfMode && !m.isGroup) {
-            await m.react('👍');
+        // ─── FIXED .vv COMMAND (view‑once) – replies only to quoted message ───
+        if (isCmd && command === 'vv' && m.quoted && m.quoted.msg && (m.quoted.msg.viewOnce || m.quoted.msg.viewOnceMessageV2)) {
+            try {
+                const mediaBuffer = await nimesha.downloadMediaMessage(m.quoted);
+                if (!mediaBuffer) return m.reply('Could not download view‑once media.');
+                const mimeType = m.quoted.msg.mimetype || (m.quoted.type === 'imageMessage' ? 'image/jpeg' : 'video/mp4');
+                const isImage = mimeType.startsWith('image/');
+                const msgOptions = isImage
+                    ? { image: mediaBuffer, caption: '📸 View‑once image recovered.' }
+                    : { video: mediaBuffer, caption: '🎥 View‑once video recovered.' };
+                await nimesha.sendMessage(m.chat, msgOptions, { quoted: m });
+                await nimesha.sendMessage(m.chat, { delete: m.key }).catch(() => {});
+            } catch (e) {
+                console.error('[vv error]', e);
+                m.reply('Failed to retrieve view‑once media.');
+            }
+            return;
         }
 
-        let fileSha256;
-        if (m.isMedia && m.msg.fileSha256 && db.cmd && (m.msg.fileSha256.toString('base64') in db.cmd)) {
-            let hash = db.cmd[m.msg.fileSha256.toString('base64')];
-            fileSha256 = hash.text;
-        }
-        
-        if (/^a(s|ss)alamu('|)alaikum(| )(wr|)( |)(wb|)$/.test(budy?.toLowerCase())) {
-            const jwb_salam = ['Wa\'alaikumusalam','Wa\'alaikumusalam wr wb','Wa\'alaikumusalam Warohmatulahi Wabarokatuh'];
-            m.reply(pickRandom(jwb_salam));
-        }
-        
-        const jadwalSholat = { Fajr: '05:00', Dhuhr: '12:30', Asr: '15:45', Maghrib: '18:30', Isha: '19:45' };
-        if (!this.intervalSholat) this.intervalSholat = null;
-        if (!this.waktusholat) this.waktusholat = {};
-        if (this.intervalSholat) clearInterval(this.intervalSholat);
-        setTimeout(() => {
-            this.intervalSholat = setInterval(async() => {
-                const sekarang = moment.tz('Africa/Nairobi');
-                const jamSholat = sekarang.format('HH:mm');
-                const hariIni = sekarang.format('YYYY-MM-DD');
-                const seconds = sekarang.format('ss');
-                if (seconds !== '00') return;
-                for (const [sholat, waktu] of Object.entries(jadwalSholat)) {
-                    if (jamSholat === waktu && this.waktusholat[sholat] !== hariIni) {
-                        this.waktusholat[sholat] = hariIni;
-                        for (const [idnya, settings] of Object.entries(db.groups)) {
-                            if (settings.waktusholat) {
-                                await nimesha.sendMessage(idnya, { text: `*${sholat}* time has arrived, prepare for prayer🙂.\n\n*${waktu.slice(0, 5)}*\n_For Nairobi and surrounding areas._` }, { ephemeralExpiration: m.expiration || store?.messages[idnya]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 }).catch(e => {});
-                            }
-                        }
-                    }
-                }
-            }, 60000);
-        }, time_end);
-        
-        checkExpired(premium);
-        checkExpired(sewa, nimesha);
-        
-        // ===== GAME HANDLERS (Connect4, Suit, Bomb, Akinator, etc.) =====
-        // Connect 4
+        // ─── CONNECT 4 GAME (using imported game logic, but state is in db.game.connect4) ───
         let connect4Room = Object.values(db.game.connect4 || {}).find(room => room.id && room.state === 'PLAYING' && [room.player1, room.player2].includes(m.sender));
         if (connect4Room) {
             let now = Date.now();
@@ -1317,22 +742,22 @@ Rules:
             for (let r = 5; r >= 0; r--) {
                 if (board[r][col] === 0) { row = r; break; }
             }
-            if (row === -1) return m.reply('❌ Column is full! Choose another.');
+            if (row === -1) return m.reply('❌ Column full!');
             board[row][col] = turn;
             connect4Room.turn = turn === 1 ? 2 : 1;
             const checkWin = (r, c, p) => {
                 const dirs = [[1,0],[0,1],[1,1],[1,-1]];
                 for (let [dr, dc] of dirs) {
-                    let count = 1;
+                    let cnt = 1;
                     for (let d of [1, -1]) {
                         for (let i = 1; i < 4; i++) {
                             const nr = r + dr * i * d;
                             const nc = c + dc * i * d;
-                            if (nr >= 0 && nr < 6 && nc >= 0 && nc < 7 && board[nr][nc] === p) count++;
+                            if (nr >= 0 && nr < 6 && nc >= 0 && nc < 7 && board[nr][nc] === p) cnt++;
                             else break;
                         }
                     }
-                    if (count >= 4) return true;
+                    if (cnt >= 4) return true;
                 }
                 return false;
             };
@@ -1350,16 +775,16 @@ Rules:
                 m.reply(`🎉 @${winner.split('@')[0]} wins!\n\n${boardStr}`, { mentions: [winner] });
                 delete db.game.connect4[connect4Room.id];
             } else if (isDraw) {
-                m.reply(`🤝 It's a draw!\n\n${boardStr}`);
+                m.reply(`🤝 Draw!\n\n${boardStr}`);
                 delete db.game.connect4[connect4Room.id];
             } else {
                 const nextPlayer = connect4Room.turn === 1 ? connect4Room.player1 : connect4Room.player2;
-                m.reply(`🔴 ${currentPlayer === connect4Room.player1 ? 'Red' : 'Yellow'}'s move made.\n🟡 Turn: @${nextPlayer.split('@')[0]}\n\n${boardStr}\n\nReply with column number (1-7) or "nyerah" to surrender.`, { mentions: [nextPlayer] });
+                m.reply(`🔴 Move made.\n🟡 Turn: @${nextPlayer.split('@')[0]}\n\n${boardStr}\n\nReply with column 1-7 or "nyerah".`, { mentions: [nextPlayer] });
             }
             return;
         }
-        
-        // Suit PvP
+
+        // ─── SUIT PVP (kept as is, not imported from game.js because it's in db.game.suit) ───
         let roof = Object.values(suit).find(roof => roof.id && roof.status && [roof.p, roof.p2].includes(m.sender));
         if (roof) {
             let now = Date.now();
@@ -1411,8 +836,8 @@ Rules:
                 delete suit[roof.id];
             }
         }
-        
-        // Bomb Game
+
+        // ─── BOMB GAME (tebakbom) ───
         let mark = '🌀', bomb = '💣';
         if (m.sender in tebakbom) {
             if (!/^[1-9]|10$/i.test(body) && !isCmd && !isCreator) return;
@@ -1444,8 +869,8 @@ Rules:
                 } else m.reply(`*Choose a number*\n\n${brd.join('')}\n\nSelected: ${tebakbom[m.sender].pick}\nLives left: ${tebakbom[m.sender].nyawa}\nBombs: ${tebakbom[m.sender].bomb}`);
             }
         }
-        
-        // Akinator
+
+        // ─── AKINATOR ───
         if (m.sender in akinator) {
             if (m.quoted && akinator[m.sender].key == m.quoted.id) {
                 if (budy == '5') {
@@ -1479,8 +904,8 @@ Rules:
                 }
             }
         }
-        
-        // Other trivia games (tekateki, tebaklirik, etc.)
+
+        // ─── TRIVIA GAMES (tekateki, tebaklirik, etc.) ───
         const games = { tebaklirik, tekateki, tebaklagu, tebakkata, kuismath, susunkata, tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera };
         for (let gameName in games) {
             let game = games[gameName];
@@ -1511,8 +936,8 @@ Rules:
                 }
             }
         }
-        
-        // Family 100
+
+        // ─── FAMILY 100 ───
         if (m.chat in family100) {
             if (m.quoted && m.quoted.id == family100[m.chat].id && !isCmd) {
                 let room = family100[m.chat];
@@ -1529,8 +954,8 @@ Rules:
                 if (isWin || isSurender) delete family100[m.chat];
             }
         }
-        
-        // Chess (single player vs bot)
+
+        // ─── CHESS (single vs bot) ───
         if ((!isCmd || isCreator) && (m.sender in chess)) {
             const game = chess[m.sender];
             if (m.quoted && game.id == m.quoted.id && game.turn == m.sender && game.botMode) {
@@ -1573,7 +998,7 @@ Rules:
                 return m.reply(`♟ ⏰ Time expired! Game ended.`);
             }
         }
-        // Chess (multiplayer in group)
+        // Chess multiplayer in group
         if (m.isGroup && (!isCmd || isCreator) && (m.chat in chess)) {
             if (m.quoted && chess[m.chat].id == m.quoted.id && [chess[m.chat].player1, chess[m.chat].player2].includes(m.sender)) {
                 if (!(chess[m.chat] instanceof Chess)) {
@@ -1609,44 +1034,44 @@ Rules:
                 return m.reply(`♟ ⏰ Time expired! Game ended.`);
             }
         }
-        
-        // Snake Ladder (Ular Tangga)
+
+        // ─── SNAKE LADDER (using imported SnakeLadder class) ───
         if (m.isGroup && (!isCmd || isCreator) && (m.chat in ulartangga)) {
             if (m.quoted && ulartangga[m.chat].id == m.quoted.id) {
                 if (!(ulartangga[m.chat] instanceof SnakeLadder)) {
                     ulartangga[m.chat] = Object.assign(new SnakeLadder(ulartangga[m.chat]), ulartangga[m.chat]);
                 }
                 if (/^(roll|kocok)/i.test(budy.toLowerCase())) {
-                    const player = ulartangga[m.chat].players.findIndex(a => a.id == m.sender);
-                    if (ulartangga[m.chat].turn !== player) return m.reply('Not your turn!');
-                    const roll = ulartangga[m.chat].rollDice();
+                    const playerIdx = ulartangga[m.chat].players.findIndex(a => a.id == m.sender);
+                    if (ulartangga[m.chat].turn !== playerIdx) return m.reply('Not your turn!');
+                    const roll = ulartangga[m.chat].roll();
                     await m.reply(`https://raw.githubusercontent.com/luckyfelistine-bot/maureonix/main/database/dice/roll-${roll}.webp`);
-                    ulartangga[m.chat].nextTurn();
-                    ulartangga[m.chat].players[player].move += roll;
-                    if (ulartangga[m.chat].players[player].move > 100) ulartangga[m.chat].players[player].move = 100 - (ulartangga[m.chat].players[player].move - 100);
-                    let teks = `🐍🪜Player: ${['Red','Light Blue','Yellow','Green','Purple','Orange','Dark Blue','White'][player]} -> ${ulartangga[m.chat].players[player].move}\n`;
-                    if(Object.keys(ulartangga[m.chat].map.move).includes(ulartangga[m.chat].players[player].move.toString())) {
-                        teks += ulartangga[m.chat].players[player].move > ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move] ? 'You landed on a snake!\n' : 'You climbed a ladder!\n';
-                        ulartangga[m.chat].players[player].move = ulartangga[m.chat].map.move[ulartangga[m.chat].players[player].move];
+                    ulartangga[m.chat].next();
+                    ulartangga[m.chat].players[playerIdx].move += roll;
+                    if (ulartangga[m.chat].players[playerIdx].move > 100) ulartangga[m.chat].players[playerIdx].move = 100 - (ulartangga[m.chat].players[playerIdx].move - 100);
+                    let teks = `🐍🪜 Player: ${ulartangga[m.chat].players[playerIdx].move}\n`;
+                    if (Object.keys(ulartangga[m.chat].map.move).includes(ulartangga[m.chat].players[playerIdx].move.toString())) {
+                        teks += ulartangga[m.chat].players[playerIdx].move > ulartangga[m.chat].map.move[ulartangga[m.chat].players[playerIdx].move] ? 'Snake!' : 'Ladder!';
+                        ulartangga[m.chat].players[playerIdx].move = ulartangga[m.chat].map.move[ulartangga[m.chat].players[playerIdx].move];
                     }
-                    const newMap = await ulartangga[m.chat].drawBoard(ulartangga[m.chat].map.url, ulartangga[m.chat].players);
-                    if (ulartangga[m.chat].players[player].move === 100) {
-                        teks += `@${m.sender.split('@')[0]} wins!\nPrize:\n- Limit + 50\n- Money + 100,000`;
+                    const newMap = await ulartangga[m.chat].draw(ulartangga[m.chat].map.url, ulartangga[m.chat].players);
+                    if (ulartangga[m.chat].players[playerIdx].move === 100) {
+                        teks += `\n@${m.sender.split('@')[0]} wins! Prize: +50 limit, +100k money`;
                         addLimit(50, m.sender, db);
                         addMoney(100000, m.sender, db);
                         delete ulartangga[m.chat];
                         return m.reply({ image: newMap, caption: teks, mentions: [m.sender] });
                     }
-                    let { key } = await m.reply({ image: newMap, caption: teks + `Turn: @${ulartangga[m.chat].players[ulartangga[m.chat].turn].id.split('@')[0]}`, mentions: [m.sender, ulartangga[m.chat].players[ulartangga[m.chat].turn].id] });
+                    let { key } = await m.reply({ image: newMap, caption: teks + `\nTurn: @${ulartangga[m.chat].players[ulartangga[m.chat].turn].id.split('@')[0]}`, mentions: [m.sender, ulartangga[m.chat].players[ulartangga[m.chat].turn].id] });
                     ulartangga[m.chat].id = key.id;
-                } else m.reply('Example: Type "roll" to roll the dice.');
+                } else m.reply('Type "roll" to roll dice.');
             } else if (ulartangga[m.chat].time && (Date.now() - ulartangga[m.chat].time >= 7200000)) {
                 delete ulartangga[m.chat];
-                return m.reply(`🐍🪜 ⏰ Time expired! Game ended.`);
+                m.reply(`🐍🪜 Game timed out.`);
             }
         }
-        
-        // Inbox Auto-Add (private chat commands)
+
+        // ─── INBOX AUTO-ADD ───
         if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && m.sender && isCmd) {
             try {
                 const autoGroupJid = global.my?.ch;
@@ -1671,7 +1096,7 @@ Rules:
             } catch (e) { /* silent */ }
         }
 
-        // Menfes & Room Ai (private chat)
+        // ─── MENFES & ROOM AI ───
         if (!m.isGroup && (!isCmd || isCreator)) {
             if (menfes[m.sender] && m.key.remoteJid !== 'status@broadcast' && m.msg) {
                 m.react('✈');
@@ -1686,9 +1111,7 @@ Rules:
                     let hasil;
                     try {
                         hasil = await fetchApi('/ai/chat4', { messages: chat_ai[m.sender], prompt: budy }, { method: 'POST' });
-                    } catch (e) {
-                        hasil = 'Failed to get response, the website is having issues.';
-                    }
+                    } catch (e) { hasil = 'Failed to get response.'; }
                     const response = hasil?.result?.message || 'Sorry, I don\'t understand.';
                     chat_ai[m.sender].push({ role: 'assistant', content: response });
                     if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
@@ -1696,16 +1119,15 @@ Rules:
                 }
             }
         }
-        
-        // Afk
+
+        // ─── AFK ───
         let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])];
         for (let jid of mentionUser) {
             let user = db.users[jid];
-            if (!user) continue;
-            let afkTime = user.afkTime;
-            if (!afkTime || afkTime < 0) continue;
-            let reason = user.afkReason || '';
-            m.reply(`Don't tag them!\nThey are AFK ${reason ? 'because ' + reason : 'for no reason'}\nTime: ${clockString(new Date - afkTime)}`.trim());
+            if (user && user.afkTime && user.afkTime > -1) {
+                let reason = user.afkReason || '';
+                m.reply(`Don't tag them!\nThey are AFK ${reason ? 'because ' + reason : ''}\nTime: ${clockString(new Date - user.afkTime)}`.trim());
+            }
         }
         if (db.users[m.sender].afkTime > -1) {
             let user = db.users[m.sender];
@@ -1714,64 +1136,89 @@ Rules:
             user.afkReason = '';
         }
 
-        // Mini game answer handlers
+        // ─── MINI GAME ANSWERS (trivia, math, anagram, number guess, pokemon, movie) ───
         if ((!isCmd || isCreator) && db.users[m.sender]?._trivia && budy) {
-            if (budy.toLowerCase().trim() === db.users[m.sender]._trivia.toLowerCase()) { m.reply('🎉 Correct! +50 money'); db.users[m.sender].money += 50; delete db.users[m.sender]._trivia; }
-            else { m.reply('❌ Wrong!'); delete db.users[m.sender]._trivia; }
+            if (budy.toLowerCase().trim() === db.users[m.sender]._trivia.toLowerCase()) {
+                m.reply('🎉 Correct! +50 money');
+                db.users[m.sender].money += 50;
+                delete db.users[m.sender]._trivia;
+            } else { m.reply('❌ Wrong!'); delete db.users[m.sender]._trivia; }
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._math && !isNaN(budy)) {
-            if (parseInt(budy) === db.users[m.sender]._math.ans) { m.reply('🧠 Correct! +30 money'); db.users[m.sender].money += 30; }
-            else { m.reply(`❌ Wrong! Answer was ${db.users[m.sender]._math.ans}`); }
+            if (parseInt(budy) === db.users[m.sender]._math.ans) {
+                m.reply('🧠 Correct! +30 money');
+                db.users[m.sender].money += 30;
+            } else { m.reply(`❌ Wrong! Answer was ${db.users[m.sender]._math.ans}`); }
             delete db.users[m.sender]._math;
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._anagram && budy.length > 2) {
-            if (budy.toUpperCase().trim() === db.users[m.sender]._anagram) { m.reply('🔤 Correct! +40 money'); db.users[m.sender].money += 40; }
-            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._anagram}`); }
+            if (budy.toUpperCase().trim() === db.users[m.sender]._anagram) {
+                m.reply('🔤 Correct! +40 money');
+                db.users[m.sender].money += 40;
+            } else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._anagram}`); }
             delete db.users[m.sender]._anagram;
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._gtn && !isNaN(budy)) {
-            const g = db.users[m.sender]._gtn; const n = parseInt(budy); g.tries++;
-            if (n === g.target) { m.reply(`🎉 Correct in ${g.tries} tries! +${Math.max(10, 100 - g.tries * 5)} money`); db.users[m.sender].money += Math.max(10, 100 - g.tries * 5); delete db.users[m.sender]._gtn; }
-            else if (n < g.target) { m.reply('📈 Higher!'); }
-            else { m.reply('📉 Lower!'); }
+            const g = db.users[m.sender]._gtn;
+            const n = parseInt(budy);
+            g.tries++;
+            if (n === g.target) {
+                m.reply(`🎉 Correct in ${g.tries} tries! +${Math.max(10, 100 - g.tries * 5)} money`);
+                db.users[m.sender].money += Math.max(10, 100 - g.tries * 5);
+                delete db.users[m.sender]._gtn;
+            } else if (n < g.target) m.reply('📈 Higher!');
+            else m.reply('📉 Lower!');
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._pokemon && budy.length > 2) {
-            if (budy.toLowerCase().trim() === db.users[m.sender]._pokemon) { m.reply('🔮 Correct! It\'s ' + db.users[m.sender]._pokemon + '! +60 money'); db.users[m.sender].money += 60; }
-            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._pokemon}`); }
+            if (budy.toLowerCase().trim() === db.users[m.sender]._pokemon) {
+                m.reply(`🔮 Correct! It's ${db.users[m.sender]._pokemon}! +60 money`);
+                db.users[m.sender].money += 60;
+            } else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._pokemon}`); }
             delete db.users[m.sender]._pokemon;
         }
         if ((!isCmd || isCreator) && db.users[m.sender]?._movieguess && budy.length > 2) {
-            if (budy.toLowerCase().trim() === db.users[m.sender]._movieguess.toLowerCase()) { m.reply('🎬 Correct! +70 money'); db.users[m.sender].money += 70; }
-            else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._movieguess}`); }
+            if (budy.toLowerCase().trim() === db.users[m.sender]._movieguess.toLowerCase()) {
+                m.reply('🎬 Correct! +70 money');
+                db.users[m.sender].money += 70;
+            } else { m.reply(`❌ Wrong! It was ${db.users[m.sender]._movieguess}`); }
             delete db.users[m.sender]._movieguess;
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  LOAD AND EXECUTE COMMANDS FROM nima_commands.js
-        // ═══════════════════════════════════════════════════════════════
+        // ─── .thinking COMMAND ───
+        if (isCmd && command === 'thinking' && !messageHandled) {
+            if (db.thinkingSessions && db.thinkingSessions[m.sender] && db.thinkingSessions[m.sender].reasoning) {
+                const session = db.thinkingSessions[m.sender];
+                const age = Math.floor((Date.now() - session.timestamp) / 1000);
+                if (age < 300) {
+                    await m.reply(`💭 *My reasoning for:*\n${session.query.substring(0, 150)}...\n\n${session.reasoning || '_No detailed reasoning stored._'}`);
+                } else {
+                    await m.reply('⏰ Reasoning expired. Ask a new question to see fresh thinking.');
+                }
+            } else {
+                await m.reply('No reasoning available. Ask me something first, then use this command.');
+            }
+            return;
+        }
+
+        // ─── FINAL: LOAD AND EXECUTE COMMANDS FROM nima_commands.js ───
         const handleCommand = require('./nima_commands');
         await handleCommand(nimesha, m, {
             mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,
             suit, chess, chat_ai, gemini_autoreply, gemini_history, menfes,
-            checkStatus,
-            getExpired,
-            formatDate,
-            listv,
-            fake,
-            my,
-            tempatDB,
+            checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
             tekateki, akinator, tictactoe, tebaklirik, kuismath, blackjack,
             tebaklagu, tebakkata, family100, susunkata, tebakbom, ulartangga,
             tebakkimia, caklontong, tebakangka, tebaknegara, tebakgambar, tebakbendera,
             isVip, isBan, isLimit, isPremium, isNsfw,
             author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
-            setv, fkontak, readmore, fileSha256, budy, body,
+            setv, fkontak, readmore, fileSha256: null, budy, body,
             AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
             RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
             slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-            gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+            gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
+            daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
             OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
             APISports, OddsAPI, ESPN,
             ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
@@ -1782,8 +1229,9 @@ Rules:
             gdriveDownload, apkDownload,
             toAudio, toPTT, toVideo, generateMenuImage,
             runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
-            pickRandom, similarity, almost, cases, getBuffer, writeExif 
+            pickRandom, similarity, almost, cases, getBuffer, writeExif
         });
+
     } catch (e) {
         console.error(e);
         if (e?.message?.includes('No sessions')) return;
@@ -1793,8 +1241,7 @@ Rules:
         errorCache[errorKey] = errorCache[errorKey].filter(ts => now - ts < 600000);
         if (errorCache[errorKey].length >= 3) return;
         errorCache[errorKey].push(now);
-        m.reply('Error: ' + (e?.name || e?.code || e?.output?.statusCode || e?.status || 'Unknown') + '\nError log sent to owner.\n\n');
-        return nimesha.sendFromOwner(ownerNumber, `Good day, an error occurred, please fix it.\n\nVersion : *${require('./package.json').version}*\n\n*Log error:*\n\n` + util.format(e), m, { contextInfo: { isForwarded: true }});
+        if (m && m.reply) m.reply('Error: ' + (e?.name || e?.code || 'Unknown'));
     }
 };
 
