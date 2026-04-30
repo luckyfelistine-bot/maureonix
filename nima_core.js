@@ -984,7 +984,6 @@ Rules:
                     }
                 }
             }
-            // guard: stop further processing if we sent a reply
             if (messageHandled) return;
         }
 
