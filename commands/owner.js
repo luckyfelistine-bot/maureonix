@@ -1,4 +1,4 @@
-// commands/owner.js – Owner & privacy controls (enhanced)
+// commands/owner.js – Owner & privacy controls (enhanced with owner mirror)
 const fs = require('fs');
 const path = require('path');
 const { generateProfilePicture, sleep } = require('../lib/function');
@@ -250,6 +250,7 @@ module.exports = {
         txt += `🔹 autoai_selfchat : ${set.autoai_selfchat ? '✅ ON' : '❌ OFF'}\n`;
         txt += `🔹 privatemode     : ${(set.privatemode || 'off').toUpperCase()}\n`;
         txt += `🔹 awaymsg         : ${set.awaymsg || 'Default'}\n`;
+        txt += `🔹 ownermirror     : ${set.ownerMirror ? '✅ ON' : '❌ OFF'}\n`;
         txt += `\n_Use ${prefix}autoviewstatus on/off, etc._`;
         m.reply(txt);
     },
@@ -349,9 +350,9 @@ module.exports = {
         set.pendingMessages = [];
         await m.reply('✅ Pending messages cleared.');
     },
-    crisis: async (nimesha, m, { isCreator, mess, args, prefix, set, db }) => {
+    crisis: async (nimesha, m, { isCreator, mess, args, prefix, set }) => {
         if (!isCreator) return m.reply(mess.owner);
-        if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisis scope <all|dm|groups|off> - set scope\n${prefix}crisiscancel @user - stop crisis mode for a user`);
+        if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisis scope <all|dm|groups|off> - set scope\n${prefix}crisiscancel @user - cancel crisis mode for user`);
         const action = args[0].toLowerCase();
         if (action === 'on') { set.crisisDetection = true; m.reply('✅ Crisis detection ENABLED.'); }
         else if (action === 'off') { set.crisisDetection = false; m.reply('❌ Crisis detection DISABLED.'); }
@@ -420,6 +421,18 @@ module.exports = {
         await m.reply(msg);
     },
 
+    // ═════════════════════════════════════════════════════════
+    //  NEW: OWNER MIRROR – forwards auto‑AI replies to owner
+    // ═════════════════════════════════════════════════════════
+    ownermirror: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
+        if (status === null) return m.reply(`Usage: ${prefix}ownermirror on/off\nCurrent: ${set.ownerMirror ? 'ON' : 'OFF'}`);
+        set.ownerMirror = status;
+        m.reply(`✅ Owner Mirror ${status ? 'enabled' : 'disabled'}. All auto‑AI replies will be forwarded to your DM.`);
+    },
+
+    // Reporting & learning commands
     dailyreport: async (nimesha, m, { isCreator, mess, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('📊 Generating daily report...');
