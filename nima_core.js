@@ -705,9 +705,50 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 try {
                     const { enhancedAI, sendLongMessage } = require('./lib/ai');
                     const result = await enhancedAI(body || budy, m.sender, 'deepseek');
-                    if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+                    if (!messageHandled) {
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+
+                        // ── Owner Mirror ──
+                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
+                        if (set.ownerMirror && m.sender !== ownerJid) {
+                            const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n` +
+                                              `👤 +${m.sender.split('@')[0]}\n` +
+                                              `💬 ${(body || budy).slice(0, 200)}\n\n` +
+                                              `🤖 ${result.text.slice(0, 300)}`;
+                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                        }
+                    }
                 } catch (e) {
                     console.error('[privat AI error]', e);
+                }
+                return;
+            } else if (mode === 'both') {
+                if (!user._awayNotified) {
+                    await m.reply(awayMsg);
+                    user._awayNotified = true;
+                    await sleep(1000);
+                }
+                if (!messageHandled) {
+                    if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                    try {
+                        const { enhancedAI, sendLongMessage } = require('./lib/ai');
+                        const result = await enhancedAI(body || budy, m.sender, 'deepseek');
+                        if (!messageHandled) {
+                            await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${result.text}`, { quoted: m });
+
+                            // ── Owner Mirror ──
+                            const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
+                            if (set.ownerMirror && m.sender !== ownerJid) {
+                                const mirrorMsg = `📨 *Private AI reply to ${m.pushName || 'User'}*\n` +
+                                                  `👤 +${m.sender.split('@')[0]}\n` +
+                                                  `💬 ${(body || budy).slice(0, 200)}\n\n` +
+                                                  `🤖 ${result.text.slice(0, 300)}`;
+                                await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[privat AI error]', e);
+                    }
                 }
                 return;
             } else if (mode === 'both') {
@@ -914,7 +955,19 @@ Rules:
                                 }
                             }
 
-                            if (!messageHandled) await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
+                    if (!messageHandled) {
+                        await sendLongMessage(nimesha, m.chat, `🤖 *Maureonix*\n\n${replyText}`, { quoted: m });
+
+                        // ── Owner Mirror ──
+                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
+                        if (set.ownerMirror && m.sender !== ownerJid) {
+                            const mirrorMsg = `📨 *Reply to ${m.pushName || 'User'}*\n` +
+                                              `👤 +${m.sender.split('@')[0]}\n` +
+                                              `💬 ${userMessage.slice(0, 200)}\n\n` +
+                                              `🤖 ${replyText.slice(0, 300)}`;
+                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                        }
+                    }
 
                             session.context.push({ role: 'assistant', content: replyText, time: Date.now() });
                             if (session.context.length > 10) session.context.shift();
@@ -1113,7 +1166,8 @@ Rules:
                             body: JSON.stringify({
                                 system_instruction: { parts: [{ text: systemPrompt }] },
                                 contents: memoryStore.getGeminiCompatibleHistory(histKey, memSize)
-                            })                        }
+                            })
+                        }
                     );
                     const geminiData = await geminiRes.json();
                     const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -1122,6 +1176,16 @@ Rules:
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
                         if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
                         await m.reply(replyText);
+
+                        // ── Owner Mirror ──
+                        const ownerJid = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber);
+                        if (set.ownerMirror && m.sender !== ownerJid) {
+                            const mirrorMsg = `📨 *Gemini reply to ${m.pushName || 'User'}*\n` +
+                                              `👤 +${m.sender.split('@')[0]}\n` +
+                                              `💬 ${(body || budy).slice(0, 200)}\n\n` +
+                                              `🤖 ${replyText.slice(0, 300)}`;
+                            await nimesha.sendMessage(ownerJid, { text: mirrorMsg }).catch(() => {});
+                        }
                         return; // stop here to prevent command processing after Gemini reply
                     }
                 }
