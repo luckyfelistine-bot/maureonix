@@ -24,7 +24,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 }, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════
-//  AUTO‑INSTALL & SYSTEM PREP (unchanged from working version)
+//  AUTO‑INSTALL & SYSTEM PREP
 // ═══════════════════════════════════════════════════════
 (async () => {
     const { execSync } = require('child_process');
@@ -37,6 +37,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         try { execSync('pnpm --version', { stdio: 'pipe', timeout: 5000 }); return 'pnpm'; } catch {}
         return 'npm';
     }
+
     function _needsInstall() {
         const pkgPath = path.join(__dirname, 'package.json');
         if (!fs.existsSync(pkgPath)) return false;
@@ -49,6 +50,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         } catch {}
         return false;
     }
+
     function _runInstall(pm) {
         const commands = {
             npm:  ['npm install --legacy-peer-deps --no-audit --prefer-offline', 'npm install --force --no-audit', 'npm install --legacy-peer-deps'],
@@ -60,9 +62,10 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         }
         return false;
     }
+
     if (_needsInstall()) { const pm = _detectPackageManager(); _runInstall(pm); }
 
-    // pip
+    // pip packages
     (function _autoPip() {
         const pipPackages = ['speedtest-cli', 'yt-dlp'];
         function _getPipCmd() {
@@ -76,7 +79,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         }
     })();
 
-    // system tools
+    // system tools (ffmpeg, yt-dlp binary)
     (function _autoSystemTools() {
         function _checkCmd(cmd) { try { execSync(`which ${cmd}`, { stdio: 'pipe' }); return true; } catch { return false; } }
         if (!_checkCmd('ffmpeg')) {
@@ -131,57 +134,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const msgRetryCounterCache = new NodeCache();
 
     // ═══════════════════════════════════════════════════════
-    //  SESSION HEALTH & STALENESS CONTROL
-    // ═══════════════════════════════════════════════════════
-    let sessionStartTime = 0;
-    let processing = false;
-    let lastMessageTime = Date.now();
-    let healthCheckInterval = null;
-
-    let lastSessionReset = 0;
-    const SESSION_RESET_COOLDOWN = 5 * 60 * 1000;   // 5 minutes
-
-    function canResetSession() { return Date.now() - lastSessionReset > SESSION_RESET_COOLDOWN; }
-    function triggerSessionReset() {
-        if (!canResetSession()) { console.log('⏳ Session reset cooldown — skipping'); return; }
-        console.log('🔄 Full session reset');
-        lastSessionReset = Date.now();
-        exec('find ./nimadev -name "*.json" -delete', () => {});
-        global.nimaInstance?.ws?.close();
-        setTimeout(() => startnimaBot(), 3000);
-    }
-
-    function isStale(msg) {
-        const ts = (msg?.messageTimestamp || 0) * 1000;
-        if (sessionStartTime && ts < sessionStartTime - 5000) return true;
-        if (Date.now() - ts > 30000) return true;
-        return false;
-    }
-
-    function resetHealth() { lastMessageTime = Date.now(); }
-
-    healthCheckInterval = setInterval(() => {
-        if (processing) return;
-        if (Date.now() - lastMessageTime > 180_000) {
-            console.log('⚠️ Idle timeout — reconnecting');
-            clearInterval(healthCheckInterval);
-            triggerSessionReset();
-        }
-    }, 60_000);
-
-    async function processMessage(nimaBot, msg, store) {
-        if (processing) return;
-        processing = true;
-        try {
-            const timeout = setTimeout(() => { processing = false; }, 45_000);
-            await MessagesUpsert(nimaBot, msg, store);
-            clearTimeout(timeout);
-        } catch (e) { console.error('[msg error]', e.message); }
-        finally { processing = false; }
-    }
-
-    // ═══════════════════════════════════════════════════════
-    //  START BOT
+    //  SIMPLE RECONNECTION (no aggressive watchdog)
     // ═══════════════════════════════════════════════════════
     let _reconnectCount = 0;
     const _MAX_RECONNECT_DELAY = 60_000;
@@ -192,8 +145,6 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             global.nimaInstance = null;
         }
         phoneNumber = global.number_bot || '254116903500';
-        processing = false;
-        lastMessageTime = Date.now();
 
         const loadData = await database.read();
         const storeLoadData = await storeDB.read();
@@ -287,41 +238,35 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         nimaBot.ev.on('creds.update', saveCreds);
 
         nimaBot.ev.on('connection.update', async (update) => {
-            const { qr, connection, lastDisconnect } = update;
+            const { connection, lastDisconnect } = update;
             if (connection === 'close') {
                 const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                const errMsg = lastDisconnect?.error?.message || '';
                 _reconnectCount++;
                 const backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
                 console.log(`🔌 Disconnect: ${reason} | retry in ${backoff / 1000}s`);
-                if (errMsg.includes('closed session') || errMsg.includes('Bad MAC')) {
-                    triggerSessionReset();
-                } else setTimeout(() => startnimaBot(), backoff);
+                setTimeout(() => startnimaBot(), backoff);
             }
             if (connection === 'open') {
                 _reconnectCount = 0;
-                sessionStartTime = Date.now();
-                resetHealth();
-                try { await nimaBot.requestPreKeys?.(3); } catch(_) {}
                 console.log('✅ Connected');
             }
         });
 
         nimaBot.ev.on('messages.upsert', async (message) => {
-            resetHealth();
-            if (isStale(message.messages?.[0])) return;
-            await processMessage(nimaBot, message, global.store);
+            await MessagesUpsert(nimaBot, message, global.store);
         });
 
         nimaBot.ev.on('group-participants.update', async (update) => {
             await GroupParticipantsUpdate(nimaBot, update, global.store);
         });
+
         nimaBot.ev.on('groups.update', (update) => {
             for (const n of update) {
                 if (global.store.groupMetadata[n.id]) Object.assign(global.store.groupMetadata[n.id], n);
                 else global.store.groupMetadata[n.id] = n;
             }
         });
+
         nimaBot.ev.on('presence.update', ({ id, presences: update }) => {
             global.store.presences[id] = global.store.presences?.[id] || {};
             Object.assign(global.store.presences[id], update);
@@ -337,5 +282,4 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         if (global.store) await storeDB.write(global.store);
         process.exit(0);
     });
-
 });
