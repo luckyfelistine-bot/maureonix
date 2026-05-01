@@ -286,6 +286,7 @@ module.exports = {
     // ═══════════════════════════════════════════════════════════════════
     //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
     // ═══════════════════════════════════════════════════════════════════
+grep -rn "selfchat:" --include="*.js"
     selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
         console.log('[selfchat] Called with args:', args, 'botNumber:', botNumber, 'db.set:', db.set);
         if (!args || !args[0]) {
