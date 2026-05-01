@@ -287,9 +287,11 @@ module.exports = {
     //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
     // ═══════════════════════════════════════════════════════════════════
     selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
+        console.log('[selfchat] Function called with args:', args); // Debug
         if (!args[0]) {
             const current = (db.set && db.set[botNumber] && db.set[botNumber].autoai_selfchat) ? 'ON' : 'OFF';
-            return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${current}`);
+            await m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${current}`);
+            return;
         }
         const mode = args[0].toLowerCase();
         if (!db.set) db.set = {};
