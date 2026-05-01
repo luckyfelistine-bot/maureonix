@@ -20,8 +20,8 @@ function recordPairAttempt(ip) {
 }
 
 async function generatePairCode(number) {
-  // Dynamic import to avoid top‑level require errors
-  const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+  // Use the correct Baileys import (no @whiskeysockets prefix for compatibility)
+  const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
   const pino = require('pino');
 
   const cleanNumber = number.replace(/[^0-9]/g, '');
@@ -32,40 +32,32 @@ async function generatePairCode(number) {
   fs.mkdirSync(tempDir, { recursive: true });
 
   let sock = null;
-  let codeResolved = false;
+  let timeoutId = null;
 
-  // Prevent duplicate cleanup errors
-  function cleanup() {
+  // Cleanup function
+  const cleanup = () => {
+    if (timeoutId) clearTimeout(timeoutId);
     if (sock) {
       try { sock.ws?.close(); } catch (_) {}
       sock = null;
     }
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
-  }
+  };
 
-  // Get a working WhatsApp Web version
-  let version;
   try {
-    const { version: v } = await fetchLatestBaileysVersion();
-    version = v;
-  } catch (e) {
-    console.warn('[PAIR] fetchLatestBaileysVersion failed, using fallback. Error:', e.message);
-    // Fallback: a recent multi‑device compatible version (major, minor, build)
-    version = [2, 3000, 1017531287];
-  }
+    // Global timeout (45 seconds)
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Pairing request timed out after 45 seconds.')), 45000);
+    });
 
-  return new Promise(async (resolve, reject) => {
-    const timeout = setTimeout(() => {
-      if (!codeResolved) {
-        codeResolved = true;
-        cleanup();
-        reject(new Error('Pairing request timed out after 45 seconds.'));
-      }
-    }, 45000);
+    // Step 1: get WhatsApp Web version
+    const { version } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
 
-    try {
-      const { state } = await useMultiFileAuthState(tempDir);
+    // Step 2: create auth state
+    const { state } = await useMultiFileAuthState(tempDir);
 
+    // Step 3: create socket and wait for connection
+    const socketPromise = new Promise((resolve, reject) => {
       sock = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
@@ -74,47 +66,50 @@ async function generatePairCode(number) {
         browser: ['Maureonix (Pairing)', 'Chrome', '120.0.0.0'],
         connectTimeoutMs: 30000,
         defaultQueryTimeoutMs: 30000,
-        keepAliveIntervalMs: 10000,
-        emitOwnEvents: true,
+        keepAliveIntervalMs: 10000
       });
 
-      // Listen for premature disconnection
-      sock.ev.on('connection.update', (update) => {
-        if (update.connection === 'close' && !codeResolved) {
-          const statusCode = update.lastDisconnect?.error?.output?.statusCode;
-          const reason = update.lastDisconnect?.error?.message || 'Connection closed unexpectedly';
-          let userMessage = `WhatsApp disconnected: ${reason}`;
-          if (statusCode === 401) userMessage = 'Phone number not registered on WhatsApp. Check the number and try again.';
-          else if (statusCode === 403) userMessage = 'Access denied. Try again later.';
-          else if (reason.includes('timed out')) userMessage = 'Connection timed out. Please try again.';
-          codeResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          reject(new Error(userMessage));
+      const onConnectionUpdate = (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'open') {
+          sock.ev.off('connection.update', onConnectionUpdate);
+          resolve();
+        } else if (connection === 'close') {
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          const reason = lastDisconnect?.error?.message || 'Unknown';
+          let errorMsg = `Connection closed: ${reason}`;
+          if (statusCode === 401) errorMsg = 'Phone number not registered on WhatsApp. Check the number and try again.';
+          else if (statusCode === 403) errorMsg = 'Access denied. Try again later.';
+          reject(new Error(errorMsg));
         }
-      });
+      };
+      sock.ev.on('connection.update', onConnectionUpdate);
 
-      // Request pairing code
-      const code = await sock.requestPairingCode(cleanNumber);
-      if (!codeResolved) {
-        codeResolved = true;
-        clearTimeout(timeout);
-        cleanup();
-        const formatted = code.match(/.{1,4}/g)?.join('-') || code;
-        resolve({ code: formatted, number: cleanNumber });
-      }
-    } catch (err) {
-      if (!codeResolved) {
-        codeResolved = true;
-        clearTimeout(timeout);
-        cleanup();
-        let msg = err?.message || 'Unknown error';
-        if (msg.includes('Connection closed')) msg = 'Connection closed by WhatsApp. Please try again.';
-        else if (msg.includes('timed out')) msg = 'Request timed out. Check your internet and try again.';
-        reject(new Error(msg));
-      }
-    }
-  });
+      // Also handle socket errors
+      sock.ev.on('error', (err) => {
+        sock.ev.off('connection.update', onConnectionUpdate);
+        reject(err);
+      });
+    });
+
+    // Wait for either connection or timeout
+    await Promise.race([socketPromise, timeoutPromise]);
+
+    // Step 4: request pairing code
+    const codePromise = sock.requestPairingCode(cleanNumber);
+    const code = await Promise.race([codePromise, timeoutPromise]);
+
+    // Success
+    cleanup();
+    const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
+    return { code: formatted, number: cleanNumber };
+  } catch (err) {
+    cleanup();
+    let message = err?.message || 'Failed to get pairing code.';
+    if (message.includes('timed out')) message = 'Request timed out. Please try again.';
+    if (message.includes('Connection closed')) message = 'Connection closed by WhatsApp. Please try again.';
+    throw new Error(message);
+  }
 }
 
 module.exports = { checkPairRateLimit, recordPairAttempt, generatePairCode, pairAttempts };
