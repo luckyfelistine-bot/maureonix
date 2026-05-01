@@ -287,23 +287,13 @@ module.exports = {
     //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
     // ═══════════════════════════════════════════════════════════════════
     selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
-        console.log('[selfchat] Called with args:', args);
-        if (!args[0]) {
-            const current = (db.set && db.set[botNumber] && db.set[botNumber].autoai_selfchat) ? 'ON' : 'OFF';
-            await nimesha.sendMessage(m.chat, { text: `Usage: ${prefix}selfchat on/off\nCurrent: ${current}` }, { quoted: m });
+        console.log('[selfchat] Called');
+        try {
+            await nimesha.sendMessage(m.chat, { text: 'TEST: Selfchat command received.' });
+            console.log('[selfchat] Test message sent');
             return;
-        }
-        const mode = args[0].toLowerCase();
-        if (!db.set) db.set = {};
-        if (!db.set[botNumber]) db.set[botNumber] = {};
-        if (mode === 'on') {
-            db.set[botNumber].autoai_selfchat = true;
-            await nimesha.sendMessage(m.chat, { text: '✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).' }, { quoted: m });
-        } else if (mode === 'off') {
-            db.set[botNumber].autoai_selfchat = false;
-            await nimesha.sendMessage(m.chat, { text: '❌ *Self‑chat mode disabled*' }, { quoted: m });
-        } else {
-            await nimesha.sendMessage(m.chat, { text: `Unknown option. Use ${prefix}selfchat on/off` }, { quoted: m });
+        } catch (err) {
+            console.error('[selfchat] Send failed:', err);
         }
     },
 
