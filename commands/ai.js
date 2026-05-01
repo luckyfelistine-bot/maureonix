@@ -287,24 +287,22 @@ module.exports = {
     //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
     // ═══════════════════════════════════════════════════════════════════
     selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
-        console.log('[selfchat] Called with args:', args, 'botNumber:', botNumber, 'db.set:', db.set);
-        if (!args || !args[0]) {
+        if (!args[0]) {
             const current = (db.set && db.set[botNumber] && db.set[botNumber].autoai_selfchat) ? 'ON' : 'OFF';
-            return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${current}`);
+            return `Usage: ${prefix}selfchat on/off\nCurrent: ${current}`;
         }
         const mode = args[0].toLowerCase();
         if (!db.set) db.set = {};
         if (!db.set[botNumber]) db.set[botNumber] = {};
         if (mode === 'on') {
             db.set[botNumber].autoai_selfchat = true;
-            await m.reply('✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).');
+            return '✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).';
         } else if (mode === 'off') {
             db.set[botNumber].autoai_selfchat = false;
-            await m.reply('❌ *Self‑chat mode disabled*');
+            return '❌ *Self‑chat mode disabled*';
         } else {
-            await m.reply(`Unknown option. Use ${prefix}selfchat on/off`);
+            return `Unknown option. Use ${prefix}selfchat on/off`;
         }
-        console.log('[selfchat] New value:', db.set[botNumber].autoai_selfchat);
     },
 
     // ─── Aliases (for convenience) ─────────────────────────────────────
