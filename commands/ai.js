@@ -9,47 +9,41 @@ module.exports = {
         try {
             const res = await AI.askModel(text, 'gpt', m.sender);
             if (!res || !res.text) throw new Error('Empty response from AI');
-            await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
+            await m.reply(`🦊 *Maureonix (GPT)*\n\n${res.text}`);
         } catch (e) {
             console.error('[GPT Error]', e);
             await m.reply(`❌ AI error: ${e.message}`);
         }
     },
-
-    // ─── Gemini (uses gemma model) ────────────────────────────────────
     gemini: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('♊ *Maureonix(gemini) thinking...*');
+        await m.reply('♊ *Maureonix (Gemini) thinking...*');
         try {
             const res = await AI.askModel(text, 'gemini', m.sender);
             if (!res || !res.text) throw new Error('Empty response');
-            await m.reply(`♊ *Maureonix*\n\n${res.text}`);
+            await m.reply(`♊ *Maureonix (Gemini)*\n\n${res.text}`);
         } catch (e) {
             console.error('[Gemini Error]', e);
             await m.reply(`❌ AI error: ${e.message}`);
         }
     },
-
-    // ─── Llama 3 ──────────────────────────────────────────────────────
     llama: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('🦙 *Maureonix(Llama 3) thinking...*');
+        await m.reply('🦙 *Maureonix (Llama 3) thinking...*');
         try {
             const res = await AI.askModel(text, 'llama', m.sender);
-            await m.reply(`🦙 *Maureonix*\n\n${res.text}`);
+            await m.reply(`🦙 *Maureonix (Llama 3)*\n\n${res.text}`);
         } catch (e) {
             console.error('[Llama Error]', e);
             await m.reply(`❌ AI error: ${e.message}`);
         }
     },
-
-    // ─── DeepSeek (qwen) ──────────────────────────────────────────────
     deepseek: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('🐋 *Maureonix(DeepSeek) thinking...*');
+        await m.reply('🐋 *Maureonix (DeepSeek) thinking...*');
         try {
             const res = await AI.askModel(text, 'deepseek', m.sender);
-            await m.reply(`🐋 *Maureonix*\n\n${res.text}`);
+            await m.reply(`🐋 *Maureonix (DeepSeek)*\n\n${res.text}`);
         } catch (e) {
             console.error('[DeepSeek Error]', e);
             await m.reply(`❌ AI error: ${e.message}`);
@@ -291,14 +285,18 @@ module.exports = {
     // ═══════════════════════════════════════════════════════════════════
     //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
     // ═══════════════════════════════════════════════════════════════════
-    selfchat: async (nimesha, m, { args, prefix, set, db, botNumber }) => {
-        if (!args[0]) return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${set.autoai_selfchat ? 'ON' : 'OFF'}`);
+    selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
+        if (!args[0]) {
+            const current = (db.set[botNumber] && db.set[botNumber].autoai_selfchat) ? 'ON' : 'OFF';
+            return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${current}`);
+        }
         const mode = args[0].toLowerCase();
+        if (!db.set[botNumber]) db.set[botNumber] = {};
         if (mode === 'on') {
-            set.autoai_selfchat = true;
+            db.set[botNumber].autoai_selfchat = true;
             m.reply('✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).');
         } else if (mode === 'off') {
-            set.autoai_selfchat = false;
+            db.set[botNumber].autoai_selfchat = false;
             m.reply('❌ *Self‑chat mode disabled*');
         } else {
             m.reply(`Unknown option. Use ${prefix}selfchat on/off`);
