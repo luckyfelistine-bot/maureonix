@@ -289,19 +289,19 @@ module.exports = {
     selfchat: async (nimesha, m, { args, prefix, db, botNumber }) => {
         if (!args[0]) {
             const current = (db.set && db.set[botNumber] && db.set[botNumber].autoai_selfchat) ? 'ON' : 'OFF';
-            return `Usage: ${prefix}selfchat on/off\nCurrent: ${current}`;
+            return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${current}`);
         }
         const mode = args[0].toLowerCase();
         if (!db.set) db.set = {};
         if (!db.set[botNumber]) db.set[botNumber] = {};
         if (mode === 'on') {
             db.set[botNumber].autoai_selfchat = true;
-            return '✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).';
+            await m.reply('✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).');
         } else if (mode === 'off') {
             db.set[botNumber].autoai_selfchat = false;
-            return '❌ *Self‑chat mode disabled*';
+            await m.reply('❌ *Self‑chat mode disabled*');
         } else {
-            return `Unknown option. Use ${prefix}selfchat on/off`;
+            await m.reply(`Unknown option. Use ${prefix}selfchat on/off`);
         }
     },
 
