@@ -525,7 +525,6 @@ module.exports = {
     unblokir: async (nimesha, m, ctx) => { await module.exports.unblock(nimesha, m, ctx); },
     autosettings: async (nimesha, m, ctx) => { await module.exports.automation(nimesha, m, ctx); },
     autogpt: async (nimesha, m, ctx) => { await module.exports.autoai(nimesha, m, ctx); },
-    selfchat: async (nimesha, m, ctx) => { await module.exports.autoaiselfchat(nimesha, m, ctx); },
     inbox: async (nimesha, m, ctx) => { await module.exports.pending(nimesha, m, ctx); },
     clearinbox: async (nimesha, m, ctx) => { await module.exports.pendingclear(nimesha, m, ctx); },
     report: async (nimesha, m, ctx) => { await module.exports.reportnow(nimesha, m, ctx); },
