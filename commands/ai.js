@@ -5,7 +5,8 @@ module.exports = {
     // ─── GPT ──────────────────────────────────────────────────────────
     gpt: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('🦊 *Maureonix thinking...*');
+        // Send thinking indicator without affecting messageHandled
+        await nimesha.sendMessage(m.chat, { text: '🦊 *Maureonix thinking...*' }, { quoted: m });
         try {
             const res = await AI.askModel(text, 'gpt', m.sender);
             if (!res || !res.text) throw new Error('Empty response from AI');
@@ -17,7 +18,7 @@ module.exports = {
     },
     gemini: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('♊ *Maureonix (Gemini) thinking...*');
+        await nimesha.sendMessage(m.chat, { text: '♊ *Maureonix (Gemini) thinking...*' }, { quoted: m });
         try {
             const res = await AI.askModel(text, 'gemini', m.sender);
             if (!res || !res.text) throw new Error('Empty response');
@@ -29,7 +30,7 @@ module.exports = {
     },
     llama: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('🦙 *Maureonix (Llama 3) thinking...*');
+        await nimesha.sendMessage(m.chat, { text: '🦙 *Maureonix (Llama 3) thinking...*' }, { quoted: m });
         try {
             const res = await AI.askModel(text, 'llama', m.sender);
             await m.reply(`🦙 *Maureonix (Llama 3)*\n\n${res.text}`);
@@ -40,7 +41,7 @@ module.exports = {
     },
     deepseek: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('🐋 *Maureonix (DeepSeek) thinking...*');
+        await nimesha.sendMessage(m.chat, { text: '🐋 *Maureonix (DeepSeek) thinking...*' }, { quoted: m });
         try {
             const res = await AI.askModel(text, 'deepseek', m.sender);
             await m.reply(`🐋 *Maureonix (DeepSeek)*\n\n${res.text}`);
