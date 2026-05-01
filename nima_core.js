@@ -408,7 +408,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (messageHandled) return;
         }
 
-        // ─── CRISIS INTERVENTION – FIXED ───
+        // ─── CRISIS INTERVENTION (fixed: crisis stop, cooldown reduced, owner reports) ───
         const crisisScope = db.set?.crisisScope || 'all';
         let shouldProcessCrisis = false;
         if (crisisScope === 'off') shouldProcessCrisis = false;
@@ -416,61 +416,76 @@ const coreHandler = async (nimesha, m, msg, store) => {
         else if (crisisScope === 'groups') shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
         else shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
 
-        // Crisis keywords (direct match)
-        const crisisKeywords = ['suicide', 'kill myself', 'end my life', 'want to die', 'hopeless', 'no reason to live', 'hurt myself', 'self harm'];
-        const lowerMsg = (body || budy).toLowerCase();
-        const isCrisisKeyword = crisisKeywords.some(kw => lowerMsg.includes(kw));
+        if (shouldProcessCrisis && (body || budy) && !messageHandled) {
+            const userMessage = body || budy;
+            
+            // ─── Handle "crisis stop" command to exit crisis mode ───
+            if (db.crisisPending?.[m.sender]?.state === 'talking' && userMessage.toLowerCase() === 'crisis stop') {
+                delete db.crisisPending[m.sender];
+                await nimesha.sendMessage(m.chat, { text: '💙 *Crisis mode ended.*\nI\'m still here if you need me. Just type anything.' }, { quoted: m });
+                return;
+            }
 
-        if (shouldProcessCrisis && (body || budy) && !messageHandled && isCrisisKeyword) {
-            // Check throttle
-            const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
-            if (Date.now() - lastCrisis > 30 * 60 * 1000) {
-                if (!db.crisisTimestamps) db.crisisTimestamps = {};
-                db.crisisTimestamps[m.sender] = Date.now();
+            const crisis = AI.detectCrisis(userMessage);
+            if (crisis.isCrisis) {
+                const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
+                // Reduced cooldown to 5 minutes (was 30) to allow re-triggering
+                if (Date.now() - lastCrisis < 5 * 60 * 1000) {
+                    // Still handle but don't spam owner
+                } else {
+                    if (!db.crisisTimestamps) db.crisisTimestamps = {};
+                    db.crisisTimestamps[m.sender] = Date.now();
+                    let verified = true;
+                    if (global.set?.aiCrisisVerification !== false) {
+                        const { verifyCrisisWithAI } = require('./lib/ai');
+                        const verification = await verifyCrisisWithAI(userMessage, m.sender);
+                        if (!verification.isDistress) verified = false;
+                    }
+                    if (verified) {
+                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly – just type naturally.\n👉 Reply with "yes" to talk, or "no" for human contact.\n\n_Your feelings matter._ 💙`;
+                        await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
+                        if (!db.crisisPending) db.crisisPending = {};
+                        db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
+                        // Send report to ALL owners
+                        const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
+                        for (const owner of ownerJids) {
+                            await nimesha.sendMessage(owner, { text: `🚨 *CRISIS ALERT* (${crisis.severity})\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}` }).catch(() => {});
+                        }
+                        return;
+                    }
+                }
+            }
 
-                const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly – just type naturally.\n👉 Reply with "yes" to talk, or "no" for human contact.\n\n_Your feelings matter._ 💙`;
-                await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
-                if (!db.crisisPending) db.crisisPending = {};
-                db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: body || budy, timestamp: Date.now(), severity: 'high' };
-                const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                for (const owner of ownerJids) {
-                    await nimesha.sendMessage(owner, { text: `🚨 *CRISIS ALERT* (high)\nUser: ${m.sender}\nMessage: ${body || budy}` }).catch(() => {});
+            if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
+                const choice = userMessage.trim().toLowerCase();
+                if (choice === 'yes') {
+                    db.crisisPending[m.sender].state = 'talking';
+                    db.crisisPending[m.sender].lastMsgTime = Date.now();
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
+                    return;
+                } else if (choice === 'no') {
+                    const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
+                    await nimesha.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
+                    delete db.crisisPending[m.sender];  // Clean up
+                    return;
+                } else {
+                    await nimesha.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
+                    return;
+                }
+            }
+
+            if (db.crisisPending?.[m.sender]?.state === 'talking') {
+                db.crisisPending[m.sender].lastMsgTime = Date.now();
+                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const crisisSystem = `You are a compassionate listener. The user is in distress. Respond warmly and briefly. Never give medical advice. Use 💙.`;
+                    const result = await AI.ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
+                    await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
+                } catch (e) {
+                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
                 }
                 return;
             }
-        }
-
-        // Handle user's reply to crisis offer (yes/no)
-        if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice' && (body || budy) && !messageHandled) {
-            const choice = (body || budy).trim().toLowerCase();
-            if (choice === 'yes') {
-                db.crisisPending[m.sender].state = 'talking';
-                db.crisisPending[m.sender].lastMsgTime = Date.now();
-                await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
-                return;
-            } else if (choice === 'no') {
-                const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
-                await nimesha.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
-                delete db.crisisPending[m.sender];
-                return;
-            } else {
-                await nimesha.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
-                return;
-            }
-        }
-
-        // Active crisis conversation (user is talking)
-        if (db.crisisPending?.[m.sender]?.state === 'talking' && (body || budy) && !messageHandled) {
-            db.crisisPending[m.sender].lastMsgTime = Date.now();
-            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
-            try {
-                const crisisSystem = `You are a compassionate listener. The user is in distress. Respond warmly and briefly. Never give medical advice. Use 💙.`;
-                const result = await AI.ultimateAI(body || budy, m.sender, 'deepseek', crisisSystem);
-                await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
-            } catch (e) {
-                await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
-            }
-            return;
         }
 
         // Cleanup idle crisis sessions (after 10 minutes)
