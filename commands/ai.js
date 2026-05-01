@@ -1,54 +1,81 @@
-// commands/ai.js – AI chat, image generation, translation, TTS, etc. (FULL)
+// commands/ai.js – AI chat, image generation, translation, TTS, etc. (FULLY FIXED)
 const { sendFile, extractQuotedContent } = require('./_utils');
 
 module.exports = {
+    // ─── GPT ──────────────────────────────────────────────────────────
     gpt: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
         await m.reply('🦊 *Maureonix thinking...*');
         try {
             const res = await AI.askModel(text, 'gpt', m.sender);
+            if (!res || !res.text) throw new Error('Empty response from AI');
             await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
-        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+        } catch (e) {
+            console.error('[GPT Error]', e);
+            await m.reply(`❌ AI error: ${e.message}`);
+        }
     },
+
+    // ─── Gemini (uses gemma model) ────────────────────────────────────
     gemini: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
-        await m.reply('♊ *Maureonix(gemini)* thinking...*');
+        await m.reply('♊ *Maureonix(gemini) thinking...*');
         try {
             const res = await AI.askModel(text, 'gemini', m.sender);
+            if (!res || !res.text) throw new Error('Empty response');
             await m.reply(`♊ *Maureonix*\n\n${res.text}`);
-        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+        } catch (e) {
+            console.error('[Gemini Error]', e);
+            await m.reply(`❌ AI error: ${e.message}`);
+        }
     },
+
+    // ─── Llama 3 ──────────────────────────────────────────────────────
     llama: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
         await m.reply('🦙 *Maureonix(Llama 3) thinking...*');
         try {
             const res = await AI.askModel(text, 'llama', m.sender);
             await m.reply(`🦙 *Maureonix*\n\n${res.text}`);
-        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+        } catch (e) {
+            console.error('[Llama Error]', e);
+            await m.reply(`❌ AI error: ${e.message}`);
+        }
     },
+
+    // ─── DeepSeek (qwen) ──────────────────────────────────────────────
     deepseek: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
         await m.reply('🐋 *Maureonix(DeepSeek) thinking...*');
         try {
             const res = await AI.askModel(text, 'deepseek', m.sender);
             await m.reply(`🐋 *Maureonix*\n\n${res.text}`);
-        } catch (e) { await m.reply(`❌ AI error: ${e.message}`); }
+        } catch (e) {
+            console.error('[DeepSeek Error]', e);
+            await m.reply(`❌ AI error: ${e.message}`);
+        }
     },
+
+    // ─── General AI (uses ultimateAI with doc context) ─────────────────
     ai: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <question>`);
         const { buildContext } = require('../lib/docs');
         const context = buildContext(text, 2);
         let prompt = text;
-        if (context) prompt = `You are Maureonix. Use the documentation below if relevant.\n\n${context}\n\nUser: ${text}`;
+        if (context) prompt = `Use documentation if relevant:\n${context}\n\nUser: ${text}`;
         const res = await AI.ultimateAI(prompt, m.sender);
         await m.reply(`🦊 *Maureonix*\n\n${res.text}`);
     },
+
+    // ─── Image generation (Pollinations) ───────────────────────────────
     imagine: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <prompt>`);
         await m.reply('🎨 *Generating image...*');
         const url = await AI.imagine(text);
         await nimesha.sendMessage(m.chat, { image: { url }, caption: `🎨 *${text}*` }, { quoted: m });
     },
+
+    // ─── Translation (multi‑service fallback) ──────────────────────────
     translate: async (nimesha, m, { args, prefix, command, text }) => {
         if (args.length < 2) return m.reply(`Example: ${prefix + command} si Hello world`);
         const targetLang = args[0].toLowerCase();
@@ -85,6 +112,8 @@ module.exports = {
             else throw new Error('All translation services failed');
         } catch (e) { m.reply(`❌ Translation failed: ${e.message}`); }
     },
+
+    // ─── Text to Speech (gTTS + ffmpeg to opus) ────────────────────────
     tts: async (nimesha, m, { args, text, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} Hello world`);
         let lang = args[0]?.length === 2 ? args.shift() : 'en';
@@ -99,7 +128,6 @@ module.exports = {
             const { exec } = require('child_process');
             const util = require('util');
             const execPromise = util.promisify(exec);
-            const isValidAudio = (buf) => buf && buf.length > 500;
             const tempMp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
             await new Promise((resolve, reject) => {
                 const tts = new gTTS(txt, lang);
@@ -107,17 +135,16 @@ module.exports = {
             });
             const mp3Buffer = fs.readFileSync(tempMp3);
             fs.unlinkSync(tempMp3);
-            if (isValidAudio(mp3Buffer)) {
-                const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
-                await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
-                oggBuffer = fs.readFileSync(tempOgg);
-                fs.unlinkSync(tempOgg);
-            }
-        } catch (e) {}
+            const tempOgg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+            await execPromise(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 24k -ar 24000 "${tempOgg}" -y`);
+            oggBuffer = fs.readFileSync(tempOgg);
+            fs.unlinkSync(tempOgg);
+        } catch (e) { console.error('[TTS]', e); }
         if (oggBuffer) {
             await nimesha.sendMessage(m.chat, { audio: oggBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m });
         } else {
             try {
+                // fallback to mp3
                 const gTTS = require('gtts');
                 const tmpDir = require('os').tmpdir();
                 const fs = require('fs');
@@ -133,6 +160,8 @@ module.exports = {
             } catch (finalErr) { m.reply(`❌ TTS failed: ${finalErr.message}`); }
         }
     },
+
+    // ─── Speech to Text (voice note transcription) ─────────────────────
     stt: async (nimesha, m) => {
         if (!m.quoted || !/audio|voice|ptt/.test(m.quoted.type)) return m.reply('🎤 Reply to a voice note to transcribe it.');
         await m.reply('🎤 *Transcribing audio...*');
@@ -143,7 +172,14 @@ module.exports = {
             await m.reply(`📝 *Transcription:*\n\n${text || '(No speech detected)'}`);
         } catch (err) { await m.reply(`❌ Transcription failed: ${err.message}`); }
     },
-    vv: async (nimesha, m) => { /* unchanged */ },
+
+    // ─── View Once (handled in nima_core, but keep alias) ──────────────
+    vv: async (nimesha, m, ctx) => {
+        // This is already handled in nima_core; if called directly, ignore
+        return m.reply('Use .vv as a reply to a view‑once message.');
+    },
+
+    // ─── Summarize ─────────────────────────────────────────────────────
     summarize: async (nimesha, m, { AI }) => {
         if (!m.quoted) return m.reply('Reply to a long message to summarize');
         const text = m.quoted.body || m.quoted.text || '';
@@ -154,6 +190,8 @@ module.exports = {
             await m.reply(`📋 *Summary:*\n\n${summary}`);
         } catch (e) { m.reply('❌ Summarize failed: ' + e.message); }
     },
+
+    // ─── Code Generation ───────────────────────────────────────────────
     code: async (nimesha, m, { args, text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <description>`);
         const lang = args[0]?.startsWith('--') ? args.shift().slice(2) : 'javascript';
@@ -163,6 +201,8 @@ module.exports = {
             await m.reply(`💻 *${lang.toUpperCase()} Code:*\n\n\`\`\`${lang}\n${res.text}\n\`\`\``);
         } catch (e) { m.reply('❌ Code generation failed: ' + e.message); }
     },
+
+    // ─── Brainrot (Gen Z slang) ────────────────────────────────────────
     brainrot: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <text>`);
         try {
@@ -170,6 +210,8 @@ module.exports = {
             await m.reply(`🧠 *Brainrot Mode:*\n${res.text}`);
         } catch (e) { m.reply('❌ Brainrot failed: ' + e.message); }
     },
+
+    // ─── Roast AI ──────────────────────────────────────────────────────
     roastai: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <name/thing>`);
         try {
@@ -177,6 +219,8 @@ module.exports = {
             await m.reply(`🔥 *AI Roast:*\n${res.text}`);
         } catch (e) { m.reply('❌ Roast failed: ' + e.message); }
     },
+
+    // ─── Rizz (pickup lines) ───────────────────────────────────────────
     rizz: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <situation>`);
         try {
@@ -184,6 +228,8 @@ module.exports = {
             await m.reply(`💘 *Rizz:*\n${res.text}`);
         } catch (e) { m.reply('❌ Rizz failed: ' + e.message); }
     },
+
+    // ─── Ask Media (file analysis) ─────────────────────────────────────
     askmedia: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!m.quoted) return m.reply(`📎 *Universal Media AI*\n\nReply to any file with:\n${prefix}askmedia [your question]\n\nSupports: images, audio, video, PDF, Word, Excel, PowerPoint, archives, ebooks, code, and more.`);
         let userQuestion = text || 'Please summarise the content of this file.';
@@ -196,45 +242,70 @@ module.exports = {
             await m.reply(`📎 *${extracted.type.toUpperCase()} Analysis*\n\n${aiResult.text}`);
         } catch (e) { await m.reply(`❌ Failed: ${e.message}`); }
     },
+
+    // ─── Clear AI memory ───────────────────────────────────────────────
     clearmemory: async (nimesha, m, { AI }) => {
         AI.clearMemory(m.sender);
         await m.reply('🧹 AI memory cleared');
     },
+
+    // ─── AI Balance (placeholder) ──────────────────────────────────────
     aibalance: async (nimesha, m, { AI }) => {
         try {
             const bal = await AI.getBalance();
-            await m.reply(`💰 *AI Service Status*\n\nBalance: ${bal.current_point_balance}\nRate Limit: ${bal.rate_limit}\nModels: ${bal.models_available.join(', ')}`);
+            await m.reply(`💰 *AI Service Status*\n\nBalance: ${bal.balance}\nRate Limit: ${bal.rate_limit}`);
         } catch (e) { await m.reply('❌ Failed to fetch status'); }
     },
+
+    // ─── Detect Language ───────────────────────────────────────────────
     detectlang: async (nimesha, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <text>`);
         const res = await AI.ultimateAI(`Detect language: "${text}". Reply only language name.`, m.sender, 'deepseek');
         await m.reply(`🌐 Detected: ${res.text}`);
     },
+
+    // ─── Read Time (words per minute) ──────────────────────────────────
     readtime: async (nimesha, m, { text }) => {
         const words = text.split(/\s+/).length;
         const mins = Math.ceil(words / 200);
         await m.reply(`📖 ${words} words ≈ ${mins} min read`);
     },
 
-    // ════════════════════════════════
-    //  MODE SWITCH
-    // ════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    //  MODE SWITCH (instant, search, code, creative)
+    // ═══════════════════════════════════════════════════════════════════
     mode: async (nimesha, m, { args, prefix, AI }) => {
         if (!args[0]) return m.reply(`Usage: ${prefix}mode <instant|search|code|creative>\nCurrent: ${AI.getCurrentMode(m.sender)}`);
         const msg = AI.setMode(m.sender, args[0].toLowerCase());
         m.reply(msg);
     },
 
-    // ════════════════════════════════
-    //  THINKING RETRIEVAL
-    // ════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    //  THINKING RETRIEVAL (shows last hidden reasoning)
+    // ═══════════════════════════════════════════════════════════════════
     thinking: async (nimesha, m, { AI }) => {
         const thinking = AI.getThinking(m.sender);
         m.reply(`💭 *Thinking*\n\n${thinking}`);
     },
 
-    // Aliases
+    // ═══════════════════════════════════════════════════════════════════
+    //  SELF-CHAT MODE TOGGLE (enables/disables auto-reply in owner DM)
+    // ═══════════════════════════════════════════════════════════════════
+    selfchat: async (nimesha, m, { args, prefix, set, db, botNumber }) => {
+        if (!args[0]) return m.reply(`Usage: ${prefix}selfchat on/off\nCurrent: ${set.autoai_selfchat ? 'ON' : 'OFF'}`);
+        const mode = args[0].toLowerCase();
+        if (mode === 'on') {
+            set.autoai_selfchat = true;
+            m.reply('✅ *Self‑chat mode enabled*\nI will reply to you automatically in your private chat (without prefix).');
+        } else if (mode === 'off') {
+            set.autoai_selfchat = false;
+            m.reply('❌ *Self‑chat mode disabled*');
+        } else {
+            m.reply(`Unknown option. Use ${prefix}selfchat on/off`);
+        }
+    },
+
+    // ─── Aliases (for convenience) ─────────────────────────────────────
     chatgpt: async (nimesha, m, ctx) => { await module.exports.gpt(nimesha, m, ctx); },
     openai: async (nimesha, m, ctx) => { await module.exports.gpt(nimesha, m, ctx); },
     transcribe: async (nimesha, m, ctx) => { await module.exports.stt(nimesha, m, ctx); },
