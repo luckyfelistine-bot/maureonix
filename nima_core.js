@@ -278,44 +278,71 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
         if (isSelfChat && set.autoai_selfchat && !isCmd && !messageHandled) {
             const userId = m.sender;
+            // Per‑user promise queue to avoid overlapping replies
             if (!global._selfChatQueues) global._selfChatQueues = new Map();
             if (!global._selfChatQueues.has(userId)) global._selfChatQueues.set(userId, Promise.resolve());
             const queue = global._selfChatQueues.get(userId);
             global._selfChatQueues.set(userId, queue.then(async () => {
                 const now = Date.now();
-                const lastSelfReply = db.lastSelfReply?.[m.sender] || 0;
-                if (now - lastSelfReply < 2000) return;
-                db.lastSelfReply = db.lastSelfReply || {};
-                db.lastSelfReply[m.sender] = now;
+                if (!db.lastSelfReply) db.lastSelfReply = {};
+                const lastSelfReply = db.lastSelfReply[userId] || 0;
+                if (now - lastSelfReply < 2000) return;           // 2‑second cooldown
+                db.lastSelfReply[userId] = now;
 
                 let userMessage = (body || budy).trim();
+                // If the message has no text but is a media file, try to extract content
                 if ((!userMessage || userMessage.length < 3) && m.isMedia) {
                     try {
                         const mediaBuffer = await m.download();
                         const { processFile } = require('./lib/fileProcessor');
                         const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                        userMessage = result.type === 'text' ? `[File: ${m.mime}]\n${result.content}` : `[File of type ${m.mime}]`;
-                    } catch (e) { userMessage = `[File error]`; }
+                        userMessage = result.type === 'text'
+                            ? `[File: ${m.mime}]\n${result.content}`
+                            : `[File of type ${m.mime}]`;
+                    } catch (e) {
+                        userMessage = `[File processing error]`;
+                    }
                 }
                 if (!userMessage) return;
+
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
 
                 try {
-                    // Use enhancedAI (returns { text, thinking })
-                    const { answer, thinking } = await AI.enhancedAI(userMessage, m.sender, set.aiModel || 'deepseek', null);
+                    // ✅ FIXED: destructure { text, thinking }, not { answer, thinking }
+                    const { text: answer, thinking } = await AI.enhancedAI(
+                        userMessage,
+                        userId,
+                        set.aiModel || 'deepseek',
+                        null
+                    );
+
                     if (!db.thinkingSessions) db.thinkingSessions = {};
-                    db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
+                    db.thinkingSessions[userId] = {
+                        reasoning: thinking,
+                        timestamp: Date.now(),
+                        query: userMessage
+                    };
+
                     const replyText = `🤖 *Maureonix*\n\n${answer}`;
-                    await AI.sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
-                    if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Self‑chat reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
+                    await AI.sendLongMessage(
+                        nimesha,
+                        m.chat,
+                        replyText + '\n\n_💭 Type .thinking to see my reasoning_',
+                        { quoted: m }
+                    );
+
+                    // Optional: mirror to owner’s main number
+                    if (set.ownerMirror && userId !== ownerNumber[0]) {
+                        await nimesha.sendMessage(ownerNumber[0], {
+                            text: `📨 *Self‑chat reply to ${m.pushName}*\n👤 ${userId}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}`
+                        }).catch(() => {});
                     }
                 } catch (e) {
                     console.error('[SELF-CHAT]', e);
                     await m.reply(`❌ Error: ${e.message}`).catch(() => {});
                 }
             }).catch(e => console.error('[self-chat queue]', e)));
-            return;
+            return;   // stop further processing
         }
 
         // ─── PRIVATE MODE (away/ai/both) with fixed AI separation ───
