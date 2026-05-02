@@ -4,7 +4,7 @@
 
 const { pickRandom, rand, sleep, clockString } = require('../lib/function');
 const gameManager = require('../lib/gameManager');
-const { TicTacToe, Connect4, BlackjackCasino, Blackjack, SnakeLadder, RPGAdventure, RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs } = require('../lib/games');
+const { TicTacToe, Connect4, BlackjackCasino, Blackjack, SnakeLadder, RPGAdventure, RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs } = require('../lib/game');
 
 // ==================== GAME STATE HELPERS ====================
 
