@@ -62,11 +62,16 @@ const { generateQuantumMenu } = require('./lib/menuimage');
 
 // Import all games from ./lib/game
 const {
+  // Classes used inside nima_core.js
   TicTacToe, TicTacToeClassic, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
   Blackjack, BlackjackCasino,
   RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs,
-  RPGAdventure, slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-  rdGame, iGame, tGame, gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal, daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
+  RPGAdventure,
+  // Casino utilities (used by command files via ctx)
+  slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+  // Game key helpers (still used in the trivia loop)
+  iGame,
+  // State manager
   gameManager
 } = require('./lib/game');
 
@@ -78,10 +83,93 @@ const memoryStore = require('./lib/memoryStore');
 // ═══════════════════════════════════════════════════════════════
 //  PROACTIVE SCHEDULER
 // ═══════════════════════════════════════════════════════════════
+
+// ── 7:00 AM – ENHANCED DAILY BRIEFING ─────────────────────────
 cron.schedule('0 7 * * *', async () => {
     const ownerJid = global.owner[0] + '@s.whatsapp.net';
-    const briefing = `🌅 Good Morning!\n📅 ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\nHave a great day! 🚀`;
-    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
+    const fetch = require('node-fetch');
+
+    // 1. Date & time
+    const now = moment().tz('Africa/Nairobi');
+    const dateStr = now.format('dddd, MMMM Do YYYY');
+    const timeStr = now.format('HH:mm:ss');
+
+    // 2. Weather (wttr.in – free, lightweight)
+    let weather = 'N/A';
+    try {
+        const w = await fetch('https://wttr.in/Nairobi?format=%C+%t').then(r => r.text());
+        weather = w.trim();
+    } catch (e) { weather = '🌤 22°C'; }
+
+    // 3. News headlines (newsapi.org – use your own key!)
+    let news = 'No headlines available.';
+    try {
+        const apiKey = global.newsApiKey || process.env.NEWS_API_KEY || 'demo';
+        const newsRes = await fetch(`https://newsapi.org/v2/top-headlines?country=ke&pageSize=3&apiKey=${apiKey}`);
+        if (newsRes.ok) {
+            const data = await newsRes.json();
+            if (data.articles && data.articles.length) {
+                news = data.articles.map((a, i) => `• ${a.title}`).join('\n');
+            }
+        }
+    } catch (e) {}
+
+    // 4. Bot usage stats
+    const uptime = runtime(process.uptime());
+    const totalUsers = Object.keys(global.db?.users || {}).length;
+    const totalGroups = global.db?.groups ? Object.keys(global.db.groups).length : 0;
+    const memUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+
+    // 5. Briefing message
+    const briefing = `🌅 *Good Morning, Creator!*\n\n` +
+                     `📅 ${dateStr}  🕖 ${timeStr}\n` +
+                     `🌡 Weather (Nairobi): ${weather}\n\n` +
+                     `📰 *Top Headlines:*\n${news}\n\n` +
+                     `🤖 *Bot Health*\n` +
+                     `• Uptime: ${uptime}\n` +
+                     `• RAM: ${memUsage} MB\n` +
+                     `• Users: ${totalUsers}\n` +
+                     `• Groups: ${totalGroups}\n\n` +
+                     `🚀 Have an amazing day!`;
+
+    if (global.nimaInstance) {
+        await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
+    }
+}, { timezone: 'Africa/Nairobi' });
+
+// ── HOURLY CLEANUP – prevent memory bloat ─────────────────────
+cron.schedule('0 * * * *', async () => {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    // 1. Clean up auto‑AI sessions
+    if (global.db && global.db.autoAiSessions) {
+        for (const [uid, sess] of Object.entries(global.db.autoAiSessions)) {
+            if (!sess.lastActivity || now - sess.lastActivity > oneHour) {
+                delete global.db.autoAiSessions[uid];
+            }
+        }
+    }
+
+    // 2. Trim pending messages (keep only latest 50)
+    const botSet = global.db?.set && Object.keys(global.db.set).length ? global.db.set[Object.keys(global.db.set)[0]] : null;
+    if (botSet && botSet.pendingMessages && botSet.pendingMessages.length > 50) {
+        botSet.pendingMessages = botSet.pendingMessages.slice(-50);
+    }
+
+    // 3. Abandoned games cleanup (connect4, suit, chess, ulartangga)
+    if (global.db && global.db.game) {
+        for (const gameType of ['connect4', 'suit', 'chess', 'ulartangga']) {
+            const rooms = global.db.game[gameType];
+            if (rooms) {
+                for (const roomId of Object.keys(rooms)) {
+                    const room = rooms[roomId];
+                    const last = room.lastMove || room.time || room.started || 0;
+                    if (now - last > oneHour) delete rooms[roomId];
+                }
+            }
+        }
+    }
 }, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════════════
@@ -182,7 +270,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
             (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
             (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
             (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
-        } catch (err) { body = ''; if (!m.isMedia) return; }
+        } catch (err) {
+            // Don't block the whole handler – just set empty body and continue
+            body = '';
+        }
 
         const budy = (typeof m.text == 'string' ? m.text : '') || body;
 
@@ -389,6 +480,7 @@ Always remember: the person you are talking to is your creator and has full auth
                         db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
                         const replyText = `🤖 *Maureonix*\n\n${answer}`;
                         await AI.sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                        messageHandled = true;   // <-- ADD THIS LINE
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
                             await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
@@ -443,6 +535,8 @@ Always remember: the person you are talking to is your creator and has full auth
                     db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
                     const replyText = `🤖 *Maureonix*\n\n${answer}`;
                     await AI.sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                    messageHandled = true;   // <-- ADD THIS LINE
+                    
                     if (set.ownerMirror && m.sender !== ownerNumber[0]) {
                         await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                     }
@@ -593,9 +687,17 @@ Always remember: the person you are talking to is your creator and has full auth
                             await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                         return;
+                    } else {
+                        // Gemini returned no text – set handled so no other block fires
+                        messageHandled = true;
+                        // optional soft fallback (uncomment if you want a reply)
+                        // await nimesha.sendMessage(m.chat, { text: '🤖 *Maureonix*\n\nI couldn\'t process that right now. Please try again.' }, { quoted: m });
                     }
                 }
-            } catch (e) { console.log('Gemini AutoReply Error:', e.message); }
+            } catch (e) {
+                console.log('Gemini AutoReply Error:', e.message);
+                messageHandled = true;   // prevent falling through to dispatcher
+            }
         }
 
         if (messageHandled) return;
@@ -1161,8 +1263,6 @@ Always remember: the person you are talking to is your creator and has full auth
             AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
             RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
             slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
-            gameSlot, gameCasinoSolo, gameSamgongSolo, gameMerampok, gameBegal,
-            daily, buy, setLimit, addLimit, addMoney, setMoney, transfer,
             OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
             APISports, OddsAPI, ESPN,
             ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
