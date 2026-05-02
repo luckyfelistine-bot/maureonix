@@ -540,6 +540,264 @@ async function inventoryCommand(m, db) {
     await m.reply(txt);
 }
 
+// Bomb game – extracted from nima_core.js
+async function bombResponse(m, db) {
+    if (!(m.sender in db.game.tebakbom)) return false;
+    const game = db.game.tebakbom[m.sender];
+    const body = m.text || m.body;
+    if (!/^[1-9]|10$/i.test(body)) return true; // invalid input, but still in game
+    const picked = parseInt(body) - 1;
+    if (game.petak[picked] === 1) return true;
+    const bomb = '💣', mark = '🌀';
+    if (game.petak[picked] === 2) {
+        game.board[picked] = bomb;
+        game.pick++;
+        game.bomb--;
+        game.nyawa.pop();
+        if (game.nyawa.length < 1) {
+            await m.reply(`*Game over*\nYou stepped on a bomb!\n\n ${game.board.join('')}\n\n*Selected:* ${game.pick}\n_Limit: -1_`);
+            delete db.game.tebakbom[m.sender];
+        } else {
+            await m.reply(`*Choose a number*\n\nYou stepped on a bomb!\n ${game.board.join('')}\n\nSelected: ${game.pick}\nLives left: ${game.nyawa}`);
+        }
+    } else if (game.petak[picked] === 0) {
+        game.petak[picked] = 1;
+        game.board[picked] = mark;
+        game.pick++;
+        game.lolos--;
+        if (game.lolos < 1) {
+            db.users[m.sender].money += 6000;
+            await m.reply(`🎉 *You did great!*\n\n${game.board.join('')}\n\n*Selected:* ${game.pick}\n*Lives left:* ${game.nyawa}\n*Bombs:* ${game.bomb}\n🎉 Bonus Money 💰 *+6,000*`);
+            delete db.game.tebakbom[m.sender];
+        } else {
+            await m.reply(`*Choose a number*\n\n${game.board.join('')}\n\nSelected: ${game.pick}\nLives left: ${game.nyawa}\nBombs: ${game.bomb}`);
+        }
+    }
+    return true; // message handled
+}
+
+// Akinator – extracted from nima_core.js
+async function akinatorResponse(m) {
+    if (!(m.sender in global.db.game.akinator)) return false;
+    const game = global.db.game.akinator[m.sender];
+    const body = m.text || m.body;
+    if (m.quoted && game.key === m.quoted.id) {
+        if (body === '5') {
+            if (game.progress?.toFixed(0) == 0) {
+                delete global.db.game.akinator[m.sender];
+                await m.reply('Akinator ended.');
+                return true;
+            }
+            game.isWin = false;
+            await game.cancelAnswer();
+            let { key } = await m.reply(`Akinator Back: ${game.progress.toFixed(2)}%\n${game.question}\n0 Yes 1 No 2 DontKnow 3 Probably 4 ProbablyNot 5 Back`);
+            game.key = key.id;
+        } else if (game.isWin && ['benar', 'yes'].includes(body.toLowerCase())) {
+            delete global.db.game.akinator[m.sender];
+        } else {
+            if (!isNaN(body) && /^[0-4]$/.test(body)) {
+                if (game.isWin) {
+                    let { key } = await m.reply({ image: { url: game.sugestion_photo }, caption: `Akinator: ${game.sugestion_name}\n${game.sugestion_desc}\nBack? 5` });
+                    game.key = key.id;
+                } else {
+                    await game.answer(body);
+                    if (game.isWin) {
+                        let { key } = await m.reply({ image: { url: game.sugestion_photo }, caption: `Akinator: ${game.sugestion_name}\n${game.sugestion_desc}` });
+                        game.key = key.id;
+                    } else {
+                        let { key } = await m.reply(`Akinator (${game.progress.toFixed(2)}%):\n${game.question}\n0 Yes 1 No 2 DontKnow 3 Probably 4 ProbablyNot 5 Back`);
+                        game.key = key.id;
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+// Trivia loop (tebaklirik, tekateki, etc.) – extracted from nima_core.js
+async function triviaResponse(m, db, { iGame, similarity, almost }) {
+    const games = {
+        tebaklirik: db.game.tebaklirik,
+        tekateki: db.game.tekateki,
+        tebaklagu: db.game.tebaklagu,
+        tebakkata: db.game.tebakkata,
+        kuismath: db.game.kuismath,
+        susunkata: db.game.susunkata,
+        tebakkimia: db.game.tebakkimia,
+        caklontong: db.game.caklontong,
+        tebakangka: db.game.tebakangka,
+        tebaknegara: db.game.tebaknegara,
+        tebakgambar: db.game.tebakgambar,
+        tebakbendera: db.game.tebakbendera
+    };
+    for (let gameName in games) {
+        let game = games[gameName];
+        let id = iGame(game, m.chat);
+        if ((!m.quoted || id !== m.quoted.id) || !game[m.chat + id]?.jawaban) continue;
+        const jawaban = game[m.chat + id].jawaban;
+        const budy = (m.text || m.body).toLowerCase();
+        if (gameName === 'kuismath') {
+            const mode = db.game.kuismath[m.chat + id].mode;
+            const diffMap = { noob:1, easy:1.5, medium:2.5, hard:4, extreme:5, impossible:6, impossible2:7 };
+            const bonus = diffMap[mode] * 1000;
+            if (!isNaN(m.text) && m.text.toLowerCase() == jawaban) {
+                db.users[m.sender].money += bonus;
+                await m.reply(`Correct! +${bonus} money`);
+                delete db.game.kuismath[m.chat + id];
+            } else await m.reply('Wrong!');
+        } else {
+            const exact = /caklontong|susunkata/.test(gameName);
+            const correct = exact ? budy === jawaban : similarity(budy, jawaban) >= almost;
+            const bonus = gameName === 'caklontong' ? 9999 : gameName === 'tebaklirik' ? 4299 : gameName === 'susunkata' ? 2989 : 3499;
+            if (correct) {
+                db.users[m.sender].money += bonus;
+                await m.reply(`Correct! +${bonus} money`);
+                delete game[m.chat + id];
+            } else await m.reply('Wrong!');
+        }
+        return true; // message handled
+    }
+    return false;
+}
+
+// Family 100 – extracted from nima_core.js
+async function family100Response(m, db) {
+    if (!(m.chat in db.game.family100)) return false;
+    const room = db.game.family100[m.chat];
+    if (!m.quoted || m.quoted.id !== room.id) return false;
+    const teks = (m.text || m.body).toLowerCase().replace(/[^\w\s\-]+/, '');
+    if (/^(me)?nyerah|surr?ender$/i.test(teks)) {
+        // surrender: show all answers
+        let caption = `Question: ${room.soal}\nAnswers:\n`;
+        room.jawaban.forEach((ans, idx) => {
+            caption += `(${idx+1}) ${ans}\n`;
+        });
+        await m.reply(caption);
+        delete db.game.family100[m.chat];
+        return true;
+    }
+    const index = room.jawaban.findIndex(v => v.toLowerCase().replace(/[^\w\s\-]+/, '') === teks);
+    if (index === -1 || room.terjawab[index]) return false;
+    room.terjawab[index] = m.sender;
+    const isWin = room.terjawab.filter(Boolean).length === room.jawaban.length;
+    let caption = `Question: ${room.soal}\nAnswers:\n`;
+    room.jawaban.forEach((ans, idx) => {
+        if (room.terjawab[idx]) {
+            caption += `(${idx+1}) ${ans} @${room.terjawab[idx].split('@')[0]}\n`;
+        } else {
+            caption += `(${idx+1}) ...\n`;
+        }
+    });
+    if (isWin) {
+        caption += '\nAll answered!';
+        delete db.game.family100[m.chat];
+    }
+    await m.reply(caption);
+    return true;
+}
+
+// Snake Ladder – extracted from nima_core.js
+async function snakeLadderResponse(conn, m, db) {
+    if (!(m.chat in db.game.ulartangga)) return false;
+    const game = db.game.ulartangga[m.chat];
+    if (!m.quoted || game.id !== m.quoted.id) return false;
+    const text = (m.text || m.body).toLowerCase();
+    if (!/^(roll|kocok)/i.test(text)) {
+        await m.reply('Type "roll" to roll dice.');
+        return true;
+    }
+    const playerIdx = game.players.findIndex(p => p.id === m.sender);
+    if (game.turn !== playerIdx) return m.reply('Not your turn!');
+    const roll = game.roll();
+    await m.reply(`https://raw.githubusercontent.com/luckyfelistine-bot/maureonix/main/database/dice/roll-${roll}.webp`);
+    game.next();
+    game.players[playerIdx].move += roll;
+    if (game.players[playerIdx].move > 100) game.players[playerIdx].move = 100 - (game.players[playerIdx].move - 100);
+    let teks = `SnakeLadder: ${game.players[playerIdx].move}\n`;
+    if (Object.keys(game.map.move).includes(game.players[playerIdx].move.toString())) {
+        const dest = game.map.move[game.players[playerIdx].move];
+        teks += game.players[playerIdx].move > dest ? 'Snake!' : 'Ladder!';
+        game.players[playerIdx].move = dest;
+    }
+    const newMap = await game.draw(game.map.url, game.players);
+    if (game.players[playerIdx].move === 100) {
+        teks += `\n@${m.sender.split('@')[0]} wins! +50 limit, +100k money`;
+        db.users[m.sender].limit += 50;
+        db.users[m.sender].money += 100000;
+        delete db.game.ulartangga[m.chat];
+        return await m.reply({ image: newMap, caption: teks, mentions: [m.sender] });
+    }
+    let { key } = await m.reply({ image: newMap, caption: teks + `\nTurn: @${game.players[game.turn].id.split('@')[0]}`, mentions: [m.sender, game.players[game.turn].id] });
+    game.id = key.id;
+    return true;
+}
+
+// Mini-game answer handlers – extracted from nima_core.js
+async function miniGameAnswer(m, db) {
+    const budy = (m.text || m.body).trim();
+    const userId = m.sender;
+    if (db.users[userId]._trivia && budy) {
+        if (budy.toLowerCase() === db.users[userId]._trivia.toLowerCase()) {
+            db.users[userId].money += 50;
+            await m.reply('Correct! +50 money');
+        } else await m.reply('Wrong!');
+        delete db.users[userId]._trivia;
+        return true;
+    }
+    if (db.users[userId]._math && !isNaN(budy)) {
+        const ans = db.users[userId]._math.ans;
+        if (parseInt(budy) === ans) {
+            db.users[userId].money += 30;
+            await m.reply('Correct! +30 money');
+        } else await m.reply(`Wrong! Answer was ${ans}`);
+        delete db.users[userId]._math;
+        return true;
+    }
+    if (db.users[userId]._anagram && budy.length > 2) {
+        const orig = db.users[userId]._anagram;
+        if (budy.toUpperCase() === orig) {
+            db.users[userId].money += 40;
+            await m.reply('Correct! +40 money');
+        } else await m.reply(`Wrong! It was ${orig}`);
+        delete db.users[userId]._anagram;
+        return true;
+    }
+    if (db.users[userId]._gtn && !isNaN(budy)) {
+        const g = db.users[userId]._gtn;
+        const n = parseInt(budy);
+        g.tries++;
+        if (n === g.target) {
+            const reward = Math.max(10, 100 - g.tries * 5);
+            db.users[userId].money += reward;
+            await m.reply(`Correct in ${g.tries} tries! +${reward} money`);
+            delete db.users[userId]._gtn;
+        } else if (n < g.target) await m.reply('Higher!');
+        else await m.reply('Lower!');
+        return true;
+    }
+    if (db.users[userId]._pokemon && budy.length > 2) {
+        const name = db.users[userId]._pokemon;
+        if (budy.toLowerCase() === name.toLowerCase()) {
+            db.users[userId].money += 60;
+            await m.reply(`Correct! It's ${name}! +60 money`);
+        } else await m.reply(`Wrong! It was ${name}`);
+        delete db.users[userId]._pokemon;
+        return true;
+    }
+    if (db.users[userId]._movieguess && budy.length > 2) {
+        const movie = db.users[userId]._movieguess;
+        if (budy.toLowerCase() === movie.toLowerCase()) {
+            db.users[userId].money += 70;
+            await m.reply('Correct! +70 money');
+        } else await m.reply(`Wrong! It was ${movie}`);
+        delete db.users[userId]._movieguess;
+        return true;
+    }
+    return false;
+}
+
+
 // ==================== EXPORT ALL ====================
 
 module.exports = {
@@ -580,6 +838,13 @@ module.exports = {
     transferCommand,
     buyCommand,
     inventoryCommand,
+        // ADD these new ones:
+    bombResponse,
+    akinatorResponse,
+    triviaResponse,
+    family100Response,
+    snakeLadderResponse,
+    miniGameAnswer,
     // Utilities (for other modules)
     getGame,
     gameManager
