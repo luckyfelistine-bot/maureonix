@@ -27,6 +27,7 @@ const { performance } = require('perf_hooks');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
+const { initEmailReports, sendCrisisAlert } = require('./lib/emailReports');
 
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
@@ -181,6 +182,14 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
         if (!global.db.database) global.db.database = {};
         const botNumber = nimesha.decodeJid(nimesha.user.id);
+
+         // ═══════════════════════════════════════════════════════
+        //  Initialise email reporting engine (once)
+        // ═══════════════════════════════════════════════════════
+        if (!global.__emailReportsInitialized) {
+            global.__emailReportsInitialized = true;
+            initEmailReports(nimesha, AI);
+        }
 
         const sendReply = async (jid, content, options = {}) => {
             let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
@@ -574,11 +583,8 @@ Always remember: the person you are talking to is your creator and has full auth
                         await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
                         if (!db.crisisPending) db.crisisPending = {};
                         db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
-                        // Send report to ALL owners
-                        const ownerJids = Array.isArray(ownerNumber) ? ownerNumber : [ownerNumber];
-                        for (const owner of ownerJids) {
-                            await nimesha.sendMessage(owner, { text: `🚨 *CRISIS ALERT* (${crisis.severity})\nUser: ${m.sender}\nMessage: ${userMessage}\nTime: ${new Date().toLocaleString()}` }).catch(() => {});
-                        }
+                        // Send crisis alert via email + WhatsApp
+                        await sendCrisisAlert(userMessage, m.sender, crisis.severity);
                         return;
                     }
                 }
