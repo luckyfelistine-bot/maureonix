@@ -1,3 +1,4 @@
+// modules/pairCode.js
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -20,7 +21,6 @@ function recordPairAttempt(ip) {
 }
 
 async function generatePairCode(number) {
-  // Use the correct Baileys import (no @whiskeysockets prefix for compatibility)
   const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
   const pino = require('pino');
 
@@ -32,11 +32,7 @@ async function generatePairCode(number) {
   fs.mkdirSync(tempDir, { recursive: true });
 
   let sock = null;
-  let timeoutId = null;
-
-  // Cleanup function
   const cleanup = () => {
-    if (timeoutId) clearTimeout(timeoutId);
     if (sock) {
       try { sock.ws?.close(); } catch (_) {}
       sock = null;
@@ -45,28 +41,23 @@ async function generatePairCode(number) {
   };
 
   try {
-    // Global timeout (45 seconds)
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Pairing request timed out after 45 seconds.')), 45000);
-    });
-
-    // Step 1: get WhatsApp Web version
+    // Step 1 – WhatsApp Web version
     const { version } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
 
-    // Step 2: create auth state
+    // Step 2 – Auth state
     const { state } = await useMultiFileAuthState(tempDir);
 
-    // Step 3: create socket and wait for connection
-    const socketPromise = new Promise((resolve, reject) => {
+    // Step 3 – Wait for socket to open (up to 60 seconds)
+    const socketOpenPromise = new Promise((resolve, reject) => {
       sock = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
         auth: state,
         printQRInTerminal: false,
         browser: ['Maureonix (Pairing)', 'Chrome', '120.0.0.0'],
-        connectTimeoutMs: 30000,
-        defaultQueryTimeoutMs: 30000,
-        keepAliveIntervalMs: 10000
+        connectTimeoutMs: 60_000,          // generous handshake time
+        defaultQueryTimeoutMs: 60_000,
+        keepAliveIntervalMs: 25_000
       });
 
       const onConnectionUpdate = (update) => {
@@ -75,38 +66,45 @@ async function generatePairCode(number) {
           sock.ev.off('connection.update', onConnectionUpdate);
           resolve();
         } else if (connection === 'close') {
+          sock.ev.off('connection.update', onConnectionUpdate);
           const statusCode = lastDisconnect?.error?.output?.statusCode;
-          const reason = lastDisconnect?.error?.message || 'Unknown';
-          let errorMsg = `Connection closed: ${reason}`;
-          if (statusCode === 401) errorMsg = 'Phone number not registered on WhatsApp. Check the number and try again.';
-          else if (statusCode === 403) errorMsg = 'Access denied. Try again later.';
-          reject(new Error(errorMsg));
+          if (statusCode === 401) reject(new Error('Phone number not registered on WhatsApp.'));
+          else if (statusCode === 403) reject(new Error('Access denied. Try again later.'));
+          else reject(new Error(`Connection closed: ${lastDisconnect?.error?.message || 'Unknown'}`));
         }
       };
       sock.ev.on('connection.update', onConnectionUpdate);
-
-      // Also handle socket errors
-      sock.ev.on('error', (err) => {
-        sock.ev.off('connection.update', onConnectionUpdate);
-        reject(err);
-      });
     });
 
-    // Wait for either connection or timeout
-    await Promise.race([socketPromise, timeoutPromise]);
+    // Hard deadline: 65 seconds total
+    const totalTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Pairing request timed out after 65 seconds.')), 65_000);
+    });
 
-    // Step 4: request pairing code
-    const codePromise = sock.requestPairingCode(cleanNumber);
-    const code = await Promise.race([codePromise, timeoutPromise]);
+    await Promise.race([socketOpenPromise, totalTimeout]);
 
-    // Success
+    // Step 4 – Request the pairing code with a 3‑second cooldown and up to 3 retries (exactly like main bot)
+    let code = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await new Promise(r => setTimeout(r, 3_000));   // cooldown
+        code = await sock.requestPairingCode(cleanNumber);
+        break;   // success
+      } catch (e) {
+        if (attempt === 2) throw e;
+        // otherwise retry
+      }
+    }
+
     cleanup();
+
     const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
     return { code: formatted, number: cleanNumber };
+
   } catch (err) {
     cleanup();
     let message = err?.message || 'Failed to get pairing code.';
-    if (message.includes('timed out')) message = 'Request timed out. Please try again.';
+    if (message.includes('timed out')) message = 'Request timed out. Please try again in a moment.';
     if (message.includes('Connection closed')) message = 'Connection closed by WhatsApp. Please try again.';
     throw new Error(message);
   }
