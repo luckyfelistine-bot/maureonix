@@ -14,7 +14,7 @@ module.exports = {
         db.reminders.push({ user: m.sender, target: m.sender, text: msgText, due });
         await m.reply(`⏰ Reminder set for ${mins} minute(s).\n📝 ${msgText}`);
     },
-    remind: async (nimesha, m, { text, AI, db, prefix }) => {
+    remind: async (nimesha, m, { text, AI, db, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} me to call John tomorrow at 10am`);
         await m.reply('🧠 *Understanding your reminder...*');
         try {
