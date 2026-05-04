@@ -432,33 +432,102 @@ module.exports = {
         m.reply(`✅ Owner Mirror ${status ? 'enabled' : 'disabled'}. All auto‑AI replies will be forwarded to your DM.`);
     },
 
-    // Reporting & learning commands
-    dailyreport: async (nimesha, m, { isCreator, mess, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+    // ═════════════════════════════════════════════════════════════════
+    //  EMAIL & LEARNING COMMANDS — Maureonix v4.0
+    // ═════════════════════════════════════════════════════════════════
+
+    sendemail: async (nimesha, m, { isCreator, mess, args, prefix, command }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const input = args.join(' ');
+        const parts = input.split('|').map(p => p.trim());
+        if (parts.length < 3) return m.reply(`📧 *Send Email*\n\nUsage: ${prefix + command} email@example.com | Subject | Message\n\nExample:\n${prefix + command} john@gmail.com | Hello | This is a test from Maureonix!`);
+        const [to, subject, ...textParts] = parts;
+        const text = textParts.join(' | ');
+        if (!to.includes('@')) return m.reply('❌ Invalid email address. Must contain @');
+        await m.reply(`📤 Sending email to ${to}...`);
+        const { sendDynamicEmail } = require('../lib/emailReports');
+        const result = await sendDynamicEmail(to, subject, text);
+        await m.reply(result.success ? `✅ Email sent successfully to ${to}\nSubject: ${subject}` : `❌ Failed to send email\nError: ${result.error}`);
+    },
+
+    emailstatus: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const { getStats } = require('../lib/emailService');
+        const { getReportState } = require('../lib/emailReports');
+        const stats = getStats();
+        const state = getReportState();
+        let txt = `📧 *Email System Status*\n\n`;
+        txt += `Connection: ${stats.isConnected ? '✅ Online' : '❌ Offline'}\n`;
+        txt += `Emails Sent (session): ${stats.emailsSent}\n`;
+        txt += `Last Daily: ${state.lastDaily ? new Date(state.lastDaily).toLocaleString('en-KE') : 'Never'}\n`;
+        txt += `Last Weekly: ${state.lastWeekly ? new Date(state.lastWeekly).toLocaleString('en-KE') : 'Never'}\n`;
+        txt += `Last Monthly: ${state.lastMonthly ? new Date(state.lastMonthly).toLocaleString('en-KE') : 'Never'}\n`;
+        txt += `Alerts Sent: ${state.alertsSent}\n`;
+        txt += `Crises Handled: ${state.crisesHandled}\n`;
+        txt += `Learning Reports: ${state.learningReportsSent}\n`;
+        txt += `Emails Received: ${state.emailsReceived}\n`;
+        txt += `Last Backup: ${state.lastBackup ? new Date(state.lastBackup).toLocaleString('en-KE') : 'Never'}\n\n`;
+        txt += `_Sender: ${global.emailSender || 'Not configured'}_\n`;
+        txt += `_Recipient: ${global.emailRecipient || 'Not configured'}_`;
+        await m.reply(txt);
+    },
+
+    testemail: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        await m.reply('📧 Sending test email...');
+        const { sendDynamicEmail } = require('../lib/emailReports');
+        const result = await sendDynamicEmail(
+            global.emailRecipient,
+            '🧪 Maureonix Test Email',
+            'This is a test email from Maureonix Cortex v4.0.\n\nIf you received this, your email system is working perfectly! ⚡\n\nTime: ' + new Date().toLocaleString('en-KE')
+        );
+        await m.reply(result.success ? '✅ Test email sent! Check your inbox.' : `❌ Test failed: ${result.error}`);
+    },
+
+    dailyreport: async (nimesha, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('📊 Generating daily report...');
-        const report = await generateReport('daily', db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
-        await m.reply(report.text);
-        await sendEmail(global.emailRecipient, '📊 Daily Report', report.text, report.attachment, report.filename);
+        const { sendDailyReport } = require('../lib/emailReports');
+        await sendDailyReport();
+        await m.reply('✅ Daily report sent to your email!');
     },
-    weeklyreport: async (nimesha, m, { isCreator, mess, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+
+    weeklyreport: async (nimesha, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
-        await m.reply('📊 Generating weekly report...');
-        const report = await generateReport('weekly', db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
-        await m.reply(report.text);
-        await sendEmail(global.emailRecipient, '📊 Weekly Report', report.text, report.attachment, report.filename);
+        await m.reply('📈 Generating weekly report...');
+        const { sendWeeklyReport } = require('../lib/emailReports');
+        await sendWeeklyReport();
+        await m.reply('✅ Weekly report sent to your email!');
     },
-    reportnow: async (nimesha, m, { isCreator, mess, args, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager }) => {
+
+    monthlyreport: async (nimesha, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
-        const customType = args[0] || 'now';
-        await m.reply('📊 Generating custom report...');
-        const report = await generateReport(customType, db, AI, hyperMemory, knowledgeGraph, reflectionEngine, keyManager, learningSessionManager, m.sender);
-        await m.reply(report.text);
-        if (args.includes('--email')) {
-            await sendEmail(global.emailRecipient, `📊 ${customType} Report`, report.text, report.attachment, report.filename);
-            await m.reply('✅ Report also sent to email.');
-        }
+        await m.reply('🌌 Generating monthly deep dive...');
+        const { sendMonthlyReport } = require('../lib/emailReports');
+        await sendMonthlyReport();
+        await m.reply('✅ Monthly report sent to your email!');
     },
-    learnfile: async (nimesha, m, { isCreator, mess, args, prefix, command, db }) => {
+
+    reportnow: async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const type = args[0]?.toLowerCase() || 'custom';
+        const { sendDailyReport, sendWeeklyReport, sendMonthlyReport } = require('../lib/emailReports');
+        if (type === 'daily') await sendDailyReport();
+        else if (type === 'weekly') await sendWeeklyReport();
+        else if (type === 'monthly') await sendMonthlyReport();
+        else await sendDailyReport();
+        await m.reply(`✅ ${type} report sent!`);
+    },
+
+    backupnow: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        await m.reply('💾 Creating backup...');
+        const { performAutoBackup } = require('../lib/emailReports');
+        await performAutoBackup();
+        await m.reply('✅ Backup sent to your email!');
+    },
+
+    learnfile: async (nimesha, m, { isCreator, mess, args, prefix, command, db, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!m.quoted || !['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(m.quoted.type)) {
             return m.reply(`📌 Reply to a file with *${prefix + command} <curriculum_name>*\nExample: ${prefix + command} AI_Fundamentals`);
@@ -476,7 +545,8 @@ module.exports = {
         db.learningCurricula[curriculumName] = { content: result.content.slice(0, 5000), date: Date.now() };
         await m.reply(startRes.message + `\n\nChunk 1/${startRes.totalChunks}:\n${startRes.firstChunk.text.slice(0, 300)}...\nType *next* to continue, *exit* to stop.`);
     },
-    learntext: async (nimesha, m, { isCreator, mess, text, prefix, command }) => {
+
+    learntext: async (nimesha, m, { isCreator, mess, text, prefix, command, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text) return m.reply(`Usage: ${prefix + command} <name> || <content>`);
         const parts = text.split('||');
@@ -490,6 +560,15 @@ module.exports = {
         global.learningMode[m.sender] = true;
         await m.reply(startRes.message);
     },
+
+    autolearn: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        await m.reply('🧠 Scanning curriculum folder and auto-learning...');
+        const { scanAndLearnCurriculum } = require('../lib/emailReports');
+        await scanAndLearnCurriculum();
+        await m.reply('✅ Auto-learning complete! Check your email for reports.');
+    },
+
     learningstatus: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const session = learningSessionManager?.getSession(m.sender);
@@ -498,17 +577,20 @@ module.exports = {
         let txt = `📚 *Learning Status*\n\nCurriculum: ${session.curriculumName}\nProgress: ${session.currentChunkIndex + 1}/${session.chunks.length} chunks\nMastery: ${mastery.toFixed(1)}%\nStatus: ${session.status}\n\nType *next* or *exit*.`;
         await m.reply(txt);
     },
+
     learningstop: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const result = learningSessionManager?.endSession(m.sender);
         delete global.learningMode[m.sender];
         if (result) {
             await m.reply(`🛑 Learning stopped. Final mastery: ${result.mastery.toFixed(1)}%`);
-            await sendEmail(global.emailRecipient, 'Learning Progress', `Curriculum: ${result.curriculumName}\nMastery: ${result.mastery.toFixed(1)}%\nChunks: ${result.chunksStudied}/${result.totalChunks}`);
+            const { sendLearningReport } = require('../lib/emailReports');
+            await sendLearningReport(result.curriculumName, result);
         } else {
             await m.reply('No active session.');
         }
     },
+
     learninghistory: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const history = learningSessionManager?.getMasteryHistory(m.sender);
@@ -520,6 +602,18 @@ module.exports = {
         await m.reply(txt);
     },
 
+    // Aliases for the new commands
+    sendmail: async (nimesha, m, ctx) => { await module.exports.sendemail(nimesha, m, ctx); },
+    mailstatus: async (nimesha, m, ctx) => { await module.exports.emailstatus(nimesha, m, ctx); },
+    dailyrep: async (nimesha, m, ctx) => { await module.exports.dailyreport(nimesha, m, ctx); },
+    weekly: async (nimesha, m, ctx) => { await module.exports.weeklyreport(nimesha, m, ctx); },
+    monthly: async (nimesha, m, ctx) => { await module.exports.monthlyreport(nimesha, m, ctx); },
+    report: async (nimesha, m, ctx) => { await module.exports.reportnow(nimesha, m, ctx); },
+    learn: async (nimesha, m, ctx) => { await module.exports.learnfile(nimesha, m, ctx); },
+    learnstop: async (nimesha, m, ctx) => { await module.exports.learningstop(nimesha, m, ctx); },
+    learnstat: async (nimesha, m, ctx) => { await module.exports.learningstatus(nimesha, m, ctx); },
+    learnhistory: async (nimesha, m, ctx) => { await module.exports.learninghistory(nimesha, m, ctx); },
+
     // Aliases
     blokir: async (nimesha, m, ctx) => { await module.exports.block(nimesha, m, ctx); },
     unblokir: async (nimesha, m, ctx) => { await module.exports.unblock(nimesha, m, ctx); },
@@ -527,11 +621,4 @@ module.exports = {
     autogpt: async (nimesha, m, ctx) => { await module.exports.autoai(nimesha, m, ctx); },
     inbox: async (nimesha, m, ctx) => { await module.exports.pending(nimesha, m, ctx); },
     clearinbox: async (nimesha, m, ctx) => { await module.exports.pendingclear(nimesha, m, ctx); },
-    report: async (nimesha, m, ctx) => { await module.exports.reportnow(nimesha, m, ctx); },
-    dailyrep: async (nimesha, m, ctx) => { await module.exports.dailyreport(nimesha, m, ctx); },
-    weekly: async (nimesha, m, ctx) => { await module.exports.weeklyreport(nimesha, m, ctx); },
-    learn: async (nimesha, m, ctx) => { await module.exports.learnfile(nimesha, m, ctx); },
-    learnstop: async (nimesha, m, ctx) => { await module.exports.learningstop(nimesha, m, ctx); },
-    learnstat: async (nimesha, m, ctx) => { await module.exports.learningstatus(nimesha, m, ctx); },
-    learnhistory: async (nimesha, m, ctx) => { await module.exports.learninghistory(nimesha, m, ctx); },
 };
