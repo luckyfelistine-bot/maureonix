@@ -240,6 +240,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         const sewa = db.sewa;
         const premium = db.premium;
+        if (!db.set[botNumber]) db.set[botNumber] = {};
         const set = db.set[botNumber];
         let chat_ai = db.game.chat_ai;
         if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
