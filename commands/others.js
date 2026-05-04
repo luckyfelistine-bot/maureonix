@@ -111,29 +111,118 @@ JSON:`;
         await m.reply('🧹 Completed tasks cleared');
     },
     // Jadibot (multi-device)
-    pair: async (nimesha, m, { text, prefix, db, ownerNumber, store }) => {
+    pair: async (nimesha, m, { text, prefix, db, ownerNumber }) => {
         if (!text) return m.reply(`Example: ${prefix}pair 254712345678`);
         const targetNumber = text.replace(/[^0-9]/g, '');
         if (targetNumber.length < 9) return m.reply('Invalid phone number. Include country code.');
-        if (db.jadibot && db.jadibot.sessions && db.jadibot.sessions[m.sender]?.active) return m.reply('✅ You already have an active bot session! Use .stopjadibot first if you want to re-pair.');
-        const { execSync } = require('child_process');
-        const tempAuthFolder = path.join(process.cwd(), 'jadibot_sessions', `temp_${m.sender.split('@')[0]}`);
-        try { fs.rmSync(tempAuthFolder, { recursive: true, force: true }); } catch {}
+
+        if (db.jadibot?.sessions?.[m.sender]?.active)
+            return m.reply('✅ You already have an active bot session! Use .stopjadibot first.');
+
+        if (db.jadibot?.requests?.[m.sender] && Date.now() - db.jadibot.requests[m.sender].timestamp < 120000)
+            return m.reply('⏳ You have a pending pairing request. Wait 2 minutes or use .startjadibot.');
+
+        await m.reply('📲 *Requesting pairing code...*');
+
         const { default: makeWASocket, useMultiFileAuthState, fetchLatestWaWebVersion } = require('baileys');
         const pino = require('pino');
-        const { state, saveCreds } = await useMultiFileAuthState(tempAuthFolder);
-        const { version } = await fetchLatestWaWebVersion();
-        const tempSocket = makeWASocket({ version, logger: pino({ level: 'silent' }), auth: state, printQRInTerminal: false, browser: ['Ubuntu', 'Chrome', '20.0.0'] });
-        let pairingCode;
-        try { pairingCode = await tempSocket.requestPairingCode(targetNumber); } catch (e) { tempSocket.ws?.close(); try { fs.rmSync(tempAuthFolder, { recursive: true, force: true }); } catch {} return m.reply(`❌ Failed to get pairing code: ${e.message}`); }
-        if (!db.jadibot) db.jadibot = { sessions: {}, requests: {} };
-        if (!db.jadibot.requests) db.jadibot.requests = {};
-        db.jadibot.requests[m.sender] = { code: pairingCode, number: targetNumber, authFolder: path.join(process.cwd(), 'jadibot_sessions', m.sender.split('@')[0]), timestamp: Date.now() };
-        tempSocket.ws?.close();
-        const formattedCode = pairingCode?.match(/.{1,4}/g)?.join('-') || pairingCode;
-        await m.reply(`📲 *WhatsApp Pairing Code*\n\n🔑 *Your code:* ${formattedCode}\n\n⏰ _Expires in 60 seconds_\n\n1. Open WhatsApp on your phone\n2. Go to *Settings* → *Linked Devices*\n3. Tap *Link a Device*\n4. Enter the code above\n\n_After linking, use ${prefix}startjadibot to activate your bot_`);
-        const ownerMsg = `🔐 *New Pairing Request*\n👤 @${m.sender.split('@')[0]}\n📱 +${targetNumber}\n🔑 ${formattedCode}`;
-        await nimesha.sendMessage(ownerNumber[0], { text: ownerMsg, mentions: [m.sender] });
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const tempId = `pair_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const tempDir = path.join(os.tmpdir(), tempId);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        let sock = null;
+        const cleanup = () => {
+            if (sock) { try { sock.ws?.close(); } catch {} sock = null; }
+            try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+        };
+
+        try {
+            const { version } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
+            const { state } = await useMultiFileAuthState(tempDir);
+
+            // ⏱ Wait for socket to open (up to 60 seconds – mirror main bot)
+            const socketOpenPromise = new Promise((resolve, reject) => {
+                sock = makeWASocket({
+                    version,
+                    logger: pino({ level: 'silent' }),
+                    auth: state,
+                    printQRInTerminal: false,
+                    browser: ['Maureonix (Pairing)', 'Chrome', '120.0.0.0'],
+                    connectTimeoutMs: 60_000,          // ← generous handshake time
+                    defaultQueryTimeoutMs: 60_000,
+                    keepAliveIntervalMs: 25_000
+                });
+
+                const onConnectionUpdate = (update) => {
+                    const { connection, lastDisconnect } = update;
+                    if (connection === 'open') {
+                        sock.ev.off('connection.update', onConnectionUpdate);
+                        resolve();
+                    } else if (connection === 'close') {
+                        sock.ev.off('connection.update', onConnectionUpdate);
+                        const statusCode = lastDisconnect?.error?.output?.statusCode;
+                        if (statusCode === 401) reject(new Error('Phone number not registered on WhatsApp.'));
+                        else if (statusCode === 403) reject(new Error('Access denied. Try again later.'));
+                        else reject(new Error(`Connection closed: ${lastDisconnect?.error?.message || 'Unknown'}`));
+                    }
+                };
+                sock.ev.on('connection.update', onConnectionUpdate);
+            });
+
+            // Total hard deadline: 65 seconds (no one waits longer)
+            const totalTimeout = setTimeout(() => {
+                cleanup();
+                throw new Error('Pairing request timed out (65s). Please try again in a moment.');
+            }, 65_000);
+
+            await socketOpenPromise;
+            clearTimeout(totalTimeout);
+
+            // ── Request the pairing code with a 3‑second cooldown (syncs with main bot) ──
+            let code = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    await new Promise(r => setTimeout(r, 3_000));   // small cooldown
+                    code = await sock.requestPairingCode(targetNumber);
+                    break;   // success – exit loop
+                } catch (e) {
+                    if (attempt === 2) throw e;   // last attempt failed
+                    // otherwise retry
+                }
+            }
+
+            cleanup();
+
+            const formatted = code?.match(/.{1,4}/g)?.join('-') || code;
+            if (!db.jadibot) db.jadibot = { sessions: {}, requests: {} };
+            db.jadibot.requests[m.sender] = {
+                code,
+                number: targetNumber,
+                authFolder: path.join(process.cwd(), 'jadibot_sessions', m.sender.split('@')[0]),
+                timestamp: Date.now()
+            };
+
+            await m.reply(
+                `📲 *WhatsApp Pairing Code*\n\n` +
+                `🔑 *Your code:* ${formatted}\n\n` +
+                `⏰ _Expires in 60 seconds_\n\n` +
+                `1. Open WhatsApp on your phone\n` +
+                `2. Go to *Settings* → *Linked Devices*\n` +
+                `3. Tap *Link a Device*\n` +
+                `4. Enter the code above\n\n` +
+                `_After linking, use ${prefix}startjadibot to activate your bot_`
+            );
+
+            const ownerMsg = `🔐 *New Pairing Request*\n👤 @${m.sender.split('@')[0]}\n📱 +${targetNumber}\n🔑 ${formatted}`;
+            await nimesha.sendMessage(ownerNumber[0], { text: ownerMsg, mentions: [m.sender] });
+        } catch (e) {
+            cleanup();
+            m.reply(`❌ Failed to get pairing code: ${e.message}`);
+        }
     },
     startjadibot: async (nimesha, m, { db, store }) => {
         if (!db.jadibot?.requests?.[m.sender]) return m.reply('❌ No pairing request found. Use .pair <number> first.');
