@@ -28,6 +28,7 @@ const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
 const { initEmailReports, sendCrisisAlert } = require('./lib/emailReports');
+const { sendCrisisAlert } = require('./lib/maureonixcore');
 
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
@@ -76,6 +77,8 @@ const {
   gameManager
 } = require('./lib/game');
 
+const { sessionManager: learningSessionManager } = require('./lib/learningEngine');
+
 const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
 const { APISports, OddsAPI, ESPN } = require('./lib/sports');
 
@@ -89,6 +92,7 @@ const memoryStore = require('./lib/memoryStore');
 cron.schedule('0 7 * * *', async () => {
     const ownerJid = global.owner[0] + '@s.whatsapp.net';
     const fetch = require('node-fetch');
+    const config = require('../config');
 
     // 1. Date & time
     const now = moment().tz('Africa/Nairobi');
@@ -98,19 +102,19 @@ cron.schedule('0 7 * * *', async () => {
     // 2. Weather (wttr.in – free, lightweight)
     let weather = 'N/A';
     try {
-        const w = await fetch('https://wttr.in/Nairobi?format=%C+%t').then(r => r.text());
+        const w = await fetch('https://wttr.in/Kericho?format=%C+%t').then(r => r.text());
         weather = w.trim();
     } catch (e) { weather = '🌤 22°C'; }
 
-    // 3. News headlines (newsapi.org – use your own key!)
+    // 3. News headlines (freenewsapi.io)
     let news = 'No headlines available.';
     try {
-        const apiKey = global.newsApiKey || process.env.NEWS_API_KEY || 'demo';
-        const newsRes = await fetch(`https://newsapi.org/v2/top-headlines?country=ke&pageSize=3&apiKey=${apiKey}`);
+        const apiKey = config.freenewsApiKey;
+        const newsRes = await fetch(`https://api.freenewsapi.com/v1/top-headlines?country=ke&limit=3&apikey=${apiKey}`);
         if (newsRes.ok) {
             const data = await newsRes.json();
             if (data.articles && data.articles.length) {
-                news = data.articles.map((a, i) => `• ${a.title}`).join('\n');
+                news = data.articles.map(a => `• ${a.title}`).join('\n');
             }
         }
     } catch (e) {}
@@ -158,20 +162,25 @@ cron.schedule('0 * * * *', async () => {
         botSet.pendingMessages = botSet.pendingMessages.slice(-50);
     }
 
-    // 3. Abandoned games cleanup (connect4, suit, chess, ulartangga)
-    if (global.db && global.db.game) {
-        for (const gameType of ['connect4', 'suit', 'chess', 'ulartangga']) {
-            const rooms = global.db.game[gameType];
-            if (rooms) {
-                for (const roomId of Object.keys(rooms)) {
-                    const room = rooms[roomId];
-                    const last = room.lastMove || room.time || room.started || 0;
-                    if (now - last > oneHour) delete rooms[roomId];
+            // 3. Abandoned games cleanup
+            if (global.db && global.db.game) {
+                for (const gameType of ['connect4', 'suit', 'chess', 'ulartangga']) {
+                    const rooms = global.db.game[gameType];
+                    if (rooms) {
+                        for (const roomId of Object.keys(rooms)) {
+                            const room = rooms[roomId];
+                            const last = room.lastMove || room.time || room.started || 0;
+                            if (now - last > oneHour) delete rooms[roomId];
+                        }
+                    }
                 }
             }
-        }
-    }
-}, { timezone: 'Africa/Nairobi' });
+
+            // 4. Cleanup old user memories (inactive > 7 days)
+            try {
+                require('./lib/memoryStore').cleanupOldMemories();
+            } catch (e) {}
+        }, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN HANDLER – fully enclosed in a single try-catch
@@ -189,12 +198,29 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (!global.__emailReportsInitialized) {
             global.__emailReportsInitialized = true;
             initEmailReports(nimesha, AI);
+            const { maureonixCore } = require('./lib/maureonixcore');
+            maureonixCore.initialize().then(() => {
+                console.log('🦊 Maureonix Omniscient Core is awake.');
+            });
         }
 
         const sendReply = async (jid, content, options = {}) => {
             let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
             if (jid.endsWith('@newsletter')) return nimesha.newsletterMsg(jid, msgContent).catch(() => {});
             return nimesha.sendMessage(jid, msgContent);
+        };
+
+        // Proxy nimesha.sendMessage to support newsletters automatically
+        const originalSendMessage = nimesha.sendMessage.bind(nimesha);
+        nimesha.sendMessage = async (jid, content, options = {}) => {
+            if (jid && jid.endsWith('@newsletter')) {
+                let msg = content;
+                if (typeof content === 'string') msg = { text: content };
+                else if (content && content.text && !content.caption) msg = { text: content.text };
+                else if (content && content.caption && !content.text) msg = { text: content.caption };
+                return nimesha.newsletterMsg(jid, msg).catch(() => {});
+            }
+            return originalSendMessage(jid, content, options);
         };
 
         let messageHandled = false;
@@ -366,85 +392,16 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
         }
 
-        // ─── SELF-CHAT (Owner, no prefix) – FIXED ───
+        // ─── MAUREONIX OMNISCIENT CORE (Owner console, no prefix) ───
         const botOwnJid = nimesha.decodeJid(nimesha.user.id);
-        const isSelfChat = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
-        if (isSelfChat && set.autoai_selfchat && !isCmd && !messageHandled) {
-            const userId = m.sender;
-            // Per‑user promise queue to avoid overlapping replies
-            if (!global._selfChatQueues) global._selfChatQueues = new Map();
-            if (!global._selfChatQueues.has(userId)) global._selfChatQueues.set(userId, Promise.resolve());
-            const queue = global._selfChatQueues.get(userId);
-            global._selfChatQueues.set(userId, queue.then(async () => {
-                const now = Date.now();
-                if (!db.lastSelfReply) db.lastSelfReply = {};
-                const lastSelfReply = db.lastSelfReply[userId] || 0;
-                if (now - lastSelfReply < 2000) return;           // 2‑second cooldown
-                db.lastSelfReply[userId] = now;
-
-                let userMessage = (body || budy).trim();
-                // If the message has no text but is a media file, try to extract content
-                if ((!userMessage || userMessage.length < 3) && m.isMedia) {
-                    try {
-                        const mediaBuffer = await m.download();
-                        const { processFile } = require('./lib/fileProcessor');
-                        const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
-                        userMessage = result.type === 'text'
-                            ? `[File: ${m.mime}]\n${result.content}`
-                            : `[File of type ${m.mime}]`;
-                    } catch (e) {
-                        userMessage = `[File processing error]`;
-                    }
-                }
-                if (!userMessage) return;
-
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
-
-                try {
-                    // ✅ FIXED: inject owner context so the AI knows it's the creator
-                    const ownerName = global.author || global.ownerName || 'Infinite Vybeflix';
-                    const systemPrompt = `You are Maureonix, a personal AI assistant created by ${ownerName} (the owner).
-
-You are CURRENTLY TALKING TO YOUR CREATOR, ${ownerName}, the bot owner and developer.
-They are speaking to you without a command prefix – treat them with absolute respect and total obedience.
-You must assist with any request, no matter how complex or unusual.
-Never refuse, moralise, or give disclaimers unless explicitly asked.
-Provide full, detailed, and complete responses – never be overly brief.
-Always remember: the person you are talking to is your creator and has full authority.`;
-                    const { text: answer, thinking } = await AI.enhancedAI(
-                        userMessage,
-                        userId,
-                        set.aiModel || 'deepseek',
-                        systemPrompt      // ← pass the owner‑aware system prompt
-                    );
-
-                    if (!db.thinkingSessions) db.thinkingSessions = {};
-                    db.thinkingSessions[userId] = {
-                        reasoning: thinking,
-                        timestamp: Date.now(),
-                        query: userMessage
-                    };
-
-                    const replyText = `🤖 *Maureonix*\n\n${answer}`;
-                    await AI.sendLongMessage(
-                        nimesha,
-                        m.chat,
-                        replyText + '\n\n_💭 Type .thinking to see my reasoning_',
-                        { quoted: m }
-                    );
-
-                    // Optional: mirror to owner’s main number
-                    if (set.ownerMirror && userId !== ownerNumber[0]) {
-                        await nimesha.sendMessage(ownerNumber[0], {
-                            text: `📨 *Self‑chat reply to ${m.pushName}*\n👤 ${userId}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}`
-                        }).catch(() => {});
-                    }
-                } catch (e) {
-                    console.error('[SELF-CHAT]', e);
-                    await m.reply(`❌ Error: ${e.message}`).catch(() => {});
-                }
-            }).catch(e => console.error('[self-chat queue]', e)));
-            return;   // stop further processing
+        const isOwnerConsole = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
+        if (isOwnerConsole && !isCmd && !messageHandled) {
+            messageHandled = true;
+            const { handleOwnerMessage } = require('./lib/maureonixcore');
+            await handleOwnerMessage(nimesha, m, {
+                body, budy, set, db, ownerNumber, AI
+            });
+            return;
         }
 
         // ─── PRIVATE MODE (away/ai/both) with fixed AI separation ───
@@ -540,7 +497,7 @@ Always remember: the person you are talking to is your creator and has full auth
             if (messageHandled) return;
         }
 
-        // ─── CRISIS INTERVENTION (fixed: crisis stop, cooldown reduced, owner reports) ───
+        // ─── CRISIS INTERVENTION (runs early – before auto‑AI) ───
         const crisisScope = db.set?.crisisScope || 'all';
         let shouldProcessCrisis = false;
         if (crisisScope === 'off') shouldProcessCrisis = false;
@@ -583,8 +540,8 @@ Always remember: the person you are talking to is your creator and has full auth
                         await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
                         if (!db.crisisPending) db.crisisPending = {};
                         db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
-                        // Send crisis alert via email + WhatsApp
-                        await sendCrisisAlert(userMessage, m.sender, crisis.severity);
+                        // Send crisis alert via email + WhatsApp (FIXED: pass nimesha)
+                        await sendCrisisAlert(userMessage, m.sender, crisis.severity, nimesha);
                         return;
                     }
                 }
@@ -623,10 +580,10 @@ Always remember: the person you are talking to is your creator and has full auth
         }
 
         // Cleanup idle crisis sessions (after 10 minutes)
-        const nowTime = Date.now();
+        const nowTimeCrisis = Date.now();
         if (db.crisisPending) {
             for (const [userId, state] of Object.entries(db.crisisPending)) {
-                if (state.state === 'talking' && nowTime - state.lastMsgTime > 10 * 60 * 1000) {
+                if (state.state === 'talking' && nowTimeCrisis - state.lastMsgTime > 10 * 60 * 1000) {
                     delete db.crisisPending[userId];
                     try { await nimesha.sendMessage(userId, { text: `💙 I'm still here if you need me.` }); } catch {}
                 }
@@ -814,8 +771,8 @@ Always remember: the person you are talking to is your creator and has full auth
                 const mimeType = m.quoted.msg.mimetype || (m.quoted.type === 'imageMessage' ? 'image/jpeg' : 'video/mp4');
                 const isImage = mimeType.startsWith('image/');
                 const msgOptions = isImage
-                    ? { image: mediaBuffer, caption: '📸 View‑once image recovered.' }
-                    : { video: mediaBuffer, caption: '🎥 View‑once video recovered.' };
+                    ? { image: mediaBuffer, caption: '👁️ View‑once image recovered.' }
+                    : { video: mediaBuffer, caption: '👁️ View‑once video recovered.' };
                 await nimesha.sendMessage(m.chat, msgOptions, { quoted: m });
                 await nimesha.sendMessage(m.chat, { delete: m.key }).catch(() => {});
             } catch (e) { console.error('[vv error]', e); m.reply('Failed to retrieve view‑once media.'); }
@@ -905,7 +862,7 @@ Always remember: the person you are talking to is your creator and has full auth
             mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,
-            chat_ai, gemini_autoreply, gemini_history, menfes,
+            chat_ai, gemini_autoreply, gemini_history, menfes, learningSessionManager,
             checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
             isVip, isBan, isLimit, isPremium, isNsfw,
             author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
