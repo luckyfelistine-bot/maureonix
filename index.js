@@ -1,26 +1,30 @@
+// Polyfill crypto.randomUUID for Node < 19
+const crypto = require('crypto');
+if (!crypto.randomUUID) {
+    crypto.randomUUID = () => 
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+}
+
 const SecureConfig = require('./config');
 for (const [key, value] of Object.entries(SecureConfig)) {
     if (typeof value === 'string' && !process.env[key]) process.env[key] = value;
 }
 
 const cron = require('node-cron');
-const { sendEmail } = require('./lib/emailService');
-const { generateReport } = require('./lib/reporting');
+// ── Daily & Weekly reports from the new email engine ──
+const { sendDailyReport, sendWeeklyReport } = require('./lib/emailReports');
 
 cron.schedule(SecureConfig.reportDailyTime, async () => {
     console.log('[CRON] Daily report');
-    const report = await generateReport('daily', global.db, require('./lib/ai'), null, null, null, null, null, 'owner');
-    const ownerJid = SecureConfig.ownerNumber[0] + '@s.whatsapp.net';
-    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: report.text }).catch(e => console.error);
-    await sendEmail(SecureConfig.emailRecipient, '📊 Maureonix Daily Report', report.text, report.attachment, report.filename);
+    await sendDailyReport();
 }, { timezone: 'Africa/Nairobi' });
 
 cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     console.log('[CRON] Weekly report');
-    const report = await generateReport('weekly', global.db, require('./lib/ai'), null, null, null, null, null, 'owner');
-    const ownerJid = SecureConfig.ownerNumber[0] + '@s.whatsapp.net';
-    if (global.nimaInstance) await global.nimaInstance.sendMessage(ownerJid, { text: report.text }).catch(e => console.error);
-    await sendEmail(SecureConfig.emailRecipient, '📊 Maureonix Weekly Report', report.text, report.attachment, report.filename);
+    await sendWeeklyReport();
 }, { timezone: 'Africa/Nairobi' });
 
 // ═══════════════════════════════════════════════════════
