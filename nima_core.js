@@ -28,7 +28,7 @@ const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
 const { initEmailReports } = require('./lib/emailReports');
-const { sendCrisisAlert } = require('./lib/maureonixcore');
+const { sendCrisisAlert } = require('./lib/maureonixCore');
 
 const { UguuSe } = require('./lib/uploader');
 const { antiSpam } = require('./lib/antispam');
