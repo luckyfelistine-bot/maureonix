@@ -198,7 +198,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (!global.__emailReportsInitialized) {
             global.__emailReportsInitialized = true;
             initEmailReports(nimesha, AI);
-            const { maureonixCore } = require('./lib/maureonixcore');
+            const { maureonixCore } = require('./lib/maureonixCore');
             maureonixCore.initialize().then(() => {
                 console.log('🦊 Maureonix Omniscient Core is awake.');
             });
