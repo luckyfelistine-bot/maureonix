@@ -14,7 +14,7 @@ const SecureConfig = {
     emailRecipient: 'irislogs006@gmail.com',
     reportDailyTime: '0 7 * * *',
     reportWeeklyTime: '0 8 * * 1',
-    resendApiKey: 're_RwmMM3Cz_CGsa8ZJpzMJ3God8X1SKmwNG',
+    resendApiKey: 're_1HC8YL2o_GtHu2Cv4eHLR66fo8CNqvQSM',
 
     // ── News API (freenewsapi.io) ──
     freenewsApiKey: '0c3ff25c16c0379df2044899abe438c4767d2ab3688bfd75f7f751d5181d7646',
