@@ -248,16 +248,6 @@ module.exports = {
             await m.reply(result || 'No DNS records found');
         } catch (e) { m.reply('❌ DNS lookup failed: ' + e.message); }
     },
-    qr: async (nimesha, m, { text, prefix, command }) => {
-        if (!text) return m.reply(`Example: ${prefix + command} <text>`);
-        try {
-            const fetch = require('node-fetch');
-            const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(text)}`;
-            const res = await fetch(url);
-            const buffer = await res.buffer();
-            await nimesha.sendMessage(m.chat, { image: buffer, caption: 'QR Code' }, { quoted: m });
-        } catch (e) { m.reply('❌ QR generation failed: ' + e.message); }
-    },
     shorten: async (nimesha, m, { args, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
         try {
