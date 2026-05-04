@@ -27,7 +27,7 @@ const { performance } = require('perf_hooks');
 const { exec, spawn, execSync } = require('child_process');
 const { generateWAMessageContent, getContentType } = require('baileys');
 const { generateMenuImage } = require('./lib/menuimage');
-const { initEmailReports, sendCrisisAlert } = require('./lib/emailReports');
+const { initEmailReports } = require('./lib/emailReports');
 const { sendCrisisAlert } = require('./lib/maureonixcore');
 
 const { UguuSe } = require('./lib/uploader');
