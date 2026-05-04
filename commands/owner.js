@@ -2,7 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 const { generateProfilePicture, sleep } = require('../lib/function');
-const { generateReport } = require('../lib/reporting');
 const { sendEmail } = require('../lib/emailService');
 
 module.exports = {
