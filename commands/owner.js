@@ -263,7 +263,7 @@ module.exports = {
         set.public = false;
         m.reply('🔒 Bot is now in *PRIVATE* mode. Only owner can use commands.');
     },
-    mode: async (nimesha, m, { isCreator, mess, set, prefix }) => {
+    publicmode: async (nimesha, m, { isCreator, mess, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = set.public ? 'PUBLIC' : 'PRIVATE';
         m.reply(`⚙️ Current mode: *${status}*\nUse ${prefix}public or ${prefix}private to change.`);
