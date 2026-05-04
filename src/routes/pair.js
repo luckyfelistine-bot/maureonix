@@ -24,7 +24,7 @@ module.exports = function mountPairRoute(app) {
     recordPairAttempt(clientIp);
 
     // ── Request timeout (50 seconds) ──
-    req.setTimeout(50000, () => {
+    req.setTimeout(65_000, () => {
       if (!res.headersSent) {
         res.status(504).json({
           status: false,
