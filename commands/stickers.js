@@ -126,31 +126,53 @@ module.exports = {
             await nimesha.sendMessage(m.chat, { image: blurred, caption: '🔮 Blurred' }, { quoted: m });
         } catch (e) { m.reply('❌ Failed to blur: ' + e.message); }
     },
-    qc: async (nimesha, m, { prefix, command, text }) => {
-        if (!text) return m.reply(`Example: ${prefix + command} <text>`);
+    // ─── QR Code Generator (any text / URL / link) ────────────
+    qr: async (nimesha, m, { text, prefix, command }) => {
+        if (!text) return m.reply(`Example: ${prefix + command} https://maureonix.com\nOr: ${prefix + command} Hello World`);
+        await m.reply('📱 *Generating QR code...*');
+        const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=300x300&format=png`;
         try {
             const fetch = require('node-fetch');
-            const ppUrl = await nimesha.profilePictureUrl(m.sender, 'image').catch(() => 'https://telegra.ph/file/95670d63378f7f4210f03.png');
-            const apis = [
-                `https://api.vihangayt.me/maker/quotely?text=${encodeURIComponent(text)}&avatar=${encodeURIComponent(ppUrl)}`,
-                `https://api.davidcyriltech.my.id/quote?text=${encodeURIComponent(text)}&avatar=${encodeURIComponent(ppUrl)}`
-            ];
-            let success = false;
-            for (const url of apis) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) continue;
-                    const buffer = await res.buffer();
-                    if (buffer && buffer.length > 100) {
-                        await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
-                        success = true;
-                        break;
-                    }
-                } catch (e) {}
-            }
-            if (!success) throw new Error('All APIs failed');
-        } catch (e) { m.reply('❌ QC failed: ' + e.message); }
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('QR API returned ' + res.status);
+            const buffer = await res.buffer();
+            await nimesha.sendMessage(m.chat, { image: buffer, caption: `🔳 QR for: ${text}` }, { quoted: m });
+        } catch (e) {
+            await m.reply(`❌ Failed to generate QR: ${e.message}`);
+        }
     },
+
+    // ─── QR Code Reader (decode an image back to text) ────────
+    readqr: async (nimesha, m) => {
+        if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('📸 Reply to a QR code image to decode it.');
+        await m.reply('🔍 *Reading QR code...*');
+        try {
+            const mediaBuffer = await m.quoted.download();
+            // Upload to api.qrserver.com
+            const FormData = require('form-data');
+            const fetch = require('node-fetch');
+            const form = new FormData();
+            form.append('file', mediaBuffer, { filename: 'qr.png' });
+
+            const res = await fetch('https://api.qrserver.com/v1/read-qr-code/', {
+                method: 'POST',
+                body: form,
+                headers: form.getHeaders(),
+            });
+            const json = await res.json();
+            if (json && json[0] && json[0].symbol[0].data) {
+                const decoded = json[0].symbol[0].data;
+                await m.reply(`🔳 *Decoded QR content:*\n\n${decoded}`);
+            } else if (json && json[0] && json[0].symbol[0].error) {
+                await m.reply(`❌ Could not decode: ${json[0].symbol[0].error}`);
+            } else {
+                await m.reply('❌ No QR code found in the image.');
+            }
+        } catch (e) {
+            await m.reply(`❌ Failed to read QR: ${e.message}`);
+        }
+    },
+
     brat: async (nimesha, m, { isLimit, mess, prefix, command, text, setLimit, db }) => {
         if (!isLimit) return m.reply(mess.limit);
         if (!text && (!m.quoted || !m.quoted.text)) return m.reply(`📌 Reply with text or type: ${prefix + command} <text>`);
@@ -195,4 +217,7 @@ module.exports = {
     // aliases
     s: async (nimesha, m, ctx) => { await module.exports.sticker(nimesha, m, ctx); },
     toimg: async (nimesha, m, ctx) => { await module.exports.simage(nimesha, m, ctx); },
+    
+    // Alias for qr (optional)
+    qrcode: async (nimesha, m, ctx) => { await module.exports.qr(nimesha, m, ctx); },
 };
