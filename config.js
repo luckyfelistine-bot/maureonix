@@ -15,6 +15,12 @@ const SecureConfig = {
     reportDailyTime: '0 7 * * *',
     reportWeeklyTime: '0 8 * * 1',
 
+    // ── News API (freenewsapi.io) ──
+    freenewsApiKey: '0c3ff25c16c0379df2044899abe438c4767d2ab3688bfd75f7f751d5181d7646',
+
+    // ── Maureonix Passphrase (owner unlock) ──
+    maureonixPassphrase: 'Hello_Maureonix',
+    
     // ----- WhatsApp Group & Channel -----
     groupJid: '120363423838424989@g.us',           // Group ID (starts with 1203...)
     groupInviteLink: 'https://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp',
