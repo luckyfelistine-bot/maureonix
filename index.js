@@ -260,13 +260,29 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             await MessagesUpsert(nimaBot, message, global.store);
         });
 
+        // ── Follow configured channel so bot receives channel messages ──
+        const config = require('./config');
+        if (config.channelJid && config.channelJid.endsWith('@newsletter')) {
+            try {
+                await nimaBot.newsletterFollow(config.channelJid);
+                console.log('[CHANNEL] Following channel:', config.channelJid);
+            } catch (e) {
+                console.log('[CHANNEL] Follow error (may already follow):', e.message);
+            }
+        }
+
         // ── Route newsletter (channel) messages into the core handler ──
-        nimaBot.ev.on('messaging-history.set', (chat) => {
-            const msgs = chat.messages;
-            if (Array.isArray(msgs)) {
-                for (const msg of msgs) {
-                    MessagesUpsert(nimaBot, { messages: [msg], type: 'notify' }, global.store)
-                        .catch(err => console.error('[newsletter msg]', err));
+        // Channel messages arrive via messages.upsert with remoteJid ending in @newsletter
+        nimaBot.ev.on('messages.upsert', async (message) => {
+            // Process ALL messages — channels use @newsletter JID suffix
+            if (message.type === 'notify') {
+                for (const msg of message.messages) {
+                    const remoteJid = msg.key?.remoteJid || '';
+                    // Only route if it's a channel message
+                    if (remoteJid.endsWith('@newsletter')) {
+                        await MessagesUpsert(nimaBot, { messages: [msg], type: 'notify' }, global.store)
+                            .catch(err => console.error('[newsletter msg]', err));
+                    }
                 }
             }
         });
