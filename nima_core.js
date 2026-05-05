@@ -199,12 +199,23 @@ const coreHandler = async (nimesha, m, msg, store) => {
             const originalSend = nimesha.sendMessage.bind(nimesha);
             nimesha.sendMessage = async (jid, content, options = {}) => {
                 // ── Newsletter (channel) support ──
+                // Standard Baileys sends to channels using regular sendMessage with @newsletter JID
+                // No special newsletterMsg method needed — just normalize content to { text: ... }
+                let normalizedContent = content;
                 if (jid && jid.endsWith('@newsletter')) {
-                    let msg = content;
-                    if (typeof content === 'string') msg = { text: content };
-                    else if (content && content.text && !content.caption) msg = { text: content.text };
-                    else if (content && content.caption && !content.text) msg = { text: content.caption };
-                    return nimesha.newsletterMsg(jid, msg).catch(() => {});
+                    if (typeof content === 'string') normalizedContent = { text: content };
+                    else if (content && content.text && !content.caption) normalizedContent = { text: content.text };
+                    else if (content && content.caption && !content.text) normalizedContent = { text: content.caption };
+                    // For channels, we must use the normalized content object
+                    const result = await originalSend(jid, normalizedContent, options);
+                    if (result && result.key && result.key.id) {
+                        global.outgoingMessageIds.add(result.key.id);
+                        if (global.outgoingMessageIds.size > 2000) {
+                            const arr = [...global.outgoingMessageIds];
+                            global.outgoingMessageIds = new Set(arr.slice(-1000));
+                        }
+                    }
+                    return result;
                 }
                 
                 const result = await originalSend(jid, content, options);
@@ -231,9 +242,13 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
            // Auto‑follow the configured channel so the bot sees channel messages
             const config = require('./config');
-            if (config.channelJid) {
-                nimesha.newsletterFollow(config.channelJid).catch(() => {});
-                console.log('[CORE] Following channel:', config.channelJid);
+            if (config.channelJid && config.channelJid.endsWith('@newsletter')) {
+                try {
+                    await nimesha.newsletterFollow(config.channelJid);
+                    console.log('[CORE] Following channel:', config.channelJid);
+                } catch (e) {
+                    console.log('[CORE] Channel follow error (may already follow):', e.message);
+                }
             }
             
             const { maureonixCore } = require('./lib/maureonixCore');
@@ -244,8 +259,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         const sendReply = async (jid, content, options = {}) => {
             let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
-            if (jid.endsWith('@newsletter')) return nimesha.newsletterMsg(jid, msgContent).catch(() => {});
-            return nimesha.sendMessage(jid, msgContent);
+            // For channels, standard sendMessage works with @newsletter JID — no special method needed
+            return nimesha.sendMessage(jid, msgContent, options);
         };
 
         let messageHandled = false;
@@ -316,7 +331,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
             (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
             (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
             (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
+            // ── Channel (newsletter) message text extraction ──
             (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
+            (m.type === 'extendedTextMessage' && m.message.extendedTextMessage?.contextInfo?.forwardedNewsletterMessageInfo) ? m.message.extendedTextMessage.text :
             (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
         } catch (err) {
             // Don't block the whole handler – just set empty body and continue
@@ -334,6 +351,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (content.text) content.text += footerText;
                 else if (content.caption) content.caption += footerText;
             }
+            // Use m.chat (remoteJid) which will be @newsletter for channel messages
             return sendReply(m.chat, content, options);
         };
 
