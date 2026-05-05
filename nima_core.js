@@ -228,6 +228,14 @@ const coreHandler = async (nimesha, m, msg, store) => {
             initEmailReports(nimesha, AI);
             // Start proactive intelligence engine
             require('./lib/proactiveEngine').init(nimesha);
+
+           // Auto‑follow the configured channel so the bot sees channel messages
+            const config = require('../config');
+            if (config.channelJid) {
+                nimesha.newsletterFollow(config.channelJid).catch(() => {});
+                console.log('[CORE] Following channel:', config.channelJid);
+            }
+            
             const { maureonixCore } = require('./lib/maureonixCore');
             maureonixCore.initialize().then(() => {
                 console.log('🦊 Maureonix Omniscient Core is awake.');
