@@ -243,6 +243,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (!db.set) db.set = {};
         if (!db.set[botNumber]) db.set[botNumber] = {};
         const set = db.set[botNumber];
+        if (!db.game) db.game = {};
         let chat_ai = db.game.chat_ai;
         if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
         let gemini_autoreply = db.game.gemini_autoreply;
