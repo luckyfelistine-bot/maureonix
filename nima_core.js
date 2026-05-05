@@ -332,6 +332,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isLimit = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false);
         const isPremium = isCreator || checkStatus(m.sender, premium) || false;
         const isNsfw = m.isGroup ? (db.groups && db.groups[m.chat] ? db.groups[m.chat].nsfw : false) : false;
+        if (m.isGroup) {
+            if (!db.groups) db.groups = {};
+            if (!db.groups[m.chat]) db.groups[m.chat] = {};
+        }
         const fkontak = { key: { remoteJid: '0@s.whatsapp.net', participant: '0@s.whatsapp.net', fromMe: false, id: 'Maureonix' }, message: { contactMessage: { displayName: (m.pushName || author), vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author};;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Mobile\nEND:VCARD` } } };
 
         // Reset Limits daily
@@ -652,7 +656,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         // ─── GROUP SETTINGS & ANTI‑SPAM (condensed but functional) ───
         if (m.isGroup) {
-            if (db.groups[m.chat].mute && !isCreator) return;
+            if (db.groups && db.groups[m.chat] && db.groups[m.chat].mute && !isCreator) return;
             // Anti Hidetag
             if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participants?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
