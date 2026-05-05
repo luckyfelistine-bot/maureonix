@@ -230,7 +230,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             require('./lib/proactiveEngine').init(nimesha);
 
            // Auto‑follow the configured channel so the bot sees channel messages
-            const config = require('../config');
+            const config = require('./config');
             if (config.channelJid) {
                 nimesha.newsletterFollow(config.channelJid).catch(() => {});
                 console.log('[CORE] Following channel:', config.channelJid);
