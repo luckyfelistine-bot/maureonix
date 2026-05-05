@@ -260,6 +260,17 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             await MessagesUpsert(nimaBot, message, global.store);
         });
 
+        // ── Route newsletter (channel) messages into the core handler ──
+        nimaBot.ev.on('messaging-history.set', (chat) => {
+            const msgs = chat.messages;
+            if (Array.isArray(msgs)) {
+                for (const msg of msgs) {
+                    MessagesUpsert(nimaBot, { messages: [msg], type: 'notify' }, global.store)
+                        .catch(err => console.error('[newsletter msg]', err));
+                }
+            }
+        });
+        
         nimaBot.ev.on('group-participants.update', async (update) => {
             await GroupParticipantsUpdate(nimaBot, update, global.store);
         });
