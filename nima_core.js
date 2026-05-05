@@ -240,6 +240,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         const sewa = db.sewa;
         const premium = db.premium;
+        if (!db.set) db.set = {};
         if (!db.set[botNumber]) db.set[botNumber] = {};
         const set = db.set[botNumber];
         let chat_ai = db.game.chat_ai;
@@ -398,7 +399,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isOwnerConsole = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
         if (isOwnerConsole && !isCmd && !messageHandled) {
             messageHandled = true;
-            const { handleOwnerMessage } = require('./lib/maureonixcore');
+            const { handleOwnerMessage } = require('./lib/maureonixCore');
             await handleOwnerMessage(nimesha, m, {
                 body, budy, set, db, ownerNumber, AI
             });
