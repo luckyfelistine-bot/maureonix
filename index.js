@@ -262,19 +262,46 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 
         // ── Follow configured channel so bot receives channel messages ──
         const config = require('./config');
-        if (config.channelJid && config.channelJid.endsWith('@newsletter')) {
+        const followChannel = async (attempt = 1) => {
+            if (!config.channelJid || !config.channelJid.endsWith('@newsletter')) return;
+            
+            // Wait for connection to be fully open before attempting follow
+            if (nimaBot.ws?.readyState !== 1) { // 1 = WebSocket.OPEN
+                if (attempt <= 5) {
+                    setTimeout(() => followChannel(attempt + 1), 3000 * attempt);
+                }
+                return;
+            }
+            
             try {
                 await nimaBot.newsletterFollow(config.channelJid);
-                console.log('[CHANNEL] Following channel:', config.channelJid);
+                console.log('[CHANNEL] ✅ Following channel:', config.channelJid);
             } catch (e) {
-                console.log('[CHANNEL] Follow error (may already follow):', e.message);
+                const msg = e.message || '';
+                // These are all "already following" or timing errors — suppress them
+                const expectedErrors = [
+                    'Connection Closed',
+                    'unexpected response structure',
+                    'already followed',
+                    'already a subscriber',
+                    'not-authorized',
+                    'item-not-found'
+                ];
+                const isExpected = expectedErrors.some(err => msg.includes(err));
+                if (!isExpected) {
+                    console.log('[CHANNEL] ⚠️ Follow error:', msg);
+                } else if (attempt === 1) {
+                    console.log('[CHANNEL] ℹ️ Already following channel:', config.channelJid);
+                }
             }
-        }
+        };
+        
+        // Delay follow until connection is stable
+        setTimeout(() => followChannel(), 5000);
 
         // ── Route newsletter (channel) messages into the core handler ──
         // Channel messages arrive via messages.upsert with remoteJid ending in @newsletter
         nimaBot.ev.on('messages.upsert', async (message) => {
-            // Process ALL messages — channels use @newsletter JID suffix
             if (message.type === 'notify') {
                 for (const msg of message.messages) {
                     const remoteJid = msg.key?.remoteJid || '';
@@ -286,6 +313,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
                 }
             }
         });
+
         
         nimaBot.ev.on('group-participants.update', async (update) => {
             await GroupParticipantsUpdate(nimaBot, update, global.store);
