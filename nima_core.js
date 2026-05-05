@@ -198,6 +198,15 @@ const coreHandler = async (nimesha, m, msg, store) => {
             nimesha.__sendWrapped = true;
             const originalSend = nimesha.sendMessage.bind(nimesha);
             nimesha.sendMessage = async (jid, content, options = {}) => {
+                // ── Newsletter (channel) support ──
+                if (jid && jid.endsWith('@newsletter')) {
+                    let msg = content;
+                    if (typeof content === 'string') msg = { text: content };
+                    else if (content && content.text && !content.caption) msg = { text: content.text };
+                    else if (content && content.caption && !content.text) msg = { text: content.caption };
+                    return nimesha.newsletterMsg(jid, msg).catch(() => {});
+                }
+                
                 const result = await originalSend(jid, content, options);
                 if (result && result.key && result.key.id) {
                     global.outgoingMessageIds.add(result.key.id);
