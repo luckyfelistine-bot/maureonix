@@ -243,13 +243,29 @@ const coreHandler = async (nimesha, m, msg, store) => {
            // Auto‑follow the configured channel so the bot sees channel messages
             const config = require('./config');
             if (config.channelJid && config.channelJid.endsWith('@newsletter')) {
-                try {
-                    await nimesha.newsletterFollow(config.channelJid);
-                    console.log('[CORE] Following channel:', config.channelJid);
-                } catch (e) {
-                    console.log('[CORE] Channel follow error (may already follow):', e.message);
-                }
+                // Defer follow until socket is stable — prevents "Connection Closed" errors
+                setTimeout(async () => {
+                    try {
+                        await nimesha.newsletterFollow(config.channelJid);
+                        console.log('[CORE] ✅ Following channel:', config.channelJid);
+                    } catch (e) {
+                        const msg = e.message || '';
+                        const expectedErrors = [
+                            'Connection Closed',
+                            'unexpected response structure',
+                            'already followed',
+                            'already a subscriber'
+                        ];
+                        const isExpected = expectedErrors.some(err => msg.includes(err));
+                        if (!isExpected) {
+                            console.log('[CORE] ⚠️ Channel follow error:', msg);
+                        } else {
+                            console.log('[CORE] ℹ️ Channel already followed:', config.channelJid);
+                        }
+                    }
+                }, 8000); // Wait 8 seconds for connection to stabilize
             }
+
             
             const { maureonixCore } = require('./lib/maureonixCore');
             maureonixCore.initialize().then(() => {
