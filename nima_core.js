@@ -212,19 +212,6 @@ const coreHandler = async (nimesha, m, msg, store) => {
             return nimesha.sendMessage(jid, msgContent);
         };
 
-        // Proxy nimesha.sendMessage to support newsletters automatically
-        const originalSendMessage = nimesha.sendMessage.bind(nimesha);
-        nimesha.sendMessage = async (jid, content, options = {}) => {
-            if (jid && jid.endsWith('@newsletter')) {
-                let msg = content;
-                if (typeof content === 'string') msg = { text: content };
-                else if (content && content.text && !content.caption) msg = { text: content.text };
-                else if (content && content.caption && !content.text) msg = { text: content.caption };
-                return nimesha.newsletterMsg(jid, msg).catch(() => {});
-            }
-            return originalSendMessage(jid, content, options);
-        };
-
         let messageHandled = false;
         const mess = {
             wait: '⏳ Please wait...',
@@ -278,7 +265,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         
         // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
-        if (m.key.fromMe && !_isOwnerSelf) return;
+        if (m.key.fromMe) return;
 
         let body = '';
         try {
