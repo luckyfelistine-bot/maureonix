@@ -845,7 +845,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 m.reply(`Don't tag them!\nThey are AFK ${reason ? 'because ' + reason : ''}\nTime: ${clockString(new Date - user.afkTime)}`.trim());
             }
         }
-        if (db.users[m.sender].afkTime > -1) {
+        if (db.users[m.sender] && db.users[m.sender].afkTime > -1) {
             let user = db.users[m.sender];
             m.reply(`@${m.sender.split('@')[0]} is no longer AFK${user.afkReason ? ' because ' + user.afkReason : ''}\nTime: ${clockString(new Date - user.afkTime)}`);
             user.afkTime = -1;
