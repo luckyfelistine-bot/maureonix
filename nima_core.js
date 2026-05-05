@@ -331,7 +331,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const isBan = isCreator || (db.users[m.sender] ? db.users[m.sender].ban : false);
         const isLimit = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false);
         const isPremium = isCreator || checkStatus(m.sender, premium) || false;
-        const isNsfw = m.isGroup ? db.groups[m.chat].nsfw : false;
+        const isNsfw = m.isGroup ? (db.groups && db.groups[m.chat] ? db.groups[m.chat].nsfw : false) : false;
         const fkontak = { key: { remoteJid: '0@s.whatsapp.net', participant: '0@s.whatsapp.net', fromMe: false, id: 'Maureonix' }, message: { contactMessage: { displayName: (m.pushName || author), vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author};;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Mobile\nEND:VCARD` } } };
 
         // Reset Limits daily
