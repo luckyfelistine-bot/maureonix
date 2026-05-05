@@ -251,6 +251,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
         let gemini_history = db.game.gemini_history;
         let menfes = db.game.menfes;
 
+        // Make sure chat_ai and menfes are always objects (prevents undefined crash)
+        if (!chat_ai) chat_ai = {};
+        if (!menfes) menfes = {};
+        
         const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
 
         // ─── MISSING GLOBALS (listv, limit, tempatDB, fake, my, cases)
