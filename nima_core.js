@@ -279,6 +279,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         
         // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
         if (m.key.fromMe) return;
+        console.log('[CORE] processing message from', m.sender?.split('@')[0]);
 
         let body = '';
         try {
