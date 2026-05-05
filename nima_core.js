@@ -278,8 +278,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         
         // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
-        if (m.key.fromMe) return;
-        console.log('[CORE] processing message from', m.sender?.split('@')[0]);
+        if (m.key.fromMe && !_isOwnerSelf) return;
 
         let body = '';
         try {
