@@ -192,6 +192,25 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (!global.db.database) global.db.database = {};
         const botNumber = nimesha.decodeJid(nimesha.user.id);
 
+        // ── Record IDs of all outgoing messages (used by the self‑reply filter) ──
+        if (!global.outgoingMessageIds) global.outgoingMessageIds = new Set();
+        if (!nimesha.__sendWrapped) {
+            nimesha.__sendWrapped = true;
+            const originalSend = nimesha.sendMessage.bind(nimesha);
+            nimesha.sendMessage = async (jid, content, options = {}) => {
+                const result = await originalSend(jid, content, options);
+                if (result && result.key && result.key.id) {
+                    global.outgoingMessageIds.add(result.key.id);
+                    // Prevent unlimited growth – keep only the last 2000 IDs
+                    if (global.outgoingMessageIds.size > 2000) {
+                        const arr = [...global.outgoingMessageIds];
+                        global.outgoingMessageIds = new Set(arr.slice(-1000));
+                    }
+                }
+                return result;
+            };
+        }
+
          // ═══════════════════════════════════════════════════════
         //  Initialise email reporting engine (once)
         // ═══════════════════════════════════════════════════════
@@ -265,7 +284,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         
         // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
-        if (m.key.fromMe) return;
+        if (m.key.fromMe && global.outgoingMessageIds.has(m.key.id)) return;
 
         let body = '';
         try {
