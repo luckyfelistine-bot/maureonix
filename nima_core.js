@@ -488,25 +488,34 @@ const coreHandler = async (nimesha, m, msg, store) => {
             };
             if (mode === 'away' || mode === 'both') addPending(m.sender, body || budy);
             if (mode === 'away') { await m.reply(awayMsg); return; }
+            // ── AI away mode (with girlfriend personalisation) ──
             else if (mode === 'ai' || mode === 'both') {
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const { text: answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', null);
+                    let personalSystem = null;
+                    const config = require('./config');
+                    if (config.girlfriendJid && m.sender === config.girlfriendJid) {
+                        personalSystem = `You are Maureonix, the personal assistant of Infinite Vybeflix. ` +
+                            `You are currently talking to his girlfriend, ${config.girlfriendNickname || 'his special person'}. ` +
+                            `Be warm, loving, supportive, and use her nickname naturally. ` +
+                            `You know she is the most important person to your creator, so treat her with extra care. ` +
+                            `Reply in the language she uses.`;
+                    }
+                    const { text: answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', personalSystem);
                     if (!messageHandled) {
                         if (!db.thinkingSessions) db.thinkingSessions = {};
                         db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
-                        const replyText = `🤖 *Maureonix*\n\n${answer}`;
-                        await AI.sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
-                        messageHandled = true;   // <-- ADD THIS LINE
+                        const replyText = `🦊 *Maureonix*\n\n${answer}`;
+                        await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
+                        messageHandled = true;
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
+                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                     }
                 } catch (e) { console.error('[privat AI]', e); }
                 return;
             }
         }
-
         // ─── AUTO-AI AWAY ASSISTANT (with fixed AI separation) ───
         const hasText = body || budy;
         const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
@@ -550,8 +559,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (!messageHandled) {
                     if (!db.thinkingSessions) db.thinkingSessions = {};
                     db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
-                    const replyText = `🤖 *Maureonix*\n\n${answer}`;
-                    await AI.sendLongMessage(nimesha, m.chat, replyText + '\n\n_💭 Type .thinking to see my reasoning_', { quoted: m });
+                    const replyText = `🦊 *Maureonix*\n\n${answer}`;
+                    await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
                     messageHandled = true;   // <-- ADD THIS LINE
                     
                     if (set.ownerMirror && m.sender !== ownerNumber[0]) {
@@ -915,17 +924,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
             user.afkReason = '';
         }
 
-        // ─── .thinking COMMAND (uses AI.getThinking) ───
+        // ── .thinking COMMAND (shows hidden reasoning from AI) ──
         if (isCmd && command === 'thinking' && !messageHandled) {
-            const thinking = AI.getThinking(m.sender);
-            if (thinking !== 'No recent thinking available.') {
+            let thinking = AI.getThinking(m.sender);
+            // Fallback to the db store used by private / auto‑AI modes
+            if (thinking === 'No recent thinking available.' && db.thinkingSessions && db.thinkingSessions[m.sender]) {
+                thinking = db.thinkingSessions[m.sender].reasoning || '';
+            }
+            if (thinking && thinking !== 'No recent thinking available.') {
                 await m.reply(`💭 *My reasoning:*\n\n${thinking}`);
             } else {
                 await m.reply('No reasoning available. Ask me something first, then use this command.');
             }
             return;
         }
-
+        
         // ─── FINAL: LOAD AND EXECUTE COMMANDS FROM nima_commands.js ───
         const handleCommand = require('./nima_commands');
         await handleCommand(nimesha, m, {
