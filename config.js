@@ -8,6 +8,8 @@ const SecureConfig = {
     botName: 'Maureonix',
     ownerName: 'Infinite Vybeflix',
     ownerNumber: ['254116903500'],   // Your WhatsApp number (array)
+    girlfriendJid: '254140 562441@s.whatsapp.net',
+    girlfriendNickname: 'Dal',
 
     emailSender: 'iris.with.vybeflix@gmail.com',
     emailAppPassword: 'qkoi dqzn mnbb qcmc',
