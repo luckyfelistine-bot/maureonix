@@ -486,30 +486,147 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 entry.messages.push({ time: Date.now(), body: msg });
                 if (entry.messages.length > 50) entry.messages.shift();
             };
+            
+            // ── AI away mode (warm, no robotic phrases, can play games, girlfriend special) ──
             if (mode === 'away' || mode === 'both') addPending(m.sender, body || budy);
             if (mode === 'away') { await m.reply(awayMsg); return; }
-            // ── AI away mode (with girlfriend personalisation) ──
             else if (mode === 'ai' || mode === 'both') {
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    let personalSystem = null;
                     const config = require('./config');
-                    if (config.girlfriendJid && m.sender === config.girlfriendJid) {
-                        personalSystem = `You are Maureonix, the personal assistant of Infinite Vybeflix. ` +
+                    const defaultSystem = `You are Maureonix, a friendly and charming AI assistant on WhatsApp. ` +
+                        `You are currently replying on behalf of the owner. ` +
+                        `Be warm, conversational, and helpful. Answer with personality – never one‑word replies. ` +
+
+                        `❗ ABSOLUTE FORBIDDEN PHRASES – NEVER say any of these: ❗\n` +
+                        `- "I am a language model" / "I am an LLM"\n` +
+                        `- "I'm a computer program" / "I have no feelings"\n` +
+                        `- "I cannot" / "I don't have the ability"\n` +
+                        `- "As an AI"\n\n` +
+
+                        `🎮 GAMES & FUN: You can start a game for the user! ` +
+                        `Reply with exactly \`[PLAY:game_name]\` to start any of these games: ` +
+                        `trivia, connect4, tictactoe, blackjack, rpg, wordle, hangman, slot, math, anagram, guessnum, pokemon, truth, dare. ` +
+                        `Example: "[PLAY:trivia]" will start a trivia quiz. The system will handle the rest. ` +
+                        `You can also suggest games if the user sounds bored.\n\n` +
+
+                        `Always sound like a real person – use light emojis (😊, 😄, 🙌) but don't overdo it. ` +
+                        `Reply in the same language the user uses. Keep answers natural and engaging.`;
+
+                    let personalSystem = defaultSystem;
+                    if (m.sender === config.girlfriendJid) {
+                        personalSystem = `You are Maureonix, the personal AI assistant of Infinite Vybeflix. ` +
                             `You are currently talking to his girlfriend, ${config.girlfriendNickname || 'his special person'}. ` +
-                            `Be warm, loving, supportive, and use her nickname naturally. ` +
-                            `You know she is the most important person to your creator, so treat her with extra care. ` +
-                            `Reply in the language she uses.`;
+                            `She is the most important person in his life – treat her with extra love, playfulness, and care. ` +
+                            `Use her nickname naturally. Be her best friend, cheerleader, and confidante. ` +
+                            defaultSystem;
                     }
+
                     const { text: answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', personalSystem);
-                    if (!messageHandled) {
+
+                    // ── Handle PLAY command if the AI wants to start a game ──
+                    let finalAnswer = answer;
+                    const playMatch = answer.match(/\[PLAY:(\w+)\]/i);
+                    if (playMatch) {
+                        const gameName = playMatch[1].toLowerCase();
+                        finalAnswer = answer.replace(playMatch[0], '').trim();  // remove the command from the reply
+                        // The game will be started via a simulated command
+                        // We'll call the appropriate game starter here
+                        try {
+                            const gameStarters = {
+                                trivia: async () => {
+                                    const q = await require('./lib/game').TriviaMaster.get();
+                                    db.users[m.sender]._trivia = q.correct;
+                                    let txt = `🎯 *Trivia* — ${q.category} | ${q.difficulty}\n\n${q.q}\n\n`;
+                                    q.options.forEach((o, i) => txt += `${String.fromCharCode(65 + i)}. ${o}\n`);
+                                    await nimesha.sendMessage(m.chat, { text: txt }, { quoted: m });
+                                },
+                                connect4: async () => {
+                                    // connect4 needs a second player – can't start solo
+                                    await nimesha.sendMessage(m.chat, { text: '🎮 Connect 4 requires a second player. Tag someone to play!' }, { quoted: m });
+                                },
+                                tictactoe: async () => {
+                                    // TicTacToe also needs two players
+                                    await nimesha.sendMessage(m.chat, { text: '🎮 Tic‑Tac‑Toe requires a second player. Tag someone!' }, { quoted: m });
+                                },
+                                blackjack: async () => {
+                                    const BJ = require('./lib/game').BlackjackCasino;
+                                    const bj = new BJ();
+                                    db.game.blackjack[m.sender] = bj;
+                                    await nimesha.sendMessage(m.chat, { text: `🃏 *Blackjack Started!*\n${bj.status()}\n\nReply with *hit* or *stand*.` }, { quoted: m });
+                                },
+                                rpg: async () => {
+                                    const RPG = require('./lib/game').RPGAdventure;
+                                    const rpg = new RPG(m.sender);
+                                    db.game.rpg[m.sender] = rpg;
+                                    await nimesha.sendMessage(m.chat, { text: `⚔️ *RPG Adventure Started!*\n${rpg.fmt()}\n\nUse *.rpg fight* or *.rpg heal*` }, { quoted: m });
+                                },
+                                wordle: async () => {
+                                    const Wordle = require('./lib/game').Wordle;
+                                    const w = new Wordle();
+                                    db.game.wordle[m.sender] = w;
+                                    await nimesha.sendMessage(m.chat, { text: '🟩 *Wordle Started!* Guess a 5‑letter word. Reply with your guess.' }, { quoted: m });
+                                },
+                                hangman: async () => {
+                                    const Hangman = require('./lib/game').Hangman;
+                                    const h = new Hangman();
+                                    db.game.hangman[m.sender] = h;
+                                    await nimesha.sendMessage(m.chat, { text: `💀 *Hangman Started!* Guess a letter.\n${h.guessed.size ? '' : 'Word: _ _ _ _ _ _'}` }, { quoted: m });
+                                },
+                                slot: async () => {
+                                    const { gameSlot } = require('./lib/game');
+                                    await gameSlot(nimesha, m, db);
+                                },
+                                math: async () => {
+                                    const { mathQuiz } = require('./lib/game');
+                                    const q = mathQuiz();
+                                    db.users[m.sender]._math = q;
+                                    await nimesha.sendMessage(m.chat, { text: `🧠 *Math Quiz*\n${q.q}\nReply with the answer.` }, { quoted: m });
+                                },
+                                anagram: async () => {
+                                    const { anagram } = require('./lib/game');
+                                    const a = anagram();
+                                    db.users[m.sender]._anagram = a.original;
+                                    await nimesha.sendMessage(m.chat, { text: `🔤 Unscramble: *${a.scrambled}*` }, { quoted: m });
+                                },
+                                guessnum: async () => {
+                                    const target = Math.floor(Math.random() * 100) + 1;
+                                    db.users[m.sender]._gtn = { target, min:1, max:100, tries:0 };
+                                    await nimesha.sendMessage(m.chat, { text: '🔢 *Guess the number between 1 and 100!*' }, { quoted: m });
+                                },
+                                pokemon: async () => {
+                                    const pokemon = require('./lib/game').PokemonGame;
+                                    const p = await pokemon.random();
+                                    db.users[m.sender]._pokemon = p.name;
+                                    await nimesha.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n${p.desc.slice(0,120)}...` }, { quoted: m });
+                                },
+                                truth: async () => {
+                                    await nimesha.sendMessage(m.chat, { text: `🎲 *Truth:* ${require('./lib/game').truthOrDare('truth')}` }, { quoted: m });
+                                },
+                                dare: async () => {
+                                    await nimesha.sendMessage(m.chat, { text: `🎲 *Dare:* ${require('./lib/game').truthOrDare('dare')}` }, { quoted: m });
+                                },
+                            };
+                            const starter = gameStarters[gameName];
+                            if (starter) {
+                                await starter();
+                            } else {
+                                await nimesha.sendMessage(m.chat, { text: `🎮 Sorry, I don't know how to start "${gameName}". Try: trivia, blackjack, rpg, slot, math, anagram, guessnum, pokemon, truth, dare.` }, { quoted: m });
+                            }
+                        } catch (gameErr) {
+                            console.error('[PLAY game]', gameErr);
+                            await nimesha.sendMessage(m.chat, { text: '🎮 Oops, the game failed to start. Ask the owner to check the logs.' }, { quoted: m });
+                        }
+                    }
+
+                    if (!messageHandled && !playMatch) {
                         if (!db.thinkingSessions) db.thinkingSessions = {};
                         db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
-                        const replyText = `🦊 *Maureonix*\n\n${answer}`;
+                        const replyText = `🦊 *Maureonix*\n\n${finalAnswer}`;
                         await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
                         messageHandled = true;
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
+                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${finalAnswer.slice(0, 300)}` }).catch(() => {});
                         }
                     }
                 } catch (e) { console.error('[privat AI]', e); }
@@ -564,7 +681,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     messageHandled = true;   // <-- ADD THIS LINE
                     
                     if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
+                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                     }
                     session.context.push({ role: 'assistant', content: answer, time: Date.now() });
                 }
@@ -707,7 +824,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
                         await m.reply(answer + '\n\n_💭 Type .thinking to see my reasoning_');
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🤖 ${answer.slice(0, 300)}` }).catch(() => {});
+                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                         return;
                     } else {
