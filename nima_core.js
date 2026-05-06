@@ -585,8 +585,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 return;
             }
 
-            const crisis = AI.detectCrisis(userMessage);
-            console.log('[CRISIS DEBUG] userMessage:', userMessage?.slice(0, 100), '| crisis result:', JSON.stringify(crisis));
+            const crisis = await AI.detectCrisis(userMessage);
             if (crisis.isCrisis) {
                 const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
                 // Reduced cooldown to 5 minutes (was 30) to allow re-triggering
