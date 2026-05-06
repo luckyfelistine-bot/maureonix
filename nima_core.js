@@ -491,7 +491,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             else if (mode === 'ai' || mode === 'both') {
                 if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
                 try {
-                    const { answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', null);
+                    const { text: answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', null);
                     if (!messageHandled) {
                         if (!db.thinkingSessions) db.thinkingSessions = {};
                         db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
@@ -546,7 +546,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
 
             try {
-                const { answer, thinking } = await AI.enhancedAI(userMessage, m.sender, 'deepseek', null);
+                const { text: answer, thinking } = await AI.enhancedAI(userMessage, m.sender, 'deepseek', null);
                 if (!messageHandled) {
                     if (!db.thinkingSessions) db.thinkingSessions = {};
                     db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
@@ -586,6 +586,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
 
             const crisis = AI.detectCrisis(userMessage);
+            console.log('[CRISIS DEBUG] userMessage:', userMessage?.slice(0, 100), '| crisis result:', JSON.stringify(crisis));
             if (crisis.isCrisis) {
                 const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
                 // Reduced cooldown to 5 minutes (was 30) to allow re-triggering
