@@ -1,3 +1,10 @@
+
+try {
+    require('child_process').execSync('chmod +x lib/mathEngine.py');
+} catch (e) {
+    console.log('⚠️ Could not chmod mathEngine.py – maybe the file is missing?');
+}
+
 console.log('========================================');
 console.log('🦊 Maureonix – start.js loaded');
 console.log('========================================');
