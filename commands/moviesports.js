@@ -131,16 +131,28 @@ module.exports = {
             m.reply(txt);
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
-    live: async (nimesha, m, { text, APISports }) => {
+// ── Live scores with timeout protection ──
+    live: async (nimesha, m, { text, APISports, prefix }) => {
         const league = parseInt(text) || 39;
+        if (isNaN(league) && !text) {
+            // If no argument, suggest Premier League by default
+        }
+        const leagueId = isNaN(parseInt(text)) ? 39 : parseInt(text);
         await m.reply('⚽ Fetching live scores...');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
         try {
-            const live = await APISports.live(league);
-            if (!live.length) return m.reply('No live matches.');
+            const live = await APISports.live(leagueId, { signal: controller.signal });
+            clearTimeout(timer);
+            if (!live || !live.length) return m.reply('No live matches right now.');
             let txt = `🔥 *Live Scores*\n\n`;
             live.forEach(f => { txt += `${APISports.fmtFixture(f)}\n\n`; });
-            m.reply(txt);
-        } catch (e) { m.reply(`❌ ${e.message}`); }
+            await m.reply(txt);
+        } catch (e) {
+            clearTimeout(timer);
+            if (e.name === 'AbortError') return m.reply('⏳ Request timed out. The API may be slow. Try again.');
+            await m.reply(`❌ ${e.message}`);
+        }
     },
     standings: async (nimesha, m, { text, APISports, prefix }) => {
         if (!text) return m.reply(`Example: ${prefix}standings <league-id>\nExample: ${prefix}standings 39`);
