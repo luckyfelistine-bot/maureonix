@@ -623,6 +623,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         if (!db.thinkingSessions) db.thinkingSessions = {};
                         db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
                         const replyText = `🦊 *Maureonix*\n\n${finalAnswer}`;
+                        const { logInteraction } = require('./lib/sharedMemory');
+                        logInteraction('private', m.sender, (body || budy), finalAnswer);
                         await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
                         messageHandled = true;
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
@@ -677,6 +679,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     if (!db.thinkingSessions) db.thinkingSessions = {};
                     db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
                     const replyText = `🦊 *Maureonix*\n\n${answer}`;
+                    const { logInteraction } = require('./lib/sharedMemory');
+                    logInteraction('private', m.sender, (body || budy), finalAnswer);
                     await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
                     messageHandled = true;   // <-- ADD THIS LINE
                     
@@ -823,6 +827,8 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: body || budy };
                         memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
                         await m.reply(answer + '\n\n_💭 Type .thinking to see my reasoning_');
+                        const { logInteraction } = require('./lib/sharedMemory');
+                        logInteraction('private', m.sender, (body || budy), finalAnswer);
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
                             await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
