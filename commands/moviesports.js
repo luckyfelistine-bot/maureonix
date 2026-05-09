@@ -464,151 +464,32 @@ module.exports = {
     //  📋 MENUS
     // ═════════════════════════════════════════════════════════════════
     moviesmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════╗
-║  *🎬 MOVIES & TV*      ║
-╚══════════════════════╝
-
-🎬 *Movies*
-▸ ${prefix}movie <title>
-▸ ${prefix}film <title>
-▸ ${prefix}cinema <title>
-▸ ${prefix}imdb <id>
-▸ ${prefix}series <title>
-▸ ${prefix}rating <imdb-id>
-▸ ${prefix}season <imdb-id> <season>
-▸ ${prefix}moviequote
-
-📺 *TV Shows*
-▸ ${prefix}tv <show>
-▸ ${prefix}episodes <show-id>
-▸ ${prefix}tvschedule
-▸ ${prefix}tvcast <show-id>
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════╗\n║  *🎬 MOVIES & TV*      ║\n╚══════════════════════╝\n\n🎬 *Movies*\n▸ ${prefix}movie <title>\n▸ ${prefix}film <title>\n▸ ${prefix}cinema <title>\n▸ ${prefix}imdb <id>\n▸ ${prefix}series <title>\n▸ ${prefix}rating <imdb-id>\n▸ ${prefix}season <imdb-id> <season>\n▸ ${prefix}moviequote\n\n📺 *TV Shows*\n▸ ${prefix}tv <show>\n▸ ${prefix}episodes <show-id>\n▸ ${prefix}tvschedule\n▸ ${prefix}tvcast <show-id>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     animemenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════╗
-║  *📺 ANIME & MANGA*   ║
-╚══════════════════════╝
-
-📺 *Anime*
-▸ ${prefix}anime <title>
-▸ ${prefix}animesearch <title>
-▸ ${prefix}trendinganime
-▸ ${prefix}topanime
-▸ ${prefix}upcominganime
-▸ ${prefix}jikan <title>
-▸ ${prefix}topjikan
-▸ ${prefix}animechar <name>
-
-📖 *Manga*
-▸ ${prefix}manga <title>
-▸ ${prefix}mangadex <title>
-▸ ${prefix}mangajikan <title>
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════╗\n║  *📺 ANIME & MANGA*   ║\n╚══════════════════════╝\n\n📺 *Anime*\n▸ ${prefix}anime <title>\n▸ ${prefix}animesearch <title>\n▸ ${prefix}trendinganime\n▸ ${prefix}topanime\n▸ ${prefix}upcominganime\n▸ ${prefix}jikan <title>\n▸ ${prefix}topjikan\n▸ ${prefix}animechar <name>\n\n📖 *Manga*\n▸ ${prefix}manga <title>\n▸ ${prefix}mangadex <title>\n▸ ${prefix}mangajikan <title>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     gamesmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════╗
-║  *🎮 GAMES & BOOKS*    ║
-╚══════════════════════╝
-
-🎮 *Video Games (RAWG)*
-▸ ${prefix}game <title>
-▸ ${prefix}games <title>
-▸ ${prefix}topgames
-
-📚 *Books (Open Library)*
-▸ ${prefix}book <title>
-▸ ${prefix}books <title>
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════╗\n║  *🎮 GAMES & BOOKS*    ║\n╚══════════════════════╝\n\n🎮 *Video Games (RAWG)*\n▸ ${prefix}game <title>\n▸ ${prefix}games <title>\n▸ ${prefix}topgames\n\n📚 *Books (Open Library)*\n▸ ${prefix}book <title>\n▸ ${prefix}books <title>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     funmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════╗
-║  *😂 FUN & FACTS*      ║
-╚══════════════════════╝
-
-🧠 *Trivia*
-▸ ${prefix}trivia [amount,category,difficulty]
-
-😂 *Jokes*
-▸ ${prefix}joke [category]
-
-💬 *Quotes*
-▸ ${prefix}quote
-▸ ${prefix}quotes <author>
-▸ ${prefix}quotetags
-
-🔢 *Facts*
-▸ ${prefix}numfact <number>
-▸ ${prefix}yearfact <year>
-▸ ${prefix}datefact <month/day>
-▸ ${prefix}catfact
-▸ ${prefix}catfacts
-▸ ${prefix}dog
-▸ ${prefix}dogbreeds
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════╗\n║  *😂 FUN & FACTS*      ║\n╚══════════════════════╝\n\n🧠 *Trivia*\n▸ ${prefix}trivia [amount,category,difficulty]\n\n😂 *Jokes*\n▸ ${prefix}joke [category]\n\n💬 *Quotes*\n▸ ${prefix}quote\n▸ ${prefix}quotes <author>\n▸ ${prefix}quotetags\n\n🔢 *Facts*\n▸ ${prefix}numfact <number>\n▸ ${prefix}yearfact <year>\n▸ ${prefix}datefact <month/day>\n▸ ${prefix}catfact\n▸ ${prefix}catfacts\n▸ ${prefix}dog\n▸ ${prefix}dogbreeds\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     sportsmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════╗
-║  *⚽ SPORTS COMMANDS*  ║
-╚══════════════════════╝
-
-📌 *ESPN (Free)*
-▸ ${prefix}espn <sport> <league>
-▸ ${prefix}espnnews <sport> <league>
-
-📌 *TheSportsDB (Free)*
-▸ ${prefix}sportsdbleagues
-▸ ${prefix}sportsdbteam <name>
-▸ ${prefix}sportsdbnext <league-id>
-
-📌 *SportMonks (Free Tier)*
-▸ ${prefix}sportmonkslive
-
-📌 *SportSRC (Free)*
-▸ ${prefix}sportsrc
-
-📌 *Football-Data*
-▸ ${prefix}footballstandings <code> (e.g., PL)
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════╗\n║  *⚽ SPORTS COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *ESPN (Free)*\n▸ ${prefix}espn <sport> <league>\n▸ ${prefix}espnnews <sport> <league>\n\n📌 *TheSportsDB (Free)*\n▸ ${prefix}sportsdbleagues\n▸ ${prefix}sportsdbteam <name>\n▸ ${prefix}sportsdbnext <league-id>\n\n📌 *SportMonks (Free Tier)*\n▸ ${prefix}sportmonkslive\n\n📌 *SportSRC (Free)*\n▸ ${prefix}sportsrc\n\n📌 *Football-Data*\n▸ ${prefix}footballstandings <code> (e.g., PL)\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     mainmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════════════════════╗
-║     *🎬 MAUREONIX EMPIRE v7.0*       ║
-║     *THE ULTIMATE ENTERTAINMENT*      ║
-╚══════════════════════════════════════╝
-
-📌 *Menus*
-▸ ${prefix}moviesmenu
-▸ ${prefix}animemenu
-▸ ${prefix}gamesmenu
-▸ ${prefix}funmenu
-▸ ${prefix}sportsmenu
-
-🎬 *Movies* | 📺 *Anime* | 🎮 *Games*
-📚 *Books* | 😂 *Fun*   | ⚽ *Sports*
-
-━━━━━━━━━━━━━━━━━━━━━━
-> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
+        const msg = `╔══════════════════════════════════════╗\n║     *🎬 MAUREONIX EMPIRE v7.0*       ║\n║     *THE ULTIMATE ENTERTAINMENT*      ║\n╚══════════════════════════════════════╝\n\n📌 *Menus*\n▸ ${prefix}moviesmenu\n▸ ${prefix}animemenu\n▸ ${prefix}gamesmenu\n▸ ${prefix}funmenu\n▸ ${prefix}sportsmenu\n\n🎬 *Movies* | 📺 *Anime* | 🎮 *Games*\n📚 *Books* | 😂 *Fun*   | ⚽ *Sports*\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
