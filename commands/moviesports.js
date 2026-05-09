@@ -461,7 +461,7 @@ module.exports = {
     },
 
     // ═════════════════════════════════════════════════════════════════
-    //  📋 MENUS
+    //  📋 CATEGORY MENUS (Text-only, won't interfere with your carousel)
     // ═════════════════════════════════════════════════════════════════
     moviesmenu: async (nimesha, m, { prefix }) => {
         const msg = `╔══════════════════════╗\n║  *🎬 MOVIES & TV*      ║\n╚══════════════════════╝\n\n🎬 *Movies*\n▸ ${prefix}movie <title>\n▸ ${prefix}film <title>\n▸ ${prefix}cinema <title>\n▸ ${prefix}imdb <id>\n▸ ${prefix}series <title>\n▸ ${prefix}rating <imdb-id>\n▸ ${prefix}season <imdb-id> <season>\n▸ ${prefix}moviequote\n\n📺 *TV Shows*\n▸ ${prefix}tv <show>\n▸ ${prefix}episodes <show-id>\n▸ ${prefix}tvschedule\n▸ ${prefix}tvcast <show-id>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
@@ -488,11 +488,6 @@ module.exports = {
         await m.reply(msg);
     },
 
-    mainmenu: async (nimesha, m, { prefix }) => {
-        const msg = `╔══════════════════════════════════════╗\n║     *🎬 MAUREONIX EMPIRE v7.0*       ║\n║     *THE ULTIMATE ENTERTAINMENT*      ║\n╚══════════════════════════════════════╝\n\n📌 *Menus*\n▸ ${prefix}moviesmenu\n▸ ${prefix}animemenu\n▸ ${prefix}gamesmenu\n▸ ${prefix}funmenu\n▸ ${prefix}sportsmenu\n\n🎬 *Movies* | 📺 *Anime* | 🎮 *Games*\n📚 *Books* | 😂 *Fun*   | ⚽ *Sports*\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
-        await m.reply(msg);
-    },
-
     // ─── Aliases ───
     livescore: async (nimesha, m, ctx) => { await module.exports.espn(nimesha, m, ctx); },
     sportsnews: async (nimesha, m, ctx) => { await module.exports.espnnews(nimesha, m, ctx); },
@@ -503,6 +498,4 @@ module.exports = {
     betting: async (nimesha, m, ctx) => { m.reply('⚠️ Betting odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
     odds: async (nimesha, m, ctx) => { m.reply('⚠️ Odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
     sports: async (nimesha, m, ctx) => { await module.exports.sportsmenu(nimesha, m, ctx); },
-    menu: async (nimesha, m, ctx) => { await module.exports.mainmenu(nimesha, m, ctx); },
-    help: async (nimesha, m, ctx) => { await module.exports.mainmenu(nimesha, m, ctx); },
 };
