@@ -483,8 +483,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
         if (isOwnerConsole && !isCmd && !messageHandled) {
             messageHandled = true;
             const { handleOwnerMessage } = require('./lib/maureonixCore');
+            // ── Pass coreHandler into the omniscient core ──
             await handleOwnerMessage(nimesha, m, {
-                body, budy, set, db, ownerNumber, AI
+                body, budy, set, db, ownerNumber, AI, coreHandler
             });
             return;
         }
