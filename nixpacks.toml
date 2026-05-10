@@ -1,20 +1,80 @@
+# ═══════════════════════════════════════════════════════════════
+#  nixpacks.toml — MAUREONIX BOT (Railway)
+#  Python 3.12 + yt-dlp + Node 20 + FFmpeg
+# ═══════════════════════════════════════════════════════════════
+
 [phases.setup]
 nixPkgs = [
+  # ── Node.js runtime ──
   "nodejs_20",
-  "npm",
-  "ffmpeg",
+
+  # ── Python 3.12 + venv (NEVER use python312Packages.pip, it's broken on Railway) ──
   "python312",
-  "python312Packages.pip",
-  "tesseract",
+  "python312Packages.virtualenv",
+
+  # ── Build tools ──
   "gcc",
+  "gnumake",
   "pkg-config",
+
+  # ── Media tools ──
+  "ffmpeg",
+  "tesseract",
+
+  # ── Network / certs ──
   "wget",
-  "ca-certificates"
+  "curl",
+  "cacert",
+  "openssl",
 ]
 
-[phases.install]
+# Tell Nixpacks where Node lives (prevents "node not found" in later phases)
+[phases.setup.env]
+NODE_OPTIONS = "--max-old-space-size=4096"
+PYTHONUNBUFFERED = "1"
+
+[phases.build]
+# We create a venv INSIDE the app directory so pip works reliably.
+# Nix's python312Packages.pip is sandboxed and breaks on Railway.
 cmds = [
+  # 1. Verify Python version (should print 3.12.x)
   "python3 --version",
-  "pip install yt-dlp spotdl gallery-dl --break-system-packages",
-  "npm ci"
+
+  # 2. Create a virtual environment in the project root
+  "python3 -m venv .venv",
+
+  # 3. Upgrade pip + setuptools + wheel inside the venv
+  ".venv/bin/pip install --upgrade pip setuptools wheel",
+
+  # 4. Install yt-dlp with ALL optional dependencies (EJS solver, brotli, etc.)
+  #    [default] extra = certifi, requests, urllib3, brotli, websockets, pycryptodomex, mutagen
+  ".venv/bin/pip install yt-dlp[default]",
+
+  # 5. (Optional) If you still want spotdl / gallery-dl:
+  # ".venv/bin/pip install spotdl gallery-dl",
+
+  # 6. Symlink yt-dlp into a PATH location so Node can spawn it directly
+  "mkdir -p /usr/local/bin || true",
+  "ln -sf $(pwd)/.venv/bin/yt-dlp /usr/local/bin/yt-dlp",
+  "ln -sf $(pwd)/.venv/bin/python3 /usr/local/bin/python3.12",
+
+  # 7. Verify yt-dlp is callable
+  "yt-dlp --version",
+
+  # 8. Install Node dependencies
+  "npm ci",
 ]
+
+[phases.build.env]
+PATH = "/usr/local/bin:/usr/bin:/bin:/nix/var/nix/profiles/default/bin"
+
+[phases.start]
+# Ensure the venv binaries are in PATH at runtime too
+cmds = [
+  "export PATH=\"$(pwd)/.venv/bin:/usr/local/bin:$PATH\"",
+  "yt-dlp --version",
+  "node index.js",
+]
+
+[start]
+cmd = "node index.js"
