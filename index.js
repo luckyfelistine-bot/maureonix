@@ -336,6 +336,17 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 
     startnimaBot();
 
+    // ── Verify yt-dlp installation ──
+    const { spawn } = require('child_process');
+
+    const test = spawn('yt-dlp', ['--version']);
+
+    test.stdout.on('data', d => console.log('✅ yt-dlp version:', d.toString().trim()));
+
+    test.stderr.on('data', d => console.error('❌ yt-dlp error:', d.toString()));
+
+    test.on('close', c => console.log('Exit code:', c));
+
     process.on('SIGINT', async () => {
         if (global.db) await database.write(global.db);
         if (global.store) await storeDB.write(global.store);
