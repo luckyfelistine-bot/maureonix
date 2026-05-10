@@ -249,6 +249,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
             initEmailReports(nimesha, AI);
             // Start proactive intelligence engine
             require('./lib/proactiveEngine').init(nimesha);
+            
+            // ── Start autonomous task runner ──
+            try {
+                require('./lib/taskRunner').startRunner();
+            } catch (e) { console.error('[CORE] Task runner failed:', e); }
 
            // Auto‑follow the configured channel so the bot sees channel messages
             const config = require('./config');
@@ -642,6 +647,19 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         }
                     }
                 } catch (e) { console.error('[privat AI]', e); }
+                // ── Record episode for meta‑transfer learning ──
+                try {
+                    const { episodicMemory } = require('./lib/maureonixMetaTransfer');
+                    episodicMemory.recordEpisode({
+                        task: (body || budy || '').slice(0, 200),
+                        domain: 'private_chat',
+                        skillsUsed: [],
+                        success: true,
+                        timeTaken: 0,
+                        errorType: null,
+                        solutionPattern: null
+                    });
+                } catch (e) {}
                 return;
             }
         }
@@ -704,6 +722,19 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     session.notifiedOwner = true;
                 }
             } catch (e) { console.error('[autoai error]', e); }
+            // ── Record episode for meta‑transfer learning ──
+            try {
+                const { episodicMemory } = require('./lib/maureonixMetaTransfer');
+                episodicMemory.recordEpisode({
+                    task: (body || budy || '').slice(0, 200),
+                    domain: 'autoai',
+                    skillsUsed: [],
+                    success: true,
+                    timeTaken: 0,
+                    errorType: null,
+                    solutionPattern: null
+                });
+            } catch (e) {}
             if (messageHandled) return;
         }
 
@@ -726,6 +757,22 @@ const coreHandler = async (nimesha, m, msg, store) => {
             }
 
             const crisis = await AI.detectCrisis(userMessage);
+            // ── Enhance crisis detection with symbolic rules ──
+            try {
+                const { ruleEngine } = require('./lib/neuralSymbolicBridge');
+                if (db.users && db.users[m.sender]) {
+                    ruleEngine.setFact('user_interaction_count', (db.users[m.sender].msgCount || 0), 1, 'db');
+                }
+                ruleEngine.setFact('user_tone', crisis.severity === 'high' ? 'distressed' : 'neutral', 0.8, 'crisis');
+                ruleEngine.setFact('message_urgency', crisis.severity === 'high' ? 'high' : 'low', 0.8, 'crisis');
+                const inferences = ruleEngine.inferAll();
+                const hasCrisisRule = inferences.some(i => i.value === 'crisis');
+                if (hasCrisisRule && crisis.severity !== 'high') {
+                    crisis.severity = 'high';
+                    crisis.isCrisis = true;
+                }
+            } catch (e) {}
+            
             if (crisis.isCrisis) {
                 const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
                 // Reduced cooldown to 5 minutes (was 30) to allow re-triggering
@@ -1108,6 +1155,19 @@ const coreHandler = async (nimesha, m, msg, store) => {
         errorCache[errorKey] = errorCache[errorKey].filter(ts => now - ts < 600000);
         if (errorCache[errorKey].length >= 3) return;
         errorCache[errorKey].push(now);
+        
+       // ── Auto‑heal via Trust Guard ──
+        try {
+            const { healingLoop } = require('./lib/maureonixTrustGuard');
+            const healed = await healingLoop.healCode(
+                e.message,
+                e.stack || '',
+                'Auto‑heal from coreHandler crash'
+            );
+            if (healed.success) {
+                console.log('[CORE] Self‑healing succeeded after', healed.iterations, 'iterations');
+            }
+        } catch (healErr) {}
         if (m && m.reply) m.reply('Error: ' + (e?.name || e?.code || 'Unknown'));
     }
 };
