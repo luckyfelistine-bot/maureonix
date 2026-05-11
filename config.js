@@ -33,7 +33,8 @@ const SecureConfig = {
     // ----- Social Media -----
     tiktokLink: 'https://vm.tiktok.com/ZS9LevY1LSrXD-wytcp/',
     githubRepo: 'https://github.com/luckyfelistine-bot/maureonix',
-
+    githubToken: 'ghp_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',
+    
 // ----- API Keys (Sports) -----
     apiSportsKey: 'e77f42417ca17805d5c16951a9af6137',
     oddsApiKey: '4ac89ebfd82a84d98aa247d8cad45817',
