@@ -601,6 +601,83 @@ module.exports = {
         await m.reply(txt);
     },
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    //   SYMPHONY ORCHESTRATOR COMMANDS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    symphony: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
+            const status = symphonyOrchestrator.getStatus();
+            const txt = `🎼 *Symphony Orchestrator*\n\n` +
+                `Status: ${status.is_running ? '🟢 RUNNING' : '🔴 STOPPED'}\n` +
+                `Active Sessions: ${status.running_count}\n` +
+                `Retry Queue: ${status.retrying_count}\n` +
+                `Completed: ${status.completed_count}\n` +
+                `Poll Interval: ${status.poll_interval_ms}ms\n\n` +
+                `Running Issues:\n${status.running.map(r => `• #${r.identifier} (${r.state}) - ${r.turn_count} turns`).join('\n') || 'None'}`;
+            await m.reply(txt);
+        } catch (e) {
+            await m.reply(`❌ Symphony orchestrator error: ${e.message}`);
+        }
+    },
+
+    'symphony-start': async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { startSymphony } = require('../lib/symphonyOrchestrator');
+            await startSymphony();
+            await m.reply('🎼 *Symphony Orchestrator started*');
+        } catch (e) {
+            await m.reply(`❌ Failed to start: ${e.message}`);
+        }
+    },
+
+    'symphony-stop': async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
+            await symphonyOrchestrator.shutdown();
+            await m.reply('🛑 *Symphony Orchestrator stopped*');
+        } catch (e) {
+            await m.reply(`❌ Failed to stop: ${e.message}`);
+        }
+    },
+
+    'symphony-refresh': async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
+            symphonyOrchestrator.scheduleTick(0);
+            await m.reply('🔄 *Symphony poll triggered*');
+        } catch (e) {
+            await m.reply(`❌ Failed: ${e.message}`);
+        }
+    },
+
+    'symphony-force': async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        const issueNum = args[0];
+        if (!issueNum) return m.reply('Usage: .symphony-force <issue-number>');
+        try {
+            // Manual dispatch: we don't have a direct dispatch-by-number function in the orchestrator;
+            // we can simulate by fetching the issue and calling dispatchIssue.
+            // For now, inform the owner that this is a placeholder.
+            await m.reply(`🚀 Force dispatch of issue #${issueNum} requested. (Implementation pending full orchestrator integration)`);
+        } catch (e) {
+            await m.reply(`❌ Failed: ${e.message}`);
+        }
+    },
+
+    // Aliases for Symphony commands
+    orch: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
+    orchestrator: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
+    'orch-start': async (nimesha, m, ctx) => { await module.exports['symphony-start'](nimesha, m, ctx); },
+    'orch-stop': async (nimesha, m, ctx) => { await module.exports['symphony-stop'](nimesha, m, ctx); },
+    'orch-refresh': async (nimesha, m, ctx) => { await module.exports['symphony-refresh'](nimesha, m, ctx); },
+    'orch-force': async (nimesha, m, ctx) => { await module.exports['symphony-force'](nimesha, m, ctx); },
+
     // Aliases for the new commands
     sendmail: async (nimesha, m, ctx) => { await module.exports.sendemail(nimesha, m, ctx); },
     mailstatus: async (nimesha, m, ctx) => { await module.exports.emailstatus(nimesha, m, ctx); },
