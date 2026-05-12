@@ -169,6 +169,30 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         }
     }
 
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    //   SUPER INTELLIGENCE INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    async function initializeSuperIntelligence() {
+        try {
+            const { superIntelligence } = require('./lib/superIntelligencePack');
+            const status = await superIntelligence.initialize();
+            console.log('🧠 Super Intelligence initialized:', JSON.stringify(status, null, 2));
+
+            // Run initial code audit after 30 seconds
+            setTimeout(async () => {
+                try {
+                    const audit = await superIntelligence.auditProject();
+                    console.log(`🔍 Initial audit: ${audit.analysis.averageScore}/100, ${audit.analysis.criticalIssues} critical issues`);
+                } catch {}
+            }, 30000);
+
+        } catch (e) {
+            console.error('❌ Super Intelligence init failed:', e.message);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════
     //  SIMPLE RECONNECTION (no aggressive watchdog)
     // ═══════════════════════════════════════════════════════
@@ -285,8 +309,9 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             if (connection === 'open') {
                 _reconnectCount = 0;
                 console.log('✅ Connected');
-                // Initialize Symphony after successful connection
+                // Initialize Symphony and Super Intelligence after successful connection
                 initializeSymphony(nimaBot);
+                initializeSuperIntelligence();
             }
         });
 
