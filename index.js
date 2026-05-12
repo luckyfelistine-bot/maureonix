@@ -137,6 +137,38 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const database = dataBase(global.tempatDB);
     const msgRetryCounterCache = new NodeCache();
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+    //   SYMPHONY ORCHESTRATOR INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    async function initializeSymphony(nimeshaInstance) {
+        try {
+            // Set GitHub token from config so the orchestrator can pick it up
+            process.env.GITHUB_TOKEN = SecureConfig.githubToken;
+
+            const { startSymphony, symphonyOrchestrator } = require('./lib/symphonyOrchestrator');
+            symphonyOrchestrator.notifications.setNimesha(nimeshaInstance);
+            const status = await startSymphony();
+            console.log('🎼 Symphony Orchestrator Status:', JSON.stringify(status, null, 2));
+
+            const ownerJid = Array.isArray(SecureConfig.ownerNumber)
+                ? SecureConfig.ownerNumber[0] + '@s.whatsapp.net'
+                : SecureConfig.ownerNumber + '@s.whatsapp.net';
+
+            await nimeshaInstance.sendMessage(ownerJid, {
+                text: `🎼 *Symphony Orchestrator Activated*\n\n` +
+                      `📊 Status: ${status.is_running ? 'RUNNING' : 'STOPPED'}\n` +
+                      `🔥 Active: ${status.running_count}\n` +
+                      `⏳ Retrying: ${status.retrying_count}\n` +
+                      `✅ Completed: ${status.completed_count}\n\n` +
+                      `Monitoring GitHub issues every ${status.poll_interval_ms/1000}s...`
+            });
+        } catch (e) {
+            console.error('❌ Symphony initialization failed:', e.message);
+            // Don't crash the bot
+        }
+    }
+
     // ═══════════════════════════════════════════════════════
     //  SIMPLE RECONNECTION (no aggressive watchdog)
     // ═══════════════════════════════════════════════════════
@@ -253,6 +285,8 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             if (connection === 'open') {
                 _reconnectCount = 0;
                 console.log('✅ Connected');
+                // Initialize Symphony after successful connection
+                initializeSymphony(nimaBot);
             }
         });
 
