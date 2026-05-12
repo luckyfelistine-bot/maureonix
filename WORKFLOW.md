@@ -2,7 +2,7 @@
 tracker:
   kind: github
   api_key: $GITHUB_TOKEN
-  project_slug: YOUR_GITHUB_USERNAME/YOUR_REPO_NAME
+  project_slug: luckyfelistine-bot/maureonix
   active_states:
     - open
   terminal_states:
