@@ -670,6 +670,185 @@ module.exports = {
         }
     },
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+    //   SUPER INTELLIGENCE COMMANDS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    think: async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            const query = args.join(' ') || 'Analyze current system state';
+            const result = await superIntelligence.think(query);
+
+            await m.reply(`🧠 *Cognitive Analysis*\n\n` +
+                  `Plan: ${result.plan.goal}\n` +
+                  `Steps: ${result.plan.steps.length}\n` +
+                  `Confidence: ${Math.round(result.confidence * 100)}%\n\n` +
+                  `💡 Creative Ideas:\n${result.creativeIdeas.map(i => `• ${i.idea.slice(0, 100)}...`).join('\n') || 'None'}\n\n` +
+                  `🤖 Swarm: ${result.swarmConsensus ? result.swarmConsensus.winner : 'N/A'}`);
+        } catch (e) {
+            await m.reply(`❌ Cognitive error: ${e.message}`);
+        }
+    },
+
+    cognitive: async (nimesha, m, ctx) => { await module.exports.think(nimesha, m, ctx); },
+
+    audit: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            await m.reply('🔍 Running comprehensive code audit...');
+            const audit = await superIntelligence.auditProject();
+
+            const analysis = audit.analysis;
+            await m.reply(`📊 *Code Audit Results*\n\n` +
+                  `Files: ${analysis.filesAnalyzed}\n` +
+                  `Average Score: ${analysis.averageScore}/100\n` +
+                  `Critical Issues: ${analysis.criticalIssues}\n` +
+                  `Total Issues: ${analysis.totalIssues}\n\n` +
+                  `💡 ${analysis.recommendation}\n\n` +
+                  `Top Issues:\n${analysis.fileResults.slice(0, 5).map(f => 
+                    `• ${path.basename(f.filePath)}: ${f.overall}/100 (${f.issues?.length || 0} issues)`
+                  ).join('\n')}`);
+        } catch (e) {
+            await m.reply(`❌ Audit error: ${e.message}`);
+        }
+    },
+
+    'code-audit': async (nimesha, m, ctx) => { await module.exports.audit(nimesha, m, ctx); },
+
+    predict: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            const alerts = await superIntelligence.predictAndPrevent();
+
+            if (alerts.length === 0) {
+                await m.reply('🔮 *Predictive Analysis*\n\nNo anomalies predicted. System looks healthy.');
+            } else {
+                await m.reply(`🔮 *Predictive Alerts* (${alerts.length})\n\n` +
+                      alerts.map(a => `⚠️ *${a.type}*\n${a.message}\nConfidence: ${Math.round(a.confidence * 100)}%\nAction: ${a.action}`).join('\n\n'));
+            }
+        } catch (e) {
+            await m.reply(`❌ Prediction error: ${e.message}`);
+        }
+    },
+
+    forecast: async (nimesha, m, ctx) => { await module.exports.predict(nimesha, m, ctx); },
+
+    reflect: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            await m.reply('🪞 Running self-reflection cycle...');
+            const reflection = await superIntelligence.selfImprove();
+
+            await m.reply(`🪞 *Self-Reflection*\n\n` +
+                  `Calibration: ${reflection.reflection.calibration.status}\n` +
+                  `Score: ${Math.round(reflection.reflection.calibration.calibrationScore * 100)}%\n` +
+                  `Memories Consolidated: ${reflection.memoriesConsolidated}\n\n` +
+                  `Improvement Areas:\n${reflection.reflection.improvementAreas.map(a => `• ${a}`).join('\n') || 'None'}\n\n` +
+                  `Architecture Suggestions:\n${reflection.architectureSuggestions.slice(0, 3).map(s => `• ${s.description} (${s.priority})`).join('\n') || 'None'}`);
+        } catch (e) {
+            await m.reply(`❌ Reflection error: ${e.message}`);
+        }
+    },
+
+    'self-reflect': async (nimesha, m, ctx) => { await module.exports.reflect(nimesha, m, ctx); },
+
+    swarm: async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            const query = args.join(' ') || 'How should I improve the bot?';
+            await m.reply('🤖 Deploying agent swarm...');
+
+            const consensus = await superIntelligence.swarm.collaborate(query);
+
+            await m.reply(`🤖 *Swarm Consensus*\n\n` +
+                  `Winner: ${consensus.winner}\n` +
+                  `Confidence: ${Math.round(consensus.confidence * 100)}%\n` +
+                  `Score: ${Math.round(consensus.score * 100)}%\n\n` +
+                  `*Proposal:*\n${consensus.proposal.slice(0, 800)}\n\n` +
+                  `*Incorporated Feedback:*\n${consensus.incorporatedFeedback.map(f => `• ${f.slice(0, 100)}`).join('\n') || 'None'}`);
+        } catch (e) {
+            await m.reply(`❌ Swarm error: ${e.message}`);
+        }
+    },
+
+    agents: async (nimesha, m, ctx) => { await module.exports.swarm(nimesha, m, ctx); },
+
+    memory: async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            const query = args.join(' ') || 'recent events';
+            const memories = await superIntelligence.memory.recall(query, 5);
+
+            await m.reply(`📚 *Neural Memory Recall* (${memories.length})\n\n` +
+                  memories.map((memo, i) => 
+                    `${i + 1}. [${memo.type}] ${memo.content.slice(0, 150)}...\n   Domain: ${memo.domain} | Importance: ${Math.round(memo.importance * 100)}% | Accessed: ${memo.accessCount}x`
+                  ).join('\n\n'));
+        } catch (e) {
+            await m.reply(`❌ Memory error: ${e.message}`);
+        }
+    },
+
+    recall: async (nimesha, m, ctx) => { await module.exports.memory(nimesha, m, ctx); },
+
+    brainstorm: async (nimesha, m, { isCreator, mess, args }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            if (!superIntelligence.initialized) await superIntelligence.initialize();
+
+            const topic = args.join(' ') || 'improve the bot';
+            const ideas = await superIntelligence.creative.brainstorm(topic);
+
+            await m.reply(`💡 *Creative Synthesis* (${ideas.length} ideas)\n\n` +
+                  ideas.map((idea, i) => 
+                    `${i + 1}. *Novelty: ${Math.round(idea.novelty * 100)}%*\n${idea.idea}\nDomains: ${idea.domains.join(' + ')}`
+                  ).join('\n\n'));
+        } catch (e) {
+            await m.reply(`❌ Synthesis error: ${e.message}`);
+        }
+    },
+
+    synthesize: async (nimesha, m, ctx) => { await module.exports.brainstorm(nimesha, m, ctx); },
+
+    intelligence: async (nimesha, m, { isCreator, mess }) => {
+        if (!isCreator) return m.reply(mess.owner);
+        try {
+            const { superIntelligence } = require('../lib/superIntelligencePack');
+            const status = superIntelligence.getStatus();
+
+            await m.reply(`🧠 *Super Intelligence Status*\n\n` +
+                  `Initialized: ${status.initialized ? '✅' : '❌'}\n\n` +
+                  `*Neural Memory:* ${status.modules.neuralMemory.memories} memories, ${status.modules.neuralMemory.vocabSize} vocab\n` +
+                  `*Strategic Planner:* ${status.modules.strategicPlanner.activePlans} active / ${status.modules.strategicPlanner.totalPlans} total plans\n` +
+                  `*Agent Swarm:* ${status.modules.agentSwarm.agents} agents, ${status.modules.agentSwarm.conversations} sessions\n` +
+                  `*Code Oracle:* ${status.modules.codeOracle.patternsLoaded} patterns loaded\n` +
+                  `*Predictive:* ${status.modules.predictive.metricsTracked} metrics tracked\n` +
+                  `*Metacognition:* ${status.modules.metacognition.status} (${Math.round(status.modules.metacognition.calibrationScore * 100)}%)\n` +
+                  `*Creative:* ${status.modules.creative.concepts} concepts, ${status.modules.creative.syntheses} syntheses`);
+        } catch (e) {
+            await m.reply(`❌ Status error: ${e.message}`);
+        }
+    },
+
     // Aliases for Symphony commands
     orch: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
     orchestrator: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
