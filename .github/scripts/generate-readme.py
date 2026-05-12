@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Maureonix Protocol Engine v2 — Bulletproof Edition
+Maureonix Protocol Engine v3 — Syntax-Fixed Bulletproof Edition
 Auto-regenerates README.md from README.template.md + live repo metrics
 """
 import os, sys, json, re, subprocess, traceback, urllib.request
@@ -167,10 +167,8 @@ def feature_matrix():
         while len(cells) < 3:
             cells.append("")
         rows.append(f"| {' | '.join(cells)} |")
-    return "|  |  |  |
-|:---:|:---:|:---:|
-" + "
-".join(rows)
+    header = "|  |  |  |\n|:---:|:---:|:---:|\\n"
+    return header + "\\n".join(rows)
 
 # ── 8. CONFIG BLOCK ──
 def config_block():
@@ -178,8 +176,7 @@ def config_block():
         try:
             with open("config.js", "r", encoding="utf-8") as f:
                 content = f.read()
-            # Safer regex: extract simple string assignments
-            pairs = re.findall(r"([A-Za-z_]\w*)\s*:\s*['"""]([^'"""]*)['"""]", content)
+            pairs = re.findall(r"([A-Za-z_]\w*)\s*:\s*['\"\"\"]([^'\"\"\"]*)['\"\"\"]", content)
             if len(pairs) >= 3:
                 lines = [
                     "```javascript",
@@ -194,11 +191,9 @@ def config_block():
                         display = "YOUR_KEY"
                     lines.append(f"{key}: '{display}',")
                 lines.append("```")
-                return "
-".join(lines)
+                return "\\n".join(lines)
         except Exception as e:
             log(f"WARN config parse: {e}")
-    # Comprehensive fallback
     return """```javascript
 // ═══════════════════════════════════════════
 // CORE IDENTITY CONFIGURATION
