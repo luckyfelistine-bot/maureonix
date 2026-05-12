@@ -8,7 +8,7 @@ module.exports = function mountPairRoute(app) {
     if (!checkPairRateLimit(clientIp)) {
       return res.status(429).json({
         status: false,
-        message: 'Rate limit exceeded. Max 5 attempts per minute.'
+        message: 'Rate limit exceeded. Max 5 attempts per minute.',
       });
     }
 
@@ -16,19 +16,20 @@ module.exports = function mountPairRoute(app) {
     if (!number) {
       return res.status(400).json({
         status: false,
-        message: 'Missing "number" parameter. Example: /pair?number=254xxxxxxxx'
+        message: 'Missing "number" parameter. Example: /pair?number=254xxxxxxxx',
       });
     }
 
-    // Record attempt early so rate limiting is effective even if the request later fails
+    // Record attempt early so rate limiting is effective even if the request later fails.
     recordPairAttempt(clientIp);
 
-    // ── Request timeout (50 seconds) ──
+    // ── Request safety timeout (65s) ──
+    // With the fix, the code resolves in ~3–10s. This acts as a hard safety net.
     req.setTimeout(65_000, () => {
       if (!res.headersSent) {
         res.status(504).json({
           status: false,
-          message: 'Pairing request timed out. Please try again.'
+          message: 'Pairing request timed out. Please try again.',
         });
       }
     });
@@ -38,13 +39,14 @@ module.exports = function mountPairRoute(app) {
       res.json({
         status: true,
         code: result.code,
-        number: result.number
+        number: result.number,
+        pairingStatus: result.status || 'pending',
       });
     } catch (err) {
-      // already reported by generatePairCode, just pass through
+      console.error('[PAIR ROUTE]', err.message);
       res.status(500).json({
         status: false,
-        message: err.message
+        message: err.message || 'Failed to generate pairing code.',
       });
     }
   });
