@@ -33,6 +33,6 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8080
 
 CMD ["node", "start.js"]
