@@ -108,5 +108,5 @@ Standard response templates used throughout the bot. Customize in `lib/function.
 
 \## 🎨 Customizing
 
-Edit the strings directly in `nima\_commands.js` or create a `templates.js` module for centralized management.
+Edit the strings directly in `maureonix\_commands.js` or create a `templates.js` module for centralized management.
 

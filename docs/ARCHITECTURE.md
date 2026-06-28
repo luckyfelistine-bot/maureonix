@@ -18,9 +18,9 @@ maureonix/
 
 ├── index.js # Entry point: WhatsApp connection, pairing, event listeners
 
-├── nima\_core.js # Core command handler, automation, game loops
+├── maureonix\_core.js # Core command handler, automation, game loops
 
-├── nima\_commands.js # All command cases (700+ commands, switch statement)
+├── maureonix\_commands.js # All command cases (700+ commands, switch statement)
 
 ├── config.js # Sensitive keys (API keys, owner number, MongoDB URI)
 
@@ -104,7 +104,7 @@ maureonix/
 
 │
 
-├── nimadev/ # Baileys auth state (main bot session)
+├── maureonixdev/ # Baileys auth state (main bot session)
 
 ├── jadibot\_sessions/ # User‑specific auth folders (when using JadiBot)
 
@@ -152,7 +152,7 @@ maureonix/
 
 ┌─────────────────┐
 
-│ nima\_core.js │
+│ maureonix\_core.js │
 
 │ (Core Handler)│
 
@@ -180,7 +180,7 @@ maureonix/
 
 ┌─────────────────────┐
 
-│ nima\_commands.js │
+│ maureonix\_commands.js │
 
 │ (700+ case blocks) │
 
@@ -234,7 +234,7 @@ maureonix/
 
 \- \*\*Key Functions:\*\*
 
-&nbsp; - `startnimaBot()` – Creates the WhatsApp socket, loads database, and starts the bot.
+&nbsp; - `startmaureonixBot()` – Creates the WhatsApp socket, loads database, and starts the bot.
 
 &nbsp; - `cleanup()` – Saves database on exit.
 
@@ -242,7 +242,7 @@ maureonix/
 
 
 
-\### `nima\_core.js`
+\### `maureonix\_core.js`
 
 \- \*\*Purpose:\*\* Main command processor. Called for every incoming message (after serialization).
 
@@ -254,7 +254,7 @@ maureonix/
 
 &nbsp; - Run \*\*game loops\*\* (Connect4, Suit, Chess, RPG, etc.).
 
-&nbsp; - Parse command prefix, arguments, and route to `nima\_commands.js`.
+&nbsp; - Parse command prefix, arguments, and route to `maureonix\_commands.js`.
 
 &nbsp; - Handle errors and send logs to owner.
 
@@ -262,7 +262,7 @@ maureonix/
 
 
 
-\### `nima\_commands.js`
+\### `maureonix\_commands.js`
 
 \- \*\*Purpose:\*\* Contains \*\*all\*\* command implementations as `case` blocks inside a `switch` statement.
 
@@ -270,7 +270,7 @@ maureonix/
 
 &nbsp; ```javascript
 
-&nbsp; module.exports = async (nimesha, m, ctx) => {
+&nbsp; module.exports = async (maureonix, m, ctx) => {
 
 &nbsp;     const { command, args, text, ... } = ctx;
 
@@ -520,7 +520,7 @@ This design prevents a single API outage from breaking functionality.
 
 🧠 Automation Execution Order
 
-Inside nima\_core.js, the following checks run in order for every message:
+Inside maureonix\_core.js, the following checks run in order for every message:
 
 
 

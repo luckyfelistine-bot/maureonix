@@ -5,26 +5,26 @@ const { writeExif } = require('../lib/exif');
 const { getBuffer } = require('../lib/function');
 
 module.exports = {
-    sticker: async (nimesha, m, { packname, author }) => {
+    sticker: async (maureonix, m, { packname, author }) => {
         if (!m.quoted) return m.reply('Reply to an image, video, or GIF to convert to sticker.');
         try {
             const buffer = await m.quoted.download();
             const stickerPath = await writeExif(buffer, { packname, author });
             const stickerBuffer = fs.readFileSync(stickerPath);
-            await nimesha.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
             fs.unlinkSync(stickerPath);
         } catch (e) { m.reply('❌ Failed to create sticker: ' + e.message); }
     },
-    simage: async (nimesha, m) => {
+    simage: async (maureonix, m) => {
         if (!m.quoted || !/sticker/.test(m.quoted.type)) return m.reply('Reply to a sticker to convert to image.');
         try {
             const buffer = await m.quoted.download();
-            await nimesha.sendMessage(m.chat, { image: buffer }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { image: buffer }, { quoted: m });
         } catch (e) { m.reply('❌ Failed to convert: ' + e.message); }
     },
-    attp: async (nimesha, m, { prefix, command, text }) => {
+    attp: async (maureonix, m, { prefix, command, text }) => {
         if (!text) return m.reply(`Example: ${prefix + command} Hello`);
-        await m.reply('🎨 *Creating animated sticker...*');
+        await m.reply('🎨 *Creating amaureonixted sticker...*');
         try {
             const { spawn } = require('child_process');
             const os = require('os');
@@ -69,7 +69,7 @@ module.exports = {
                     }
                 });
             });
-            await nimesha.sendMessage(m.chat, { sticker: webpBuffer }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { sticker: webpBuffer }, { quoted: m });
             await m.reply('✅ ATTP sticker created!');
         } catch (ffErr) {
             console.log('ATTP ffmpeg fail:', ffErr.message.slice(0, 200));
@@ -86,7 +86,7 @@ module.exports = {
                     if (!res.ok) continue;
                     const buffer = await res.buffer();
                     if (buffer && buffer.length > 100) {
-                        await nimesha.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
+                        await maureonix.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
                         m.reply('✅ ATTP sticker created!');
                         success = true;
                         break;
@@ -96,7 +96,7 @@ module.exports = {
             if (!success) m.reply('❌ Failed to create ATTP sticker.');
         }
     },
-    removebg: async (nimesha, m, { global }) => {
+    removebg: async (maureonix, m, { global }) => {
         if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to remove background.');
         await m.reply('🎨 *Removing background...*');
         try {
@@ -113,21 +113,21 @@ module.exports = {
             });
             if (res.ok) {
                 const result = await res.buffer();
-                await nimesha.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
+                await maureonix.sendMessage(m.chat, { image: result, caption: '✅ Background removed' }, { quoted: m });
             } else throw new Error(`API error: ${res.status}`);
         } catch (e) { m.reply('❌ Failed to remove background: ' + e.message); }
     },
-    blur: async (nimesha, m) => {
+    blur: async (maureonix, m) => {
         if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image to blur.');
         try {
             const sharp = require('sharp');
             const buffer = await m.quoted.download();
             const blurred = await sharp(buffer).blur(10).toBuffer();
-            await nimesha.sendMessage(m.chat, { image: blurred, caption: '🔮 Blurred' }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { image: blurred, caption: '🔮 Blurred' }, { quoted: m });
         } catch (e) { m.reply('❌ Failed to blur: ' + e.message); }
     },
     // ─── QR Code Generator (any text / URL / link) ────────────
-    qr: async (nimesha, m, { text, prefix, command }) => {
+    qr: async (maureonix, m, { text, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} https://maureonix.com\nOr: ${prefix + command} Hello World`);
         await m.reply('📱 *Generating QR code...*');
         const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=300x300&format=png`;
@@ -136,14 +136,14 @@ module.exports = {
             const res = await fetch(url);
             if (!res.ok) throw new Error('QR API returned ' + res.status);
             const buffer = await res.buffer();
-            await nimesha.sendMessage(m.chat, { image: buffer, caption: `🔳 QR for: ${text}` }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { image: buffer, caption: `🔳 QR for: ${text}` }, { quoted: m });
         } catch (e) {
             await m.reply(`❌ Failed to generate QR: ${e.message}`);
         }
     },
 
     // ─── QR Code Reader (decode an image back to text) ────────
-    readqr: async (nimesha, m) => {
+    readqr: async (maureonix, m) => {
         if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('📸 Reply to a QR code image to decode it.');
         await m.reply('🔍 *Reading QR code...*');
         try {
@@ -173,7 +173,7 @@ module.exports = {
         }
     },
 
-    brat: async (nimesha, m, { isLimit, mess, prefix, command, text, setLimit, db }) => {
+    brat: async (maureonix, m, { isLimit, mess, prefix, command, text, setLimit, db }) => {
         if (!isLimit) return m.reply(mess.limit);
         if (!text && (!m.quoted || !m.quoted.text)) return m.reply(`📌 Reply with text or type: ${prefix + command} <text>`);
         const inputText = text || m.quoted.text;
@@ -191,7 +191,7 @@ module.exports = {
                     if (!res.ok) continue;
                     const buffer = await res.buffer();
                     if (buffer && buffer.length > 100) {
-                        await nimesha.sendAsSticker(m.chat, buffer, m);
+                        await maureonix.sendAsSticker(m.chat, buffer, m);
                         success = true;
                         break;
                     }
@@ -201,7 +201,7 @@ module.exports = {
             setLimit(m, db);
         } catch (e) { m.reply('❌ Brat generation failed.'); }
     },
-    smeme: async (nimesha, m, { prefix, command, text, getBuffer }) => {
+    smeme: async (maureonix, m, { prefix, command, text, getBuffer }) => {
         if (!m.quoted || !/image/.test(m.quoted.type)) return m.reply('Reply to an image with caption: .smeme top|bottom');
         if (!text || !text.includes('|')) return m.reply(`Example: ${prefix + command} top text|bottom text`);
         const [top, bottom] = text.split('|').map(s => s.trim());
@@ -211,13 +211,13 @@ module.exports = {
             const base64 = buffer.toString('base64');
             const url = `https://api.memegen.link/images/custom/${encodeURIComponent(top || '_')}/${encodeURIComponent(bottom || '_')}.png?background=${encodeURIComponent(base64)}`;
             const memeBuffer = await getBuffer(url);
-            await nimesha.sendMessage(m.chat, { image: memeBuffer }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { image: memeBuffer }, { quoted: m });
         } catch (e) { m.reply('❌ Smeme failed: ' + e.message); }
     },
     // aliases
-    s: async (nimesha, m, ctx) => { await module.exports.sticker(nimesha, m, ctx); },
-    toimg: async (nimesha, m, ctx) => { await module.exports.simage(nimesha, m, ctx); },
+    s: async (maureonix, m, ctx) => { await module.exports.sticker(maureonix, m, ctx); },
+    toimg: async (maureonix, m, ctx) => { await module.exports.simage(maureonix, m, ctx); },
     
     // Alias for qr (optional)
-    qrcode: async (nimesha, m, ctx) => { await module.exports.qr(nimesha, m, ctx); },
+    qrcode: async (maureonix, m, ctx) => { await module.exports.qr(maureonix, m, ctx); },
 };

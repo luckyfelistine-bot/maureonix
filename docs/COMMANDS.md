@@ -236,7 +236,7 @@ Default prefix: `.` (configurable in `settings.js`)
 
 | `.simage` | `.toimg` | Convert sticker to image | Reply to sticker |
 
-| `.attp` | – | Animated text sticker | `.attp Hello` |
+| `.attp` | – | Amaureonixted text sticker | `.attp Hello` |
 
 | `.removebg` | `.rmbg` | Remove image background | Reply to image |
 

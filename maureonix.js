@@ -1,5 +1,5 @@
-// nima.js – Wrapper that loads core handler and commands
-const coreHandler = require('./nima_core');
+// maureonix.js – Wrapper that loads core handler and commands
+const coreHandler = require('./maureonix_core');
 const fs = require('fs');
 const chalk = require('chalk');
 

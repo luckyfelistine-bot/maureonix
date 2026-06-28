@@ -17,35 +17,35 @@ const {
 
 const isUrl = (text) => /^https?:\/\/[^\s<>"{}|\\^`[\]]+/i.test(text || "");
 
-async function sendFile(nimesha, m, fp, label = "📁") {
+async function sendFile(maureonix, m, fp, label = "📁") {
   const safe = await ensureUnderLimit(fp);
   const mime = guessMime(safe);
   const size = getFileSizeMB(safe).toFixed(1);
   const cap = `${label}\n📦 ${size} MB`;
   const buffer = fs.readFileSync(safe);
   if (mime === "video") {
-    await nimesha.sendMessage(m.chat, { video: buffer, caption: cap }, { quoted: m });
+    await maureonix.sendMessage(m.chat, { video: buffer, caption: cap }, { quoted: m });
   } else if (mime === "audio") {
-    await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: "audio/mpeg" }, { quoted: m });
+    await maureonix.sendMessage(m.chat, { audio: buffer, mimetype: "audio/mpeg" }, { quoted: m });
   } else if (mime === "photo") {
-    await nimesha.sendMessage(m.chat, { image: buffer, caption: cap }, { quoted: m });
+    await maureonix.sendMessage(m.chat, { image: buffer, caption: cap }, { quoted: m });
   } else {
-    await nimesha.sendMessage(m.chat, { document: buffer, fileName: path.basename(fp) }, { quoted: m });
+    await maureonix.sendMessage(m.chat, { document: buffer, fileName: path.basename(fp) }, { quoted: m });
   }
   cleanupFile(fp);
 }
 
-async function createStatus(nimesha, m, text) {
-  const msg = await nimesha.sendMessage(m.chat, { text }, { quoted: m });
+async function createStatus(maureonix, m, text) {
+  const msg = await maureonix.sendMessage(m.chat, { text }, { quoted: m });
   const key = msg.key;
   let settled = false;
   const t1 = setTimeout(() => {
-    if (!settled) nimesha.sendMessage(m.chat, { text: "⏳ Still processing...", edit: key }).catch(() => {});
+    if (!settled) maureonix.sendMessage(m.chat, { text: "⏳ Still processing...", edit: key }).catch(() => {});
   }, STATUS_EDIT_1);
   const t2 = setTimeout(() => {
     if (!settled) {
       settled = true;
-      nimesha.sendMessage(m.chat, { text: "❌ Request timed out.", edit: key }).catch(() => {});
+      maureonix.sendMessage(m.chat, { text: "❌ Request timed out.", edit: key }).catch(() => {});
     }
   }, STATUS_EDIT_2);
   return {
@@ -54,20 +54,20 @@ async function createStatus(nimesha, m, text) {
       settled = true;
       clearTimeout(t1);
       clearTimeout(t2);
-      await nimesha.sendMessage(m.chat, { text: txt, edit: key }).catch(() => {});
+      await maureonix.sendMessage(m.chat, { text: txt, edit: key }).catch(() => {});
     },
     async error(txt) {
       settled = true;
       clearTimeout(t1);
       clearTimeout(t2);
-      await nimesha.sendMessage(m.chat, { text: txt, edit: key }).catch(() => {});
+      await maureonix.sendMessage(m.chat, { text: txt, edit: key }).catch(() => {});
     },
   };
 }
 
 module.exports = {
   // ─── VIDEO (YouTube + generic) ───
-  video: async (nimesha, m, { text, prefix, command }) => {
+  video: async (maureonix, m, { text, prefix, command }) => {
     if (!text) return m.reply(`🎬 *Usage:* ${prefix + command} <url or search>`);
     let url = text.trim();
     if (!isUrl(url)) {
@@ -76,10 +76,10 @@ module.exports = {
       if (!sr.videos?.length) return m.reply("❌ No results found.");
       url = sr.videos[0].url;
     }
-    const status = await createStatus(nimesha, m, "⏳ Downloading video...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading video...");
     try {
       const files = await smartDownload(url, { audioOnly: false });
-      for (const fp of files) await sendFile(nimesha, m, fp, "🎬 Video");
+      for (const fp of files) await sendFile(maureonix, m, fp, "🎬 Video");
       await status.success("✅ Video sent!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -87,7 +87,7 @@ module.exports = {
   },
 
   // ─── SONG / AUDIO (YouTube + generic) ───
-  song: async (nimesha, m, { text, prefix, command }) => {
+  song: async (maureonix, m, { text, prefix, command }) => {
     if (!text) return m.reply(`🎵 *Usage:* ${prefix + command} <url or search>`);
     let url = text.trim();
     if (!isUrl(url)) {
@@ -96,10 +96,10 @@ module.exports = {
       if (!sr.videos?.length) return m.reply("❌ No results found.");
       url = sr.videos[0].url;
     }
-    const status = await createStatus(nimesha, m, "🎵 Downloading audio...");
+    const status = await createStatus(maureonix, m, "🎵 Downloading audio...");
     try {
       const files = await smartDownload(url, { audioOnly: true });
-      for (const fp of files) await sendFile(nimesha, m, fp, "🎵 Audio");
+      for (const fp of files) await sendFile(maureonix, m, fp, "🎵 Audio");
       await status.success("✅ Audio sent!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -107,13 +107,13 @@ module.exports = {
   },
 
   // ─── TIKTOK ───
-  tiktok: async (nimesha, m, { text }) => {
+  tiktok: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("🎵 *Usage:* .tt <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading TikTok...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading TikTok...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "🎵 TikTok");
+      for (const fp of files) await sendFile(maureonix, m, fp, "🎵 TikTok");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -121,13 +121,13 @@ module.exports = {
   },
 
   // ─── INSTAGRAM ───
-  ig: async (nimesha, m, { text }) => {
+  ig: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("📸 *Usage:* .ig <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading Instagram...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading Instagram...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "📸 Instagram");
+      for (const fp of files) await sendFile(maureonix, m, fp, "📸 Instagram");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -135,13 +135,13 @@ module.exports = {
   },
 
   // ─── TWITTER / X ───
-  twitter: async (nimesha, m, { text }) => {
+  twitter: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("🐦 *Usage:* .x <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading X...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading X...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "🐦 X");
+      for (const fp of files) await sendFile(maureonix, m, fp, "🐦 X");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -149,13 +149,13 @@ module.exports = {
   },
 
   // ─── FACEBOOK ───
-  fb: async (nimesha, m, { text }) => {
+  fb: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("📘 *Usage:* .fb <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading Facebook...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading Facebook...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "📘 Facebook");
+      for (const fp of files) await sendFile(maureonix, m, fp, "📘 Facebook");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -163,13 +163,13 @@ module.exports = {
   },
 
   // ─── REDDIT ───
-  reddit: async (nimesha, m, { text }) => {
+  reddit: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("👽 *Usage:* .reddit <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading Reddit...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading Reddit...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "👽 Reddit");
+      for (const fp of files) await sendFile(maureonix, m, fp, "👽 Reddit");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -177,13 +177,13 @@ module.exports = {
   },
 
   // ─── SPOTIFY (preview / metadata) ───
-  spotify: async (nimesha, m, { text }) => {
+  spotify: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("🎧 *Usage:* .spotify <url>");
-    const status = await createStatus(nimesha, m, "⏳ Fetching Spotify...");
+    const status = await createStatus(maureonix, m, "⏳ Fetching Spotify...");
     try {
       const files = await smartDownload(urls[0], { audioOnly: true });
-      for (const fp of files) await sendFile(nimesha, m, fp, "🎧 Spotify");
+      for (const fp of files) await sendFile(maureonix, m, fp, "🎧 Spotify");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -191,13 +191,13 @@ module.exports = {
   },
 
   // ─── MEDIAFIRE ───
-  mediafire: async (nimesha, m, { text }) => {
+  mediafire: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("☁️ *Usage:* .mediafire <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading from MediaFire...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading from MediaFire...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "☁️ MediaFire");
+      for (const fp of files) await sendFile(maureonix, m, fp, "☁️ MediaFire");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);
@@ -205,13 +205,13 @@ module.exports = {
   },
 
   // ─── UNIVERSAL / ANY URL ───
-  download: async (nimesha, m, { text }) => {
+  download: async (maureonix, m, { text }) => {
     const urls = extractURLs(text);
     if (!urls.length) return m.reply("📥 *Usage:* .dl <url>");
-    const status = await createStatus(nimesha, m, "⏳ Downloading...");
+    const status = await createStatus(maureonix, m, "⏳ Downloading...");
     try {
       const files = await smartDownload(urls[0]);
-      for (const fp of files) await sendFile(nimesha, m, fp, "📥 Download");
+      for (const fp of files) await sendFile(maureonix, m, fp, "📥 Download");
       await status.success("✅ Done!");
     } catch (err) {
       await status.error(`❌ ${err.message}`);

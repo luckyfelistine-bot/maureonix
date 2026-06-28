@@ -10,7 +10,7 @@ const server = createServer(app);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-global.nimaInstance = null;
+global.maureonixInstance = null;
 
 const packageInfo = require('../package.json');
 const { PORT, MENU_CARDS_DIR, FEEDBACK_FILE } = require('./config/constants');

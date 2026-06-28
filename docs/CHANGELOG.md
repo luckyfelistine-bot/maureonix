@@ -52,9 +52,9 @@ and this project adheres to \[Semantic Versioning](https://semver.org/spec/v2.0.
 
 \### 🔧 Changed
 
-\- Refactored `nima\_commands.js` into modular `case` blocks for maintainability.
+\- Refactored `maureonix\_commands.js` into modular `case` blocks for maintainability.
 
-\- Moved automation logic from scattered places into a unified execution block in `nima\_core.js`.
+\- Moved automation logic from scattered places into a unified execution block in `maureonix\_core.js`.
 
 \- Improved fallback chains for translation, TTS, and sticker APIs.
 

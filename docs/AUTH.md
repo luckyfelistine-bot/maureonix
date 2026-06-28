@@ -30,7 +30,7 @@ Maureonix uses \*\*Baileys\*\* for WhatsApp Multi‑Device authentication.
 
 \## 📂 Session Storage
 
-\- Auth state is saved in the `nimadev/` folder.
+\- Auth state is saved in the `maureonixdev/` folder.
 
 \- \*\*Never share this folder\*\*—it contains your private keys.
 
@@ -58,11 +58,11 @@ These are isolated and managed by `src/jadibot.js`.
 
 \- Enable two‑step verification on the WhatsApp account.
 
-\- Regularly backup `nimadev/` to avoid losing session.
+\- Regularly backup `maureonixdev/` to avoid losing session.
 
 
 
 \## 🚨 Logged Out
 
-If the bot is logged out (`DisconnectReason.loggedOut`), the `nimadev/` folder is cleared and you must re‑pair.
+If the bot is logged out (`DisconnectReason.loggedOut`), the `maureonixdev/` folder is cleared and you must re‑pair.
 

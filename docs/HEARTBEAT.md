@@ -300,7 +300,7 @@ Other	Exponential backoff (5s → 10s → 20s … max 60s).
 
 💡 Pro Tip
 
-If the bot frequently disconnects, try deleting the nimadev folder and re‑pairing.
+If the bot frequently disconnects, try deleting the maureonixdev folder and re‑pairing.
 
 
 

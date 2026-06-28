@@ -4,7 +4,7 @@ const path = require('path');
 const { similarity } = require('../lib/function');
 
 module.exports = {
-    remindme: async (nimesha, m, { args, db, prefix, command }) => {
+    remindme: async (maureonix, m, { args, db, prefix, command }) => {
         if (args.length < 2) return m.reply(`Example: ${prefix + command} <minutes> <text>`);
         const mins = parseInt(args[0]);
         const msgText = args.slice(1).join(' ');
@@ -14,7 +14,7 @@ module.exports = {
         db.reminders.push({ user: m.sender, target: m.sender, text: msgText, due });
         await m.reply(`⏰ Reminder set for ${mins} minute(s).\n📝 ${msgText}`);
     },
-    remind: async (nimesha, m, { text, AI, db, prefix, command }) => {
+    remind: async (maureonix, m, { text, AI, db, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} me to call John tomorrow at 10am`);
         await m.reply('🧠 *Understanding your reminder...*');
         try {
@@ -38,7 +38,7 @@ JSON:`;
             await m.reply(`⏰ *Reminder set!*\n📝 ${parsed.text}\n📅 ${timeStr}`);
         } catch (e) { m.reply(`❌ Failed to set reminder: ${e.message}\n\nTry using the manual format: ${prefix}remindme 30 Buy milk`); }
     },
-    reminders: async (nimesha, m, { db }) => {
+    reminders: async (maureonix, m, { db }) => {
         if (!db.reminders) db.reminders = [];
         const mine = db.reminders.filter(r => r.user === m.sender || r.target === m.sender);
         if (!mine.length) return m.reply('📭 You have no active reminders.');
@@ -57,12 +57,12 @@ JSON:`;
         txt += `Total: ${mine.length} reminder${mine.length > 1 ? 's' : ''}`;
         await m.reply(txt);
     },
-    clearreminders: async (nimesha, m, { db }) => {
+    clearreminders: async (maureonix, m, { db }) => {
         if (!db.reminders) return m.reply('No reminders to clear.');
         db.reminders = db.reminders.filter(r => r.user !== m.sender);
         await m.reply('🧹 All your reminders cleared.');
     },
-    note: async (nimesha, m, { text, db, prefix, command }) => {
+    note: async (maureonix, m, { text, db, prefix, command }) => {
         const [title, ...body] = text.split('|');
         if (!title || !body.length) return m.reply(`Example: ${prefix + command} Title | Content`);
         if (!db.notes) db.notes = {};
@@ -70,19 +70,19 @@ JSON:`;
         db.notes[m.sender].push({ title: title.trim(), content: body.join('|').trim(), date: Date.now() });
         await m.reply(`📝 Note saved: *${title.trim()}*`);
     },
-    mynotes: async (nimesha, m, { db }) => {
+    mynotes: async (maureonix, m, { db }) => {
         if (!db.notes?.[m.sender]?.length) return m.reply('No notes.');
         let txt = `📚 *Your Notes*\n`;
         db.notes[m.sender].forEach((n, i) => { txt += `${i + 1}. *${n.title}* — ${new Date(n.date).toLocaleDateString()}\n`; });
         await m.reply(txt);
     },
-    delnote: async (nimesha, m, { args, db }) => {
+    delnote: async (maureonix, m, { args, db }) => {
         const idx = parseInt(args[0]) - 1;
         if (!db.notes?.[m.sender] || idx < 0 || idx >= db.notes[m.sender].length) return m.reply('Invalid note number.');
         db.notes[m.sender].splice(idx, 1);
         await m.reply('🗑️ Note deleted');
     },
-    todo: async (nimesha, m, { text, db, prefix, command }) => {
+    todo: async (maureonix, m, { text, db, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <task> | priority (high/medium/low)`);
         const [task, priority] = text.split('|').map(s => s.trim());
         if (!db.todos) db.todos = {};
@@ -90,7 +90,7 @@ JSON:`;
         db.todos[m.sender].push({ task, priority: priority || 'medium', done: false, date: Date.now() });
         await m.reply(`✅ Task added! (${db.todos[m.sender].filter(t => !t.done).length} pending)`);
     },
-    todos: async (nimesha, m, { db }) => {
+    todos: async (maureonix, m, { db }) => {
         if (!db.todos?.[m.sender]?.length) return m.reply('No tasks.');
         const pending = db.todos[m.sender].filter(t => !t.done);
         const done = db.todos[m.sender].filter(t => t.done);
@@ -99,19 +99,19 @@ JSON:`;
         txt += `\n*Done:* ${done.length}`;
         await m.reply(txt);
     },
-    done: async (nimesha, m, { args, db }) => {
+    done: async (maureonix, m, { args, db }) => {
         const idx = parseInt(args[0]) - 1;
         if (!db.todos?.[m.sender] || idx < 0 || idx >= db.todos[m.sender].length) return m.reply('Invalid task number.');
         db.todos[m.sender][idx].done = true;
         await m.reply('🎉 Task completed!');
     },
-    cleartodo: async (nimesha, m, { db }) => {
+    cleartodo: async (maureonix, m, { db }) => {
         if (!db.todos?.[m.sender]) return m.reply('No tasks.');
         db.todos[m.sender] = db.todos[m.sender].filter(t => !t.done);
         await m.reply('🧹 Completed tasks cleared');
     },
     // Jadibot (multi-device)
-    pair: async (nimesha, m, { text, prefix, db, ownerNumber }) => {
+    pair: async (maureonix, m, { text, prefix, db, ownerNumber }) => {
         if (!text) return m.reply(`Example: ${prefix}pair 254712345678`);
         const targetNumber = text.replace(/[^0-9]/g, '');
         if (targetNumber.length < 9) return m.reply('Invalid phone number. Include country code.');
@@ -218,13 +218,13 @@ JSON:`;
             );
 
             const ownerMsg = `🔐 *New Pairing Request*\n👤 @${m.sender.split('@')[0]}\n📱 +${targetNumber}\n🔑 ${formatted}`;
-            await nimesha.sendMessage(ownerNumber[0], { text: ownerMsg, mentions: [m.sender] });
+            await maureonix.sendMessage(ownerNumber[0], { text: ownerMsg, mentions: [m.sender] });
         } catch (e) {
             cleanup();
             m.reply(`❌ Failed to get pairing code: ${e.message}`);
         }
     },
-    startjadibot: async (nimesha, m, { db, store }) => {
+    startjadibot: async (maureonix, m, { db, store }) => {
         if (!db.jadibot?.requests?.[m.sender]) return m.reply('❌ No pairing request found. Use .pair <number> first.');
         const req = db.jadibot.requests[m.sender];
         if (Date.now() - req.timestamp > 120000) { delete db.jadibot.requests[m.sender]; return m.reply('❌ Pairing request expired. Please use .pair again.'); }
@@ -232,35 +232,35 @@ JSON:`;
         await m.reply('⏳ *Starting your bot instance...*');
         const { JadiBot } = require('../src/jadibot');
         try {
-            const userClient = await JadiBot(nimesha, m.sender, m, store);
+            const userClient = await JadiBot(maureonix, m.sender, m, store);
             if (!db.jadibot.sessions) db.jadibot.sessions = {};
             db.jadibot.sessions[m.sender] = { active: true, number: req.number, startedAt: Date.now(), authFolder: req.authFolder };
             delete db.jadibot.requests[m.sender];
             await m.reply(`✅ *Your bot is now active!*\n\n📱 Number: +${req.number}\n\n_Use .help to see commands_\n_Use .stopjadibot to stop_`);
         } catch (e) { m.reply(`❌ Failed to start bot: ${e.message}`); }
     },
-    stopjadibot: async (nimesha, m, { db }) => {
+    stopjadibot: async (maureonix, m, { db }) => {
         if (!db.jadibot?.sessions?.[m.sender]?.active) return m.reply('❌ You don\'t have an active bot session.');
         const { StopJadiBot } = require('../src/jadibot');
-        await StopJadiBot(nimesha, m.sender, m);
+        await StopJadiBot(maureonix, m.sender, m);
         if (db.jadibot.sessions[m.sender]) db.jadibot.sessions[m.sender].active = false;
         await m.reply('🛑 *Your bot has been stopped.*');
     },
-    listjadibot: async (nimesha, m, { isCreator, mess }) => {
+    listjadibot: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         const { ListJadiBot } = require('../src/jadibot');
-        await ListJadiBot(nimesha, m);
+        await ListJadiBot(maureonix, m);
     },
-    stopuserjadibot: async (nimesha, m, { isCreator, mess, db }) => {
+    stopuserjadibot: async (maureonix, m, { isCreator, mess, db }) => {
         if (!isCreator) return m.reply(mess.owner);
         const target = m.mentionedJid?.[0];
         if (!target) return m.reply(`Mention the user whose bot you want to stop.\nExample: ${prefix}stopuserjadibot @user`);
         const { StopJadiBot } = require('../src/jadibot');
-        const stopped = await StopJadiBot(nimesha, target, m);
+        const stopped = await StopJadiBot(maureonix, target, m);
         if (stopped) { if (db.jadibot?.sessions?.[target]) db.jadibot.sessions[target].active = false; await m.reply(`🛑 Force‑stopped bot for @${target.split('@')[0]}`, { mentions: [target] }); }
         else await m.reply(`❌ No active bot session found for @${target.split('@')[0]}.`, { mentions: [target] });
     },
-    docs: async (nimesha, m, { text, prefix, similarity }) => {
+    docs: async (maureonix, m, { text, prefix, similarity }) => {
         const docsDir = path.join(process.cwd(), 'docs');
         if (!fs.existsSync(docsDir)) return m.reply('❌ *Documentation folder not found.*');
         let files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
@@ -301,7 +301,7 @@ JSON:`;
             else for (let i = 0; i < content.length; i += maxLen) { const chunk = content.slice(i, i + maxLen); const part = Math.floor(i / maxLen) + 1; const total = Math.ceil(content.length / maxLen); await m.reply(`📄 *${title}* (Part ${part}/${total})\n━━━━━━━━━━━━━━━━━━━━━━\n${chunk}`); }
         } catch (e) { m.reply(`❌ Error reading file: ${e.message}`); }
     },
-    ask: async (nimesha, m, { text, AI, prefix, command }) => {
+    ask: async (maureonix, m, { text, AI, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} How do I set up auto-backup?`);
         await m.reply('🔍 *Searching documentation...*');
         const { buildContext } = require('../lib/docs');
@@ -315,11 +315,11 @@ JSON:`;
         } catch (e) { m.reply(`❌ Failed to get answer: ${e.message}`); }
     },
     // Aliases
-    clearme: async (nimesha, m, ctx) => { await module.exports.clearreminders(nimesha, m, ctx); },
-    addnote: async (nimesha, m, ctx) => { await module.exports.note(nimesha, m, ctx); },
-    mynotes: async (nimesha, m, ctx) => { await module.exports.mynotes(nimesha, m, ctx); },
-    delnote: async (nimesha, m, ctx) => { await module.exports.delnote(nimesha, m, ctx); },
-    addtodo: async (nimesha, m, ctx) => { await module.exports.todo(nimesha, m, ctx); },
-    check: async (nimesha, m, ctx) => { await module.exports.done(nimesha, m, ctx); },
-    cleartodo: async (nimesha, m, ctx) => { await module.exports.cleartodo(nimesha, m, ctx); },
+    clearme: async (maureonix, m, ctx) => { await module.exports.clearreminders(maureonix, m, ctx); },
+    addnote: async (maureonix, m, ctx) => { await module.exports.note(maureonix, m, ctx); },
+    mynotes: async (maureonix, m, ctx) => { await module.exports.mynotes(maureonix, m, ctx); },
+    delnote: async (maureonix, m, ctx) => { await module.exports.delnote(maureonix, m, ctx); },
+    addtodo: async (maureonix, m, ctx) => { await module.exports.todo(maureonix, m, ctx); },
+    check: async (maureonix, m, ctx) => { await module.exports.done(maureonix, m, ctx); },
+    cleartodo: async (maureonix, m, ctx) => { await module.exports.cleartodo(maureonix, m, ctx); },
 };

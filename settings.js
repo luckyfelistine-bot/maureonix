@@ -42,7 +42,7 @@ global.number_bot = SecureConfig.number_bot;
 global.fake = {
     anonim: 'https://ibb.co/rKyYj3Rr',
     thumbnailUrl: 'https://ibb.co/rKyYj3Rr',
-    thumbnail: fs.readFileSync('./src/media/nima.png'),
+    thumbnail: fs.readFileSync('./src/media/maureonix.png'),
     docs: fs.readFileSync('./src/media/fake.pdf'),
     listfakedocs: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.openxmlformats-officedocument.presentationml.presentation','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/pdf'],
 };
@@ -64,10 +64,10 @@ global.mess = SecureConfig.mess;
 
 // ─── APIs ───────────────────────────────────────────
 global.APIs = {
-    nima: 'https://api.nima.biz.id',
+    maureonix: 'https://api.maureonix.biz.id',
 };
 global.APIKeys = {
-    'https://api.nima.biz.id': SecureConfig.apiKey,
+    'https://api.maureonix.biz.id': SecureConfig.apiKey,
 };
 
 // ─── Misc ───────────────────────────────────────────

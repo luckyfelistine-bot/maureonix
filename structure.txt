@@ -14,9 +14,9 @@ C:.
 |   index.js
 |   install.sh
 |   LICENSE
-|   nima.js
-|   nima_commands.js
-|   nima_core.js
+|   maureonix.js
+|   maureonix_commands.js
+|   maureonix_core.js
 |   nixpacks.toml
 |   nodemon.json
 |   package.json
@@ -57,7 +57,7 @@ C:.
 |       
 +---database
 |   +---jadibot
-|   |       nima
+|   |       maureonix
 |   |       
 |   +---menucards
 |   |       admin.png
@@ -142,7 +142,7 @@ C:.
 |       menuimage.js
 |       movie.js
 |       neuralSymbolicBridge.js
-|       nima
+|       maureonix
 |       ocr.js
 |       pdfExtract.js
 |       realTimeDiagnostics.js
@@ -172,7 +172,7 @@ C:.
     |       
     +---media
     |       fake.pdf
-    |       nima.png
+    |       maureonix.png
     |       
     +---modules
     |       aiChat.js

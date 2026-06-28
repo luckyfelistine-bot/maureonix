@@ -1,4 +1,4 @@
-// nima_commands.js – Dispatcher (splits work to category modules)
+// maureonix_commands.js – Dispatcher (splits work to category modules)
 const fs = require('fs');
 const path = require('path');
 const { writeExif } = require('./lib/exif');
@@ -24,7 +24,7 @@ for (const file of commandFiles) {
     }
 }
 
-module.exports = async (nimesha, m, ctx) => {
+module.exports = async (maureonix, m, ctx) => {
     const {
         mess, isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
         set, sewa, premium, db, store, botNumber,
@@ -56,7 +56,7 @@ module.exports = async (nimesha, m, ctx) => {
 
     // If we have a matching handler, call it
     if (allCommands[command]) {
-        return allCommands[command](nimesha, m, ctx);
+        return allCommands[command](maureonix, m, ctx);
     }
 
     // Fallback for unknown commands (media hash, eval, etc.)
@@ -94,6 +94,6 @@ module.exports = async (nimesha, m, ctx) => {
         if (m.chat.endsWith('broadcast')) return;
         if (!global.db || !global.db.database) return;
         if (!(budy.toLowerCase() in global.db.database)) return;
-        await nimesha.relayMessage(m.chat, global.db.database[budy.toLowerCase()], {});
+        await maureonix.relayMessage(m.chat, global.db.database[budy.toLowerCase()], {});
     }
 };

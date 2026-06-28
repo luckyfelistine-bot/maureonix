@@ -82,7 +82,7 @@ const SecureConfig = {
 
     // ===== ERROR MESSAGES =====
     mess: {
-        key: 'Your API key has expired. Please visit https://nima.biz.id',
+        key: 'Your API key has expired. Please visit https://maureonix.biz.id',
         owner: 'Only the owner can use this command.',
         admin: 'Only admins can use this command.',
         botAdmin: 'The bot needs to be admin to use this command.',

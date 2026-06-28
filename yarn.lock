@@ -2380,16 +2380,16 @@ miniget@^4.2.2, miniget@^4.2.3:
   resolved "https://registry.npmjs.org/miniget/-/miniget-4.2.3.tgz"
   integrity sha512-SjbDPDICJ1zT+ZvQwK0hUcRY4wxlhhNpHL9nJOB2MEAXRGagTljsO8MEDzQMTFf0Q8g4QNi8P9lEm/g7e+qgzA==
 
-minimatch@^10.2.1:
+mimaureonixtch@^10.2.1:
   version "10.2.4"
-  resolved "https://registry.npmjs.org/minimatch/-/minimatch-10.2.4.tgz"
+  resolved "https://registry.npmjs.org/mimaureonixtch/-/mimaureonixtch-10.2.4.tgz"
   integrity sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==
   dependencies:
     brace-expansion "^5.0.2"
 
-minimatch@~3.0.4:
+mimaureonixtch@~3.0.4:
   version "3.0.8"
-  resolved "https://registry.npmjs.org/minimatch/-/minimatch-3.0.8.tgz"
+  resolved "https://registry.npmjs.org/mimaureonixtch/-/mimaureonixtch-3.0.8.tgz"
   integrity sha512-6FsRAQsxQ61mw+qP1ZzbL9Bc78x2p5OqNgNpnoAFLTrX8n5Kxph0CsnhmKKNXTWjXqU5L0pGPR7hYk+XWZr60Q==
   dependencies:
     brace-expansion "^1.1.7"
@@ -2540,7 +2540,7 @@ nodemon@*:
     chokidar "^3.5.2"
     debug "^4"
     ignore-by-default "^1.0.1"
-    minimatch "^10.2.1"
+    mimaureonixtch "^10.2.1"
     pstree.remy "^1.1.8"
     semver "^7.5.3"
     simple-update-notifier "^2.0.0"
@@ -3049,7 +3049,7 @@ redstar@0.0.2:
   resolved "https://registry.npmjs.org/redstar/-/redstar-0.0.2.tgz"
   integrity sha512-VNvLaLxMJMYiAasJX5Q/GC+Os7FXL0yPWFDuTodhR7Na9wqzrXsePPWC+EtIv4t3q5DyAK00w423xi5mQN2fqg==
   dependencies:
-    minimatch "~3.0.4"
+    mimaureonixtch "~3.0.4"
 
 regenerator-runtime@^0.13.3:
   version "0.13.11"

@@ -127,8 +127,8 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const { assertInstalled, unsafeAgent } = require('./lib/function');
     const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
 
-    const nima = require('./nima');
-    global.__nimaHandler = nima;
+    const maureonix = require('./maureonix');
+    global.__maureonixHandler = maureonix;
 
     const pairingCode = true;
     let phoneNumber = process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '254116903500';
@@ -141,13 +141,13 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     //   SYMPHONY ORCHESTRATOR INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    async function initializeSymphony(nimeshaInstance) {
+    async function initializeSymphony(maureonixInstance) {
         try {
             // Set GitHub token from config so the orchestrator can pick it up
             process.env.GITHUB_TOKEN = SecureConfig.githubToken;
 
             const { startSymphony, symphonyOrchestrator } = require('./lib/symphonyOrchestrator');
-            symphonyOrchestrator.notifications.setNimesha(nimeshaInstance);
+            symphonyOrchestrator.notifications.setmaureonix(maureonixInstance);
             const status = await startSymphony();
             console.log('🎼 Symphony Orchestrator Status:', JSON.stringify(status, null, 2));
 
@@ -155,7 +155,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
                 ? SecureConfig.ownerNumber[0] + '@s.whatsapp.net'
                 : SecureConfig.ownerNumber + '@s.whatsapp.net';
 
-            await nimeshaInstance.sendMessage(ownerJid, {
+            await maureonixInstance.sendMessage(ownerJid, {
                 text: `🎼 *Symphony Orchestrator Activated*\n\n` +
                       `📊 Status: ${status.is_running ? 'RUNNING' : 'STOPPED'}\n` +
                       `🔥 Active: ${status.running_count}\n` +
@@ -199,10 +199,10 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     let _reconnectCount = 0;
     const _MAX_RECONNECT_DELAY = 60_000;
 
-    async function startnimaBot() {
-        if (global.nimaInstance) {
-            try { global.nimaInstance.ev.removeAllListeners(); global.nimaInstance.ws?.close?.(); } catch(_) {}
-            global.nimaInstance = null;
+    async function startmaureonixBot() {
+        if (global.maureonixInstance) {
+            try { global.maureonixInstance.ev.removeAllListeners(); global.maureonixInstance.ws?.close?.(); } catch(_) {}
+            global.maureonixInstance = null;
         }
         phoneNumber = global.number_bot || '254116903500';
 
@@ -257,9 +257,9 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 
         const level = pino({ level: 'silent' });
         const { version } = await fetchLatestWaWebVersion();
-        const { state, saveCreds } = await useMultiFileAuthState('nimadev');
+        const { state, saveCreds } = await useMultiFileAuthState('maureonixdev');
 
-        const nimaBot = makeWASocket({
+        const maureonixBot = makeWASocket({
             version, logger: level,
             getMessage: async (key) => ((await global.loadMessage(key.remoteJid, key.id))?.message || ''),
             syncFullHistory: false,
@@ -274,49 +274,49 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, level) },
         });
 
-        global.nimaInstance = nimaBot;
+        global.maureonixInstance = maureonixBot;
 
-        if (pairingCode && !nimaBot.authState.creds.registered) {
+        if (pairingCode && !maureonixBot.authState.creds.registered) {
             const requestCode = async () => {
-                if (nimaBot.authState.creds.registered) return;
+                if (maureonixBot.authState.creds.registered) return;
                 try {
-                    let code = await nimaBot.requestPairingCode(phoneNumber);
+                    let code = await maureonixBot.requestPairingCode(phoneNumber);
                     console.log('🔑 Pairing Code:', code);
                 } catch (e) { console.log('⚠️ Pair error:', e.message); }
             };
             setTimeout(() => {
                 requestCode();
                 const interval = setInterval(() => {
-                    if (nimaBot.authState.creds.registered) { clearInterval(interval); return; }
+                    if (maureonixBot.authState.creds.registered) { clearInterval(interval); return; }
                     requestCode();
                 }, 115000);
             }, 3000);
         }
 
-        await Solving(nimaBot, global.store);
+        await Solving(maureonixBot, global.store);
 
-        nimaBot.ev.on('creds.update', saveCreds);
+        maureonixBot.ev.on('creds.update', saveCreds);
 
-        nimaBot.ev.on('connection.update', async (update) => {
+        maureonixBot.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             if (connection === 'close') {
                 const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
                 _reconnectCount++;
                 const backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
                 console.log(`🔌 Disconnect: ${reason} | retry in ${backoff / 1000}s`);
-                setTimeout(() => startnimaBot(), backoff);
+                setTimeout(() => startmaureonixBot(), backoff);
             }
             if (connection === 'open') {
                 _reconnectCount = 0;
                 console.log('✅ Connected');
                 // Initialize Symphony and Super Intelligence after successful connection
-                initializeSymphony(nimaBot);
+                initializeSymphony(maureonixBot);
                 initializeSuperIntelligence();
             }
         });
 
-        nimaBot.ev.on('messages.upsert', async (message) => {
-            await MessagesUpsert(nimaBot, message, global.store);
+        maureonixBot.ev.on('messages.upsert', async (message) => {
+            await MessagesUpsert(maureonixBot, message, global.store);
         });
 
         // ── Follow configured channel so bot receives channel messages ──
@@ -325,7 +325,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             if (!config.channelJid || !config.channelJid.endsWith('@newsletter')) return;
             
             // Wait for connection to be fully open before attempting follow
-            if (nimaBot.ws?.readyState !== 1) { // 1 = WebSocket.OPEN
+            if (maureonixBot.ws?.readyState !== 1) { // 1 = WebSocket.OPEN
                 if (attempt <= 5) {
                     setTimeout(() => followChannel(attempt + 1), 3000 * attempt);
                 }
@@ -333,7 +333,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             }
             
             try {
-                await nimaBot.newsletterFollow(config.channelJid);
+                await maureonixBot.newsletterFollow(config.channelJid);
                 console.log('[CHANNEL] ✅ Following channel:', config.channelJid);
             } catch (e) {
                 const msg = e.message || '';
@@ -360,13 +360,13 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
 
         // ── Route newsletter (channel) messages into the core handler ──
         // Channel messages arrive via messages.upsert with remoteJid ending in @newsletter
-        nimaBot.ev.on('messages.upsert', async (message) => {
+        maureonixBot.ev.on('messages.upsert', async (message) => {
             if (message.type === 'notify') {
                 for (const msg of message.messages) {
                     const remoteJid = msg.key?.remoteJid || '';
                     // Only route if it's a channel message
                     if (remoteJid.endsWith('@newsletter')) {
-                        await MessagesUpsert(nimaBot, { messages: [msg], type: 'notify' }, global.store)
+                        await MessagesUpsert(maureonixBot, { messages: [msg], type: 'notify' }, global.store)
                             .catch(err => console.error('[newsletter msg]', err));
                     }
                 }
@@ -374,26 +374,26 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         });
 
         
-        nimaBot.ev.on('group-participants.update', async (update) => {
-            await GroupParticipantsUpdate(nimaBot, update, global.store);
+        maureonixBot.ev.on('group-participants.update', async (update) => {
+            await GroupParticipantsUpdate(maureonixBot, update, global.store);
         });
 
-        nimaBot.ev.on('groups.update', (update) => {
+        maureonixBot.ev.on('groups.update', (update) => {
             for (const n of update) {
                 if (global.store.groupMetadata[n.id]) Object.assign(global.store.groupMetadata[n.id], n);
                 else global.store.groupMetadata[n.id] = n;
             }
         });
 
-        nimaBot.ev.on('presence.update', ({ id, presences: update }) => {
+        maureonixBot.ev.on('presence.update', ({ id, presences: update }) => {
             global.store.presences[id] = global.store.presences?.[id] || {};
             Object.assign(global.store.presences[id], update);
         });
 
-        return nimaBot;
+        return maureonixBot;
     }
 
-    startnimaBot();
+    startmaureonixBot();
 
     // ── Verify yt-dlp installation ──
     const { spawn } = require('child_process');

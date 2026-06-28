@@ -56,7 +56,7 @@ jobs:
         run: npm install
 
       - name: ✅ Syntax Check
-        run: node --check start.js index.js nima.js
+        run: node --check start.js index.js maureonix.js
 
       - name: 📋 Check Complete
         run: echo "✅ Code check passed!"
@@ -90,7 +90,7 @@ jobs:
           rsync -avz --delete \
             --exclude='.git' \
             --exclude='node_modules' \
-            --exclude='nimadev' \
+            --exclude='maureonixdev' \
             --exclude='database.json' \
             --exclude='baileys_store.json' \
             --exclude='database/temp' \
@@ -113,14 +113,14 @@ jobs:
             echo "🔄 Restarting bot..."
             # PM2 use කරනවා නම්
             if command -v pm2 &> /dev/null; then
-              pm2 restart nima-bot 2>/dev/null || pm2 start start.js --name nima-bot
+              pm2 restart maureonix-bot 2>/dev/null || pm2 start start.js --name maureonix-bot
               pm2 save
               echo "✅ Bot restarted with PM2!"
-              pm2 status nima-bot
+              pm2 status maureonix-bot
             # Screen use කරනවා නම්
             elif command -v screen &> /dev/null; then
-              screen -S nima-bot -X quit 2>/dev/null || true
-              screen -dmS nima-bot node start.js
+              screen -S maureonix-bot -X quit 2>/dev/null || true
+              screen -dmS maureonix-bot node start.js
               echo "✅ Bot restarted with Screen!"
             else
               echo "⚠️ PM2 හෝ Screen install කරන්න!"

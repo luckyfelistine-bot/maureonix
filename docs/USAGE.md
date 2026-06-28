@@ -192,7 +192,7 @@ If the carousel fails, a fallback image or text menu is sent.
 
 | \*\*Create sticker from image\*\* | Reply to image with `.sticker` or `.s` | – |
 
-| \*\*Animated text sticker (ATTP)\*\* | `.attp <text>` | `.attp Hello` |
+| \*\*Amaureonixted text sticker (ATTP)\*\* | `.attp <text>` | `.attp Hello` |
 
 | \*\*Remove background from image\*\* | Reply to image with `.removebg` | – |
 

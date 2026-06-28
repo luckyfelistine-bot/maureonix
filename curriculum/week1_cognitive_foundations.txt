@@ -24,7 +24,7 @@
 Intelligence is not merely the ability to solve problems. It is the capacity to:
 - PERCEIVE patterns in noise
 - REASON about abstract concepts
-- LEARN from minimal examples
+- LEARN from mimaureonixl examples
 - GENERALIZE across domains
 - META-COGNIZE (think about one's own thinking)
 - CREATE novel solutions

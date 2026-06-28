@@ -4,21 +4,21 @@ const { ensureUnderLimit, guessMime, getFileSizeMB, cleanupFile } = require('../
 const { extractText } = require('../lib/extract');
 
 // Send a downloaded file to WhatsApp
-async function sendFile(nimesha, m, filePath, captionExtra = '') {
+async function sendFile(maureonix, m, filePath, captionExtra = '') {
     const safe = await ensureUnderLimit(filePath);
     const mime = guessMime(safe);
     const sizeMB = getFileSizeMB(safe).toFixed(1);
     const caption = captionExtra ? `${captionExtra} — ${sizeMB} MB` : `📥 ${sizeMB} MB`;
     const buffer = fs.readFileSync(safe);
-    if (mime === 'video') await nimesha.sendMessage(m.chat, { video: buffer, caption }, { quoted: m });
-    else if (mime === 'audio') await nimesha.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg' }, { quoted: m });
-    else if (mime === 'image') await nimesha.sendMessage(m.chat, { image: buffer, caption }, { quoted: m });
-    else await nimesha.sendMessage(m.chat, { document: buffer, fileName: path.basename(safe), caption }, { quoted: m });
+    if (mime === 'video') await maureonix.sendMessage(m.chat, { video: buffer, caption }, { quoted: m });
+    else if (mime === 'audio') await maureonix.sendMessage(m.chat, { audio: buffer, mimetype: 'audio/mpeg' }, { quoted: m });
+    else if (mime === 'image') await maureonix.sendMessage(m.chat, { image: buffer, caption }, { quoted: m });
+    else await maureonix.sendMessage(m.chat, { document: buffer, fileName: path.basename(safe), caption }, { quoted: m });
     cleanupFile(filePath);
 }
 
 // Extract content from a quoted message
-async function extractQuotedContent(quoted, nimesha) {
+async function extractQuotedContent(quoted, maureonix) {
     if (!quoted) return { text: '', type: 'none', error: 'No quoted message' };
     const type = quoted.type;
     const mime = (quoted.mimetype || '').toLowerCase();
@@ -30,7 +30,7 @@ async function extractQuotedContent(quoted, nimesha) {
 }
 
 // Generate text art command handler
-async function generateTextArt(nimesha, m, cmd, text, prefix) {
+async function generateTextArt(maureonix, m, cmd, text, prefix) {
     if (!text) return m.reply(`Example: ${prefix + cmd} <text>`);
     await m.reply('🎨 *Generating text art...*');
     try {
@@ -46,7 +46,7 @@ async function generateTextArt(nimesha, m, cmd, text, prefix) {
                 if (!res.ok) continue;
                 const buffer = await res.buffer();
                 if (buffer && buffer.length > 100) {
-                    await nimesha.sendMessage(m.chat, { image: buffer, caption: `🎨 *${cmd.toUpperCase()} Text Art*\n📝 *Text:* ${text}` }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { image: buffer, caption: `🎨 *${cmd.toUpperCase()} Text Art*\n📝 *Text:* ${text}` }, { quoted: m });
                     success = true;
                     break;
                 }
@@ -57,18 +57,18 @@ async function generateTextArt(nimesha, m, cmd, text, prefix) {
 }
 
 // Image overlay command handler (popcat.xyz)
-async function imageOverlay(nimesha, m, apiName, emoji) {
+async function imageOverlay(maureonix, m, apiName, emoji) {
     const mentioned = m.mentionedJid?.[0] || m.sender;
     try {
-        const pp = await nimesha.profilePictureUrl(mentioned, 'image').catch(() => null);
+        const pp = await maureonix.profilePictureUrl(mentioned, 'image').catch(() => null);
         if (pp) {
             const fetch = require('node-fetch');
             const url = `https://api.popcat.xyz/${apiName}?image=${encodeURIComponent(pp)}`;
             const res = await fetch(url);
             const buffer = await res.buffer();
-            return await nimesha.sendMessage(m.chat, { image: buffer, caption: `${emoji} *${apiName.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
+            return await maureonix.sendMessage(m.chat, { image: buffer, caption: `${emoji} *${apiName.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
         }
-        await nimesha.sendMessage(m.chat, { text: `${emoji} *${apiName.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
+        await maureonix.sendMessage(m.chat, { text: `${emoji} *${apiName.toUpperCase()}*\n@${mentioned.split('@')[0]}`, mentions: [mentioned] }, { quoted: m });
     } catch (e) { m.reply('❌ Error: ' + e.message); }
 }
 

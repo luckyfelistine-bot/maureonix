@@ -5,7 +5,7 @@ const { generateProfilePicture, sleep } = require('../lib/function');
 const { sendEmail } = require('../lib/emailService');
 
 module.exports = {
-    block: async (nimesha, m, { isCreator, mess, text }) => {
+    block: async (maureonix, m, { isCreator, mess, text }) => {
         if (!isCreator) return m.reply(mess.owner);
         let _blockJid = null;
         if (m.quoted?.sender) _blockJid = m.quoted.sender;
@@ -13,11 +13,11 @@ module.exports = {
         else if (text) _blockJid = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
         else if (!m.isGroup) _blockJid = m.chat;
         if (_blockJid) {
-            await nimesha.updateBlockStatus(_blockJid, 'block');
+            await maureonix.updateBlockStatus(_blockJid, 'block');
             m.reply(`✅ Blocked ${_blockJid.replace('@s.whatsapp.net', '')}`);
         } else m.reply('Reply, tag, or provide a number.');
     },
-    unblock: async (nimesha, m, { isCreator, mess, text }) => {
+    unblock: async (maureonix, m, { isCreator, mess, text }) => {
         if (!isCreator) return m.reply(mess.owner);
         let _unblockJid = null;
         if (m.quoted?.sender) _unblockJid = m.quoted.sender;
@@ -25,24 +25,24 @@ module.exports = {
         else if (text) _unblockJid = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
         else if (!m.isGroup) _unblockJid = m.chat;
         if (_unblockJid) {
-            await nimesha.updateBlockStatus(_unblockJid, 'unblock');
+            await maureonix.updateBlockStatus(_unblockJid, 'unblock');
             m.reply(`✅ Unblocked ${_unblockJid.replace('@s.whatsapp.net', '')}`);
         } else m.reply('Reply, tag, or provide a number.');
     },
-    join: async (nimesha, m, { isCreator, mess, args }) => {
+    join: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!args[0]) return m.reply('Enter the group link!');
         const result = args[0].match(/chat\.whatsapp\.com\/([0-9A-Za-z]+)/);
         if (!result) return m.reply('Invalid link❗');
-        await nimesha.groupAcceptInvite(result[1]);
+        await maureonix.groupAcceptInvite(result[1]);
         m.reply('Joined!');
     },
-    leave: async (nimesha, m, { isCreator, mess }) => {
+    leave: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
-        await nimesha.groupLeave(m.chat);
+        await maureonix.groupLeave(m.chat);
         m.reply('Left the group.');
     },
-    clearchat: async (nimesha, m, { isCreator, mess, store, sleep }) => {
+    clearchat: async (maureonix, m, { isCreator, mess, store, sleep }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('⚠️ *Clearing chat...* This may take a while.');
         let deleted = 0;
@@ -51,13 +51,13 @@ module.exports = {
         for (let i = 0; i < messages.length; i += 20) {
             const batch = messages.slice(i, i + 20);
             await Promise.all(batch.map(async (msg) => {
-                try { await nimesha.sendMessage(m.chat, { delete: msg.key }); deleted++; } catch (e) {}
+                try { await maureonix.sendMessage(m.chat, { delete: msg.key }); deleted++; } catch (e) {}
             }));
             await sleep(300);
         }
         await m.reply(`✅ *Deleted ${deleted} messages* from this chat.`);
     },
-    backup: async (nimesha, m, { isCreator, mess, args, tempatDB }) => {
+    backup: async (maureonix, m, { isCreator, mess, args, tempatDB }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (args[0] === 'database') {
             let tglnya = new Date().toISOString().replace(/[:.]/g, '-');
@@ -69,49 +69,49 @@ module.exports = {
             await m.reply({ document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' });
         } else m.reply('Use: backup database');
     },
-    setppbot: async (nimesha, m, { isCreator, mess, prefix, command, generateProfilePicture }) => {
+    setppbot: async (maureonix, m, { isCreator, mess, prefix, command, generateProfilePicture }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!/image/.test(m.quoted?.type)) return m.reply(`📌 Reply to an image (caption: *${prefix + command}*)`);
         let media = await m.quoted.download();
         let { img } = await generateProfilePicture(media);
-        await nimesha.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'w:profile:picture' }, content: [{ tag: 'picture', attrs: { type: 'image' }, content: img }] });
+        await maureonix.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'w:profile:picture' }, content: [{ tag: 'picture', attrs: { type: 'image' }, content: img }] });
         m.reply('✅ Profile picture updated');
     },
-    delppbot: async (nimesha, m, { isCreator, mess }) => {
+    delppbot: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
-        await nimesha.removeProfilePicture(nimesha.user.id);
+        await maureonix.removeProfilePicture(maureonix.user.id);
         m.reply('✅ Profile picture removed');
     },
     // Auto toggles
-    autodownload: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autodownload: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autodownload on/off\nCurrent: ${set.autodownload ? 'ON' : 'OFF'}`);
         set.autodownload = status;
         m.reply(`✅ Auto-download ${status ? 'enabled' : 'disabled'}.`);
     },
-    autoviewstatus: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autoviewstatus: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autoviewstatus on/off\nCurrent: ${set.autostatus ? 'ON' : 'OFF'}`);
         set.autostatus = status;
         m.reply(`✅ Auto-view status ${status ? 'enabled' : 'disabled'}.`);
     },
-    autolikestatus: async (nimesha, m, { isCreator, mess, args, set, prefix, command }) => {
+    autolikestatus: async (maureonix, m, { isCreator, mess, args, set, prefix, command }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autostatusreact ? 'ON' : 'OFF'}`);
         set.autostatusreact = status;
         m.reply(`✅ Auto-react to status ${status ? 'enabled' : 'disabled'}.`);
     },
-    autoreactmention: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autoreactmention: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autoreactmention on/off\nCurrent: ${set.autoreactmention ? 'ON' : 'OFF'}`);
         set.autoreactmention = status;
         m.reply(`✅ Auto-react to mentions ${status ? 'enabled' : 'disabled'}.`);
     },
-    autoreplymention: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autoreplymention: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoreplymention <message> (use {user} for mention) or off\nCurrent: ${set.autoreplymention || 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -122,7 +122,7 @@ module.exports = {
             m.reply(`✅ Auto-reply set to:\n${text}`);
         }
     },
-    autoforward: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autoforward: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoforward <target JID> or off\nCurrent: ${set.autoforward || 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -133,14 +133,14 @@ module.exports = {
             m.reply(`✅ Auto-forward set to ${text}`);
         }
     },
-    autosticker: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autosticker: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autosticker on/off\nCurrent: ${set.autosticker ? 'ON' : 'OFF'}`);
         set.autosticker = status;
         m.reply(`✅ Auto-sticker ${status ? 'enabled' : 'disabled'}.`);
     },
-    autotranslate: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autotranslate: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autotranslate <target language code> or off\nExample: ${prefix}autotranslate si\nCurrent: ${set.autotranslate || 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -151,7 +151,7 @@ module.exports = {
             m.reply(`✅ Auto-translate set to ${text}`);
         }
     },
-    autodelete: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autodelete: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!args[0] && args[0] !== 'off') return m.reply(`Usage: ${prefix}autodelete <seconds> or off\nExample: ${prefix}autodelete 10\nCurrent: ${set.autodelete || 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -164,7 +164,7 @@ module.exports = {
             m.reply(`✅ Auto-delete set to ${sec} seconds.`);
         }
     },
-    autoreact: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autoreact: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoreact <emoji> or off\nExample: ${prefix}autoreact 👍\nCurrent: ${set.autoreact || 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -175,7 +175,7 @@ module.exports = {
             m.reply(`✅ Auto-react set to ${text}`);
         }
     },
-    autoblock: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autoblock: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autoblock <keyword1,keyword2> or off\nExample: ${prefix}autoblock spam,scam\nCurrent: ${set.autoblock ? set.autoblock.join(', ') : 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -186,7 +186,7 @@ module.exports = {
             m.reply(`✅ Auto-block keywords set: ${set.autoblock.join(', ')}`);
         }
     },
-    autokick: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    autokick: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}autokick <keyword1,keyword2> or off\nExample: ${prefix}autokick spam,link\nCurrent: ${set.autokick ? set.autokick.join(', ') : 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -197,7 +197,7 @@ module.exports = {
             m.reply(`✅ Auto-kick keywords set: ${set.autokick.join(', ')}`);
         }
     },
-    automute: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    automute: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'off') return m.reply(`Usage: ${prefix}automute <keyword1,keyword2> or off\nExample: ${prefix}automute spam,link\nCurrent: ${set.automute ? set.automute.join(', ') : 'OFF'}`);
         if (args[0]?.toLowerCase() === 'off') {
@@ -208,21 +208,21 @@ module.exports = {
             m.reply(`✅ Auto-mute keywords set: ${set.automute.join(', ')}`);
         }
     },
-    autowelcome: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autowelcome: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autowelcome on/off\nCurrent: ${set.autowelcome ? 'ON' : 'OFF'}`);
         set.autowelcome = status;
         m.reply(`✅ Auto-welcome ${status ? 'enabled' : 'disabled'}.`);
     },
-    autogoodbye: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    autogoodbye: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}autogoodbye on/off\nCurrent: ${set.autogoodbye ? 'ON' : 'OFF'}`);
         set.autogoodbye = status;
         m.reply(`✅ Auto-goodbye ${status ? 'enabled' : 'disabled'}.`);
     },
-    automation: async (nimesha, m, { isCreator, mess, set, prefix }) => {
+    automation: async (maureonix, m, { isCreator, mess, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         let txt = `⚙️ *Automation Settings*\n\n`;
         txt += `🔹 autoviewstatus : ${set.autostatus ? '✅ ON' : '❌ OFF'}\n`;
@@ -253,36 +253,36 @@ module.exports = {
         txt += `\n_Use ${prefix}autoviewstatus on/off, etc._`;
         m.reply(txt);
     },
-    public: async (nimesha, m, { isCreator, mess, set }) => {
+    public: async (maureonix, m, { isCreator, mess, set }) => {
         if (!isCreator) return m.reply(mess.owner);
         set.public = true;
         m.reply('✅ Bot is now in *PUBLIC* mode. Everyone can use commands.');
     },
-    private: async (nimesha, m, { isCreator, mess, set }) => {
+    private: async (maureonix, m, { isCreator, mess, set }) => {
         if (!isCreator) return m.reply(mess.owner);
         set.public = false;
         m.reply('🔒 Bot is now in *PRIVATE* mode. Only owner can use commands.');
     },
-    publicmode: async (nimesha, m, { isCreator, mess, set, prefix }) => {
+    publicmode: async (maureonix, m, { isCreator, mess, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = set.public ? 'PUBLIC' : 'PRIVATE';
         m.reply(`⚙️ Current mode: *${status}*\nUse ${prefix}public or ${prefix}private to change.`);
     },
-    autoai: async (nimesha, m, { isCreator, mess, args, set, prefix, command }) => {
+    autoai: async (maureonix, m, { isCreator, mess, args, set, prefix, command }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autoai ? 'ON' : 'OFF'}`);
         set.autoai = status;
         m.reply(`✅ Auto-AI ${status ? 'enabled' : 'disabled'}. Now messages without prefix will get AI responses.`);
     },
-    autoaiselfchat: async (nimesha, m, { isCreator, mess, args, set, prefix, command }) => {
+    autoaiselfchat: async (maureonix, m, { isCreator, mess, args, set, prefix, command }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix + command} on/off\nCurrent: ${set.autoai_selfchat ? 'ON' : 'OFF'}`);
         set.autoai_selfchat = status;
         m.reply(`✅ Self‑chat AI ${status ? 'enabled' : 'disabled'}.`);
     },
-    privatemode: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    privatemode: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const mode = args[0]?.toLowerCase();
         if (!['off', 'away', 'ai', 'both'].includes(mode)) return m.reply(`Usage: ${prefix}privatemode <off|away|ai|both>\nCurrent: ${set.privatemode || 'off'}`);
@@ -290,7 +290,7 @@ module.exports = {
         let desc = mode === 'off' ? 'No automatic response to private messages.' : mode === 'away' ? 'Bot will send an away message.' : mode === 'ai' ? 'Bot will chat with strangers using AI.' : 'Bot will send an away message then switch to AI chat.';
         m.reply(`✅ Private mode set to *${mode.toUpperCase()}*\n${desc}`);
     },
-    setawaymsg: async (nimesha, m, { isCreator, mess, text, args, set, prefix }) => {
+    setawaymsg: async (maureonix, m, { isCreator, mess, text, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text && args[0] !== 'reset') return m.reply(`Usage: ${prefix}setawaymsg <message> or ${prefix}setawaymsg reset`);
         if (args[0] === 'reset') {
@@ -301,11 +301,11 @@ module.exports = {
             m.reply(`✅ Away message set to:\n${text}`);
         }
     },
-    awaymsg: async (nimesha, m, { isCreator, mess, set }) => {
+    awaymsg: async (maureonix, m, { isCreator, mess, set }) => {
         if (!isCreator) return m.reply(mess.owner);
         m.reply(`📴 *Current away message:*\n${set.awaymsg || '(default)'}`);
     },
-    pending: async (nimesha, m, { isCreator, mess, set, args, prefix, AI }) => {
+    pending: async (maureonix, m, { isCreator, mess, set, args, prefix, AI }) => {
         if (!isCreator) return m.reply(mess.owner);
         const pending = set.pendingMessages || [];
         if (!pending.length) return m.reply('📭 No pending messages.');
@@ -344,12 +344,12 @@ module.exports = {
             await m.reply(finalText);
         } catch (e) { m.reply(`❌ AI summary failed. Use ${prefix}pending raw for full list.`); }
     },
-    pendingclear: async (nimesha, m, { isCreator, mess, set }) => {
+    pendingclear: async (maureonix, m, { isCreator, mess, set }) => {
         if (!isCreator) return m.reply(mess.owner);
         set.pendingMessages = [];
         await m.reply('✅ Pending messages cleared.');
     },
-    crisis: async (nimesha, m, { isCreator, mess, args, prefix, set }) => {
+    crisis: async (maureonix, m, { isCreator, mess, args, prefix, set }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!args[0]) return m.reply(`Usage:\n${prefix}crisis on/off - global toggle\n${prefix}crisis scope <all|dm|groups|off> - set scope\n${prefix}crisiscancel @user - cancel crisis mode for user`);
         const action = args[0].toLowerCase();
@@ -362,7 +362,7 @@ module.exports = {
             m.reply(`✅ Crisis scope set to *${scope.toUpperCase()}*`);
         } else m.reply('Unknown action. Use `on`, `off`, or `scope`.');
     },
-    crisiscancel: async (nimesha, m, { isCreator, mess, args, db }) => {
+    crisiscancel: async (maureonix, m, { isCreator, mess, args, db }) => {
         if (!isCreator) return m.reply(mess.owner);
         let target = m.mentionedJid?.[0];
         if (!target && args[0]) { let num = args[0].replace(/[^0-9]/g, ''); if (num.length >= 9) target = num + '@s.whatsapp.net'; }
@@ -371,10 +371,10 @@ module.exports = {
         if (db.crisisPending?.[target]) {
             delete db.crisisPending[target];
             await m.reply(`✅ Crisis mode cancelled for @${target.split('@')[0]}.`, { mentions: [target] });
-            await nimesha.sendMessage(target, { text: '🕊️ *The crisis support session has ended.*\n\nIf you need help again, just type anything – I will listen. You are not alone.' }).catch(() => {});
+            await maureonix.sendMessage(target, { text: '🕊️ *The crisis support session has ended.*\n\nIf you need help again, just type anything – I will listen. You are not alone.' }).catch(() => {});
         } else m.reply(`❌ No active crisis mode found for @${target.split('@')[0]}.`);
     },
-    knowledge: async (nimesha, m, { isCreator, mess, text, db, prefix, AI }) => {
+    knowledge: async (maureonix, m, { isCreator, mess, text, db, prefix, AI }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!db.botKnowledge) db.botKnowledge = [];
         if (!text) {
@@ -390,7 +390,7 @@ module.exports = {
         if (db.botKnowledge.length > 500) db.botKnowledge.shift();
         m.reply(`🧠 *Knowledge Added*\n\n"${text.trim()}"\n\nI've saved this. I'll be able to recall it in our conversations and use it to help you better.`);
     },
-    reflect: async (nimesha, m, { isCreator, mess, db, runtime, AI }) => {
+    reflect: async (maureonix, m, { isCreator, mess, db, runtime, AI }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!db.botReflections) db.botReflections = [];
         const refl = {
@@ -415,7 +415,7 @@ module.exports = {
         txt += `\n_These are my personal metrics. I track them to understand my own usage._`;
         m.reply(txt);
     },
-    ownermenu: async (nimesha, m, { prefix }) => {
+    ownermenu: async (maureonix, m, { prefix }) => {
         const msg = `╔══════════════════════╗\n║  *👑 OWNER COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *User Control*\n▸ ${prefix}block @user\n▸ ${prefix}unblock @user\n▸ ${prefix}ban @user\n▸ ${prefix}unban @user\n▸ ${prefix}addprem @user\n▸ ${prefix}delprem @user\n\n📌 *Bot Control*\n▸ ${prefix}backup – Backup database\n▸ ${prefix}shutdown – Stop bot\n▸ ${prefix}restart – Restart bot\n▸ ${prefix}join <link> – Join group\n▸ ${prefix}leave – Leave group\n▸ ${prefix}setppbot – Set bot profile picture\n▸ ${prefix}delppbot – Remove bot profile picture\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
@@ -423,7 +423,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════
     //  NEW: OWNER MIRROR – forwards auto‑AI replies to owner
     // ═════════════════════════════════════════════════════════
-    ownermirror: async (nimesha, m, { isCreator, mess, args, set, prefix }) => {
+    ownermirror: async (maureonix, m, { isCreator, mess, args, set, prefix }) => {
         if (!isCreator) return m.reply(mess.owner);
         const status = args[0]?.toLowerCase() === 'on' ? true : args[0]?.toLowerCase() === 'off' ? false : null;
         if (status === null) return m.reply(`Usage: ${prefix}ownermirror on/off\nCurrent: ${set.ownerMirror ? 'ON' : 'OFF'}`);
@@ -435,7 +435,7 @@ module.exports = {
     //  EMAIL & LEARNING COMMANDS — Maureonix v4.0
     // ═════════════════════════════════════════════════════════════════
 
-    sendemail: async (nimesha, m, { isCreator, mess, args, prefix, command }) => {
+    sendemail: async (maureonix, m, { isCreator, mess, args, prefix, command }) => {
         if (!isCreator) return m.reply(mess.owner);
         const input = args.join(' ');
         const parts = input.split('|').map(p => p.trim());
@@ -449,7 +449,7 @@ module.exports = {
         await m.reply(result.success ? `✅ Email sent successfully to ${to}\nSubject: ${subject}` : `❌ Failed to send email\nError: ${result.error}`);
     },
 
-    emailstatus: async (nimesha, m, { isCreator, mess }) => {
+    emailstatus: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         const { getStats } = require('../lib/emailService');
         const { getReportState } = require('../lib/emailReports');
@@ -471,7 +471,7 @@ module.exports = {
         await m.reply(txt);
     },
 
-    testemail: async (nimesha, m, { isCreator, mess }) => {
+    testemail: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('📧 Sending test email...');
         const { sendDynamicEmail } = require('../lib/emailReports');
@@ -483,7 +483,7 @@ module.exports = {
         await m.reply(result.success ? '✅ Test email sent! Check your inbox.' : `❌ Test failed: ${result.error}`);
     },
 
-    dailyreport: async (nimesha, m, { isCreator, mess }) => {
+    dailyreport: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('📊 Generating daily report...');
         const { sendDailyReport } = require('../lib/emailReports');
@@ -491,7 +491,7 @@ module.exports = {
         await m.reply('✅ Daily report sent to your email!');
     },
 
-    weeklyreport: async (nimesha, m, { isCreator, mess }) => {
+    weeklyreport: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('📈 Generating weekly report...');
         const { sendWeeklyReport } = require('../lib/emailReports');
@@ -499,7 +499,7 @@ module.exports = {
         await m.reply('✅ Weekly report sent to your email!');
     },
 
-    monthlyreport: async (nimesha, m, { isCreator, mess }) => {
+    monthlyreport: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('🌌 Generating monthly deep dive...');
         const { sendMonthlyReport } = require('../lib/emailReports');
@@ -507,7 +507,7 @@ module.exports = {
         await m.reply('✅ Monthly report sent to your email!');
     },
 
-    reportnow: async (nimesha, m, { isCreator, mess, args }) => {
+    reportnow: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         const type = args[0]?.toLowerCase() || 'custom';
         const { sendDailyReport, sendWeeklyReport, sendMonthlyReport } = require('../lib/emailReports');
@@ -518,7 +518,7 @@ module.exports = {
         await m.reply(`✅ ${type} report sent!`);
     },
 
-    backupnow: async (nimesha, m, { isCreator, mess }) => {
+    backupnow: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('💾 Creating backup...');
         const { performAutoBackup } = require('../lib/emailReports');
@@ -526,7 +526,7 @@ module.exports = {
         await m.reply('✅ Backup sent to your email!');
     },
 
-    learnfile: async (nimesha, m, { isCreator, mess, args, prefix, command, db, learningSessionManager }) => {
+    learnfile: async (maureonix, m, { isCreator, mess, args, prefix, command, db, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!m.quoted || !['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(m.quoted.type)) {
             return m.reply(`📌 Reply to a file with *${prefix + command} <curriculum_name>*\nExample: ${prefix + command} AI_Fundamentals`);
@@ -545,7 +545,7 @@ module.exports = {
         await m.reply(startRes.message + `\n\nChunk 1/${startRes.totalChunks}:\n${startRes.firstChunk.text.slice(0, 300)}...\nType *next* to continue, *exit* to stop.`);
     },
 
-    learntext: async (nimesha, m, { isCreator, mess, text, prefix, command, learningSessionManager }) => {
+    learntext: async (maureonix, m, { isCreator, mess, text, prefix, command, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         if (!text) return m.reply(`Usage: ${prefix + command} <name> || <content>`);
         const parts = text.split('||');
@@ -560,7 +560,7 @@ module.exports = {
         await m.reply(startRes.message);
     },
 
-    autolearn: async (nimesha, m, { isCreator, mess }) => {
+    autolearn: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         await m.reply('🧠 Scanning curriculum folder and auto-learning...');
         const { scanAndLearnCurriculum } = require('../lib/emailReports');
@@ -568,7 +568,7 @@ module.exports = {
         await m.reply('✅ Auto-learning complete! Check your email for reports.');
     },
 
-    learningstatus: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+    learningstatus: async (maureonix, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const session = learningSessionManager?.getSession(m.sender);
         if (!session) return m.reply('No active learning session.');
@@ -577,7 +577,7 @@ module.exports = {
         await m.reply(txt);
     },
 
-    learningstop: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+    learningstop: async (maureonix, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const result = learningSessionManager?.endSession(m.sender);
         delete global.learningMode[m.sender];
@@ -590,7 +590,7 @@ module.exports = {
         }
     },
 
-    learninghistory: async (nimesha, m, { isCreator, mess, learningSessionManager }) => {
+    learninghistory: async (maureonix, m, { isCreator, mess, learningSessionManager }) => {
         if (!isCreator) return m.reply(mess.owner);
         const history = learningSessionManager?.getMasteryHistory(m.sender);
         if (!history?.length) return m.reply('No learning history.');
@@ -605,7 +605,7 @@ module.exports = {
     //   SYMPHONY ORCHESTRATOR COMMANDS
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    symphony: async (nimesha, m, { isCreator, mess }) => {
+    symphony: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
@@ -623,7 +623,7 @@ module.exports = {
         }
     },
 
-    'symphony-start': async (nimesha, m, { isCreator, mess }) => {
+    'symphony-start': async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { startSymphony } = require('../lib/symphonyOrchestrator');
@@ -634,7 +634,7 @@ module.exports = {
         }
     },
 
-    'symphony-stop': async (nimesha, m, { isCreator, mess }) => {
+    'symphony-stop': async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
@@ -645,7 +645,7 @@ module.exports = {
         }
     },
 
-    'symphony-refresh': async (nimesha, m, { isCreator, mess }) => {
+    'symphony-refresh': async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { symphonyOrchestrator } = require('../lib/symphonyOrchestrator');
@@ -656,7 +656,7 @@ module.exports = {
         }
     },
 
-    'symphony-force': async (nimesha, m, { isCreator, mess, args }) => {
+    'symphony-force': async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         const issueNum = args[0];
         if (!issueNum) return m.reply('Usage: .symphony-force <issue-number>');
@@ -674,7 +674,7 @@ module.exports = {
     //   SUPER INTELLIGENCE COMMANDS
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    think: async (nimesha, m, { isCreator, mess, args }) => {
+    think: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -694,9 +694,9 @@ module.exports = {
         }
     },
 
-    cognitive: async (nimesha, m, ctx) => { await module.exports.think(nimesha, m, ctx); },
+    cognitive: async (maureonix, m, ctx) => { await module.exports.think(maureonix, m, ctx); },
 
-    audit: async (nimesha, m, { isCreator, mess }) => {
+    audit: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -720,9 +720,9 @@ module.exports = {
         }
     },
 
-    'code-audit': async (nimesha, m, ctx) => { await module.exports.audit(nimesha, m, ctx); },
+    'code-audit': async (maureonix, m, ctx) => { await module.exports.audit(maureonix, m, ctx); },
 
-    predict: async (nimesha, m, { isCreator, mess }) => {
+    predict: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -741,9 +741,9 @@ module.exports = {
         }
     },
 
-    forecast: async (nimesha, m, ctx) => { await module.exports.predict(nimesha, m, ctx); },
+    forecast: async (maureonix, m, ctx) => { await module.exports.predict(maureonix, m, ctx); },
 
-    reflect: async (nimesha, m, { isCreator, mess }) => {
+    reflect: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -763,9 +763,9 @@ module.exports = {
         }
     },
 
-    'self-reflect': async (nimesha, m, ctx) => { await module.exports.reflect(nimesha, m, ctx); },
+    'self-reflect': async (maureonix, m, ctx) => { await module.exports.reflect(maureonix, m, ctx); },
 
-    swarm: async (nimesha, m, { isCreator, mess, args }) => {
+    swarm: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -787,9 +787,9 @@ module.exports = {
         }
     },
 
-    agents: async (nimesha, m, ctx) => { await module.exports.swarm(nimesha, m, ctx); },
+    agents: async (maureonix, m, ctx) => { await module.exports.swarm(maureonix, m, ctx); },
 
-    memory: async (nimesha, m, { isCreator, mess, args }) => {
+    memory: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -807,9 +807,9 @@ module.exports = {
         }
     },
 
-    recall: async (nimesha, m, ctx) => { await module.exports.memory(nimesha, m, ctx); },
+    recall: async (maureonix, m, ctx) => { await module.exports.memory(maureonix, m, ctx); },
 
-    brainstorm: async (nimesha, m, { isCreator, mess, args }) => {
+    brainstorm: async (maureonix, m, { isCreator, mess, args }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -827,9 +827,9 @@ module.exports = {
         }
     },
 
-    synthesize: async (nimesha, m, ctx) => { await module.exports.brainstorm(nimesha, m, ctx); },
+    synthesize: async (maureonix, m, ctx) => { await module.exports.brainstorm(maureonix, m, ctx); },
 
-    intelligence: async (nimesha, m, { isCreator, mess }) => {
+    intelligence: async (maureonix, m, { isCreator, mess }) => {
         if (!isCreator) return m.reply(mess.owner);
         try {
             const { superIntelligence } = require('../lib/superIntelligencePack');
@@ -850,30 +850,30 @@ module.exports = {
     },
 
     // Aliases for Symphony commands
-    orch: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
-    orchestrator: async (nimesha, m, ctx) => { await module.exports.symphony(nimesha, m, ctx); },
-    'orch-start': async (nimesha, m, ctx) => { await module.exports['symphony-start'](nimesha, m, ctx); },
-    'orch-stop': async (nimesha, m, ctx) => { await module.exports['symphony-stop'](nimesha, m, ctx); },
-    'orch-refresh': async (nimesha, m, ctx) => { await module.exports['symphony-refresh'](nimesha, m, ctx); },
-    'orch-force': async (nimesha, m, ctx) => { await module.exports['symphony-force'](nimesha, m, ctx); },
+    orch: async (maureonix, m, ctx) => { await module.exports.symphony(maureonix, m, ctx); },
+    orchestrator: async (maureonix, m, ctx) => { await module.exports.symphony(maureonix, m, ctx); },
+    'orch-start': async (maureonix, m, ctx) => { await module.exports['symphony-start'](maureonix, m, ctx); },
+    'orch-stop': async (maureonix, m, ctx) => { await module.exports['symphony-stop'](maureonix, m, ctx); },
+    'orch-refresh': async (maureonix, m, ctx) => { await module.exports['symphony-refresh'](maureonix, m, ctx); },
+    'orch-force': async (maureonix, m, ctx) => { await module.exports['symphony-force'](maureonix, m, ctx); },
 
     // Aliases for the new commands
-    sendmail: async (nimesha, m, ctx) => { await module.exports.sendemail(nimesha, m, ctx); },
-    mailstatus: async (nimesha, m, ctx) => { await module.exports.emailstatus(nimesha, m, ctx); },
-    dailyrep: async (nimesha, m, ctx) => { await module.exports.dailyreport(nimesha, m, ctx); },
-    weekly: async (nimesha, m, ctx) => { await module.exports.weeklyreport(nimesha, m, ctx); },
-    monthly: async (nimesha, m, ctx) => { await module.exports.monthlyreport(nimesha, m, ctx); },
-    report: async (nimesha, m, ctx) => { await module.exports.reportnow(nimesha, m, ctx); },
-    learn: async (nimesha, m, ctx) => { await module.exports.learnfile(nimesha, m, ctx); },
-    learnstop: async (nimesha, m, ctx) => { await module.exports.learningstop(nimesha, m, ctx); },
-    learnstat: async (nimesha, m, ctx) => { await module.exports.learningstatus(nimesha, m, ctx); },
-    learnhistory: async (nimesha, m, ctx) => { await module.exports.learninghistory(nimesha, m, ctx); },
+    sendmail: async (maureonix, m, ctx) => { await module.exports.sendemail(maureonix, m, ctx); },
+    mailstatus: async (maureonix, m, ctx) => { await module.exports.emailstatus(maureonix, m, ctx); },
+    dailyrep: async (maureonix, m, ctx) => { await module.exports.dailyreport(maureonix, m, ctx); },
+    weekly: async (maureonix, m, ctx) => { await module.exports.weeklyreport(maureonix, m, ctx); },
+    monthly: async (maureonix, m, ctx) => { await module.exports.monthlyreport(maureonix, m, ctx); },
+    report: async (maureonix, m, ctx) => { await module.exports.reportnow(maureonix, m, ctx); },
+    learn: async (maureonix, m, ctx) => { await module.exports.learnfile(maureonix, m, ctx); },
+    learnstop: async (maureonix, m, ctx) => { await module.exports.learningstop(maureonix, m, ctx); },
+    learnstat: async (maureonix, m, ctx) => { await module.exports.learningstatus(maureonix, m, ctx); },
+    learnhistory: async (maureonix, m, ctx) => { await module.exports.learninghistory(maureonix, m, ctx); },
 
     // Aliases
-    blokir: async (nimesha, m, ctx) => { await module.exports.block(nimesha, m, ctx); },
-    unblokir: async (nimesha, m, ctx) => { await module.exports.unblock(nimesha, m, ctx); },
-    autosettings: async (nimesha, m, ctx) => { await module.exports.automation(nimesha, m, ctx); },
-    autogpt: async (nimesha, m, ctx) => { await module.exports.autoai(nimesha, m, ctx); },
-    inbox: async (nimesha, m, ctx) => { await module.exports.pending(nimesha, m, ctx); },
-    clearinbox: async (nimesha, m, ctx) => { await module.exports.pendingclear(nimesha, m, ctx); },
+    blokir: async (maureonix, m, ctx) => { await module.exports.block(maureonix, m, ctx); },
+    unblokir: async (maureonix, m, ctx) => { await module.exports.unblock(maureonix, m, ctx); },
+    autosettings: async (maureonix, m, ctx) => { await module.exports.automation(maureonix, m, ctx); },
+    autogpt: async (maureonix, m, ctx) => { await module.exports.autoai(maureonix, m, ctx); },
+    inbox: async (maureonix, m, ctx) => { await module.exports.pending(maureonix, m, ctx); },
+    clearinbox: async (maureonix, m, ctx) => { await module.exports.pendingclear(maureonix, m, ctx); },
 };

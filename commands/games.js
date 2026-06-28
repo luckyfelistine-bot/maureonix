@@ -1,5 +1,5 @@
 // commands/games.js – Maureonix Ultimate Game Engine
-// Contains every game from nima_core.js + new research games
+// Contains every game from maureonix_core.js + new research games
 // Uses gameManager for central state and auto‑cleanup
 
 const { pickRandom, rand, sleep, clockString } = require('../lib/function');
@@ -20,7 +20,7 @@ function getGame(type, playerId, createIfMissing = false, gameData = null) {
 
 // ==================== PVP GAMES ====================
 
-// Suit (Rock‑Paper‑Scissors) – from nima_core.js
+// Suit (Rock‑Paper‑Scissors) – from maureonix_core.js
 async function suitGame(conn, m, db) {
     if (!m.isGroup) return m.reply('This game is only available in groups.');
     const opponent = m.mentionedJid?.[0];
@@ -105,7 +105,7 @@ async function suitChoice(conn, m, db) {
     }
 }
 
-// Chess (PvP & vs Bot) – from nima_core.js
+// Chess (PvP & vs Bot) – from maureonix_core.js
 async function chessGame(conn, m, db) {
     const opponent = m.mentionedJid?.[0];
     const isBot = !opponent || opponent === 'bot';
@@ -179,7 +179,7 @@ async function chessMove(conn, m, db) {
 
 // ==================== SOLO GAMES ====================
 
-// Blackjack (from nima_core.js)
+// Blackjack (from maureonix_core.js)
 async function blackjackGame(conn, m, db) {
     let game = gameManager.get('blackjack', m.sender);
     if (!game) {
@@ -205,7 +205,7 @@ async function blackjackGame(conn, m, db) {
     }
 }
 
-// RPG Adventure (from nima_core.js)
+// RPG Adventure (from maureonix_core.js)
 async function rpgCommand(conn, m, db, args) {
     let rpg = gameManager.get('rpg', m.sender);
     if (!rpg) {
@@ -236,7 +236,7 @@ async function rpgCommand(conn, m, db, args) {
     }
 }
 
-// ==================== MINI GAMES (from nima_core.js) ====================
+// ==================== MINI GAMES (from maureonix_core.js) ====================
 
 async function mathQuizGame(m, db, diff, args) {
     const q = require('../lib/games').mathQuiz(diff);
@@ -289,7 +289,7 @@ async function numbersFact(m) {
 
 // ==================== GROUP GAMES ====================
 
-// Connect 4 (from nima_core.js)
+// Connect 4 (from maureonix_core.js)
 async function connect4Game(conn, m, db) {
     if (!m.isGroup) return m.reply('This game is only available in groups.');
     const opponent = m.mentionedJid?.[0];
@@ -446,7 +446,7 @@ async function factCommand(m) {
 }
 
 // ==================== ECONOMY GAMES ====================
-// (Preserved from nima_core.js – daily, work, rob, transfer, buy, inventory, etc.)
+// (Preserved from maureonix_core.js – daily, work, rob, transfer, buy, inventory, etc.)
 
 async function dailyCommand(m, db) {
     const user = db.users[m.sender];
@@ -540,7 +540,7 @@ async function inventoryCommand(m, db) {
     await m.reply(txt);
 }
 
-// Bomb game – extracted from nima_core.js
+// Bomb game – extracted from maureonix_core.js
 async function bombResponse(m, db) {
     if (!(m.sender in db.game.tebakbom)) return false;
     const game = db.game.tebakbom[m.sender];
@@ -576,7 +576,7 @@ async function bombResponse(m, db) {
     return true; // message handled
 }
 
-// Akinator – extracted from nima_core.js
+// Akinator – extracted from maureonix_core.js
 async function akinatorResponse(m) {
     if (!(m.sender in global.db.game.akinator)) return false;
     const game = global.db.game.akinator[m.sender];
@@ -615,7 +615,7 @@ async function akinatorResponse(m) {
     return true;
 }
 
-// Trivia loop (tebaklirik, tekateki, etc.) – extracted from nima_core.js
+// Trivia loop (tebaklirik, tekateki, etc.) – extracted from maureonix_core.js
 async function triviaResponse(m, db, { iGame, similarity, almost }) {
     const games = {
         tebaklirik: db.game.tebaklirik,
@@ -661,7 +661,7 @@ async function triviaResponse(m, db, { iGame, similarity, almost }) {
     return false;
 }
 
-// Family 100 – extracted from nima_core.js
+// Family 100 – extracted from maureonix_core.js
 async function family100Response(m, db) {
     if (!(m.chat in db.game.family100)) return false;
     const room = db.game.family100[m.chat];
@@ -697,7 +697,7 @@ async function family100Response(m, db) {
     return true;
 }
 
-// Snake Ladder – extracted from nima_core.js
+// Snake Ladder – extracted from maureonix_core.js
 async function snakeLadderResponse(conn, m, db) {
     if (!(m.chat in db.game.ulartangga)) return false;
     const game = db.game.ulartangga[m.chat];
@@ -733,7 +733,7 @@ async function snakeLadderResponse(conn, m, db) {
     return true;
 }
 
-// Mini-game answer handlers – extracted from nima_core.js
+// Mini-game answer handlers – extracted from maureonix_core.js
 async function miniGameAnswer(m, db) {
     const budy = (m.text || m.body).trim();
     const userId = m.sender;

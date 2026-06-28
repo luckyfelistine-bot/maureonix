@@ -146,13 +146,13 @@ global.tempatStore = './database/store.json';
 
 global.APIs = {
 
-&nbsp;   nima: 'https://api.nima.biz.id'
+&nbsp;   maureonix: 'https://api.maureonix.biz.id'
 
 };
 
 global.APIKeys = {
 
-&nbsp;   'https://api.nima.biz.id': ''         // Your API key from nima.biz.id
+&nbsp;   'https://api.maureonix.biz.id': ''         // Your API key from maureonix.biz.id
 
 };
 

@@ -208,7 +208,7 @@ Closes #42
 
 Adding a New Command
 
-Open nima\_commands.js.
+Open maureonix\_commands.js.
 
 
 
@@ -238,11 +238,11 @@ Create the file with a clear export structure.
 
 
 
-Import it in nima\_core.js.
+Import it in maureonix\_core.js.
 
 
 
-Pass it through the ctx object to nima\_commands.js.
+Pass it through the ctx object to maureonix\_commands.js.
 
 
 
@@ -264,9 +264,9 @@ git rebase origin/main
 
 Run a syntax check:
 
-node --check nima\_commands.js
+node --check maureonix\_commands.js
 
-node --check nima\_core.js
+node --check maureonix\_core.js
 
 node --check index.js
 

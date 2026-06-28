@@ -35,7 +35,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  🎬 MOVIES & TV (OMDB + TVMaze)
     // ═════════════════════════════════════════════════════════════════
-    movie: async (nimesha, m, ctx) => {
+    movie: async (maureonix, m, ctx) => {
         const { text, Movie, db, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         await m.reply('🎬 *Searching OMDB...*');
@@ -47,10 +47,10 @@ module.exports = {
             await m.reply(Movie.formatList(results));
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
-    film: async (nimesha, m, ctx) => { await module.exports.movie(nimesha, m, ctx); },
-    cinema: async (nimesha, m, ctx) => { await module.exports.movie(nimesha, m, ctx); },
+    film: async (maureonix, m, ctx) => { await module.exports.movie(maureonix, m, ctx); },
+    cinema: async (maureonix, m, ctx) => { await module.exports.movie(maureonix, m, ctx); },
 
-    imdb: async (nimesha, m, ctx) => {
+    imdb: async (maureonix, m, ctx) => {
         const { args, Movie, db, prefix, command } = getCtx(ctx);
         if (!args[0]) return m.reply(`Example: ${prefix + command} <imdb-id>\nOr reply with a number from a previous search.`);
         let id = args[0];
@@ -82,12 +82,12 @@ module.exports = {
             if (!data || data.Response === 'False') return m.reply(`❌ OMDB: ${data?.Error || 'Movie not found'}`);
             const poster = data.Poster && data.Poster !== 'N/A' ? data.Poster : null;
             const caption = Movie.formatMovie(data);
-            if (poster) await nimesha.sendMessage(m.chat, { image: { url: poster }, caption }, { quoted: m });
+            if (poster) await maureonix.sendMessage(m.chat, { image: { url: poster }, caption }, { quoted: m });
             else await m.reply(caption);
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    series: async (nimesha, m, ctx) => {
+    series: async (maureonix, m, ctx) => {
         const { text, Movie, db, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         await m.reply('📺 *Searching TV series...*');
@@ -100,7 +100,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    rating: async (nimesha, m, ctx) => {
+    rating: async (maureonix, m, ctx) => {
         const { args, Movie, prefix, command } = getCtx(ctx);
         if (!args[0]) return m.reply(`Example: ${prefix + command} <imdb-id>`);
         let id = args[0];
@@ -120,7 +120,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    season: async (nimesha, m, ctx) => {
+    season: async (maureonix, m, ctx) => {
         const { args, OMDB, prefix, command } = getCtx(ctx);
         if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <imdb-id> <season-number>`);
         let id = args[0];
@@ -150,7 +150,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    moviequote: async (nimesha, m, ctx) => {
+    moviequote: async (maureonix, m, ctx) => {
         const { MovieGuesser, db } = getCtx(ctx);
         try {
             const mg = new MovieGuesser();
@@ -163,7 +163,7 @@ module.exports = {
     },
 
     // ─── TVMAZE ───
-    tv: async (nimesha, m, ctx) => {
+    tv: async (maureonix, m, ctx) => {
         const { text, TVMaze, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} breaking bad`);
         try {
@@ -174,7 +174,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    episodes: async (nimesha, m, ctx) => {
+    episodes: async (maureonix, m, ctx) => {
         const { args, TVMaze, prefix, command } = getCtx(ctx);
         if (!args[0]) return m.reply(`Example: ${prefix + command} <tvmaze-show-id>`);
         try {
@@ -185,9 +185,9 @@ module.exports = {
             m.reply(txt);
         } catch (e) { m.reply('❌ ' + e.message); }
     },
-    eps: async (nimesha, m, ctx) => { await module.exports.episodes(nimesha, m, ctx); },
+    eps: async (maureonix, m, ctx) => { await module.exports.episodes(maureonix, m, ctx); },
 
-    tvschedule: async (nimesha, m, ctx) => {
+    tvschedule: async (maureonix, m, ctx) => {
         const { TVMaze } = getCtx(ctx);
         try {
             const s = await TVMaze.schedule('US');
@@ -197,9 +197,9 @@ module.exports = {
             m.reply(txt);
         } catch (e) { m.reply('❌ ' + e.message); }
     },
-    ontv: async (nimesha, m, ctx) => { await module.exports.tvschedule(nimesha, m, ctx); },
+    ontv: async (maureonix, m, ctx) => { await module.exports.tvschedule(maureonix, m, ctx); },
 
-    tvcast: async (nimesha, m, ctx) => {
+    tvcast: async (maureonix, m, ctx) => {
         const { args, TVMaze, prefix, command } = getCtx(ctx);
         if (!args[0]) return m.reply(`Example: ${prefix + command} <tvmaze-show-id>`);
         try {
@@ -212,7 +212,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  📺 ANIME (AniList + Jikan + Kitsu)
     // ═════════════════════════════════════════════════════════════════
-    anime: async (nimesha, m, ctx) => {
+    anime: async (maureonix, m, ctx) => {
         const { text, AniList, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         await m.reply('🔍 *Searching AniList...*');
@@ -224,7 +224,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    animesearch: async (nimesha, m, ctx) => {
+    animesearch: async (maureonix, m, ctx) => {
         const { text, Jikan, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         await m.reply('🔍 *Searching Jikan...*');
@@ -235,7 +235,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    trendinganime: async (nimesha, m, ctx) => {
+    trendinganime: async (maureonix, m, ctx) => {
         const { AniList } = getCtx(ctx);
         try {
             const r = await AniList.trending();
@@ -246,7 +246,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    topanime: async (nimesha, m, ctx) => {
+    topanime: async (maureonix, m, ctx) => {
         const { AniList } = getCtx(ctx);
         try {
             const r = await AniList.topAnime();
@@ -257,7 +257,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    upcominganime: async (nimesha, m, ctx) => {
+    upcominganime: async (maureonix, m, ctx) => {
         const { AniList } = getCtx(ctx);
         try {
             const r = await AniList.upcoming();
@@ -268,7 +268,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    jikan: async (nimesha, m, ctx) => {
+    jikan: async (maureonix, m, ctx) => {
         const { text, Jikan, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} naruto`);
         try {
@@ -279,7 +279,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    topjikan: async (nimesha, m, ctx) => {
+    topjikan: async (maureonix, m, ctx) => {
         const { Jikan } = getCtx(ctx);
         try {
             const r = await Jikan.topAnime();
@@ -290,7 +290,7 @@ module.exports = {
         } catch (e) { m.reply('❌ ' + e.message); }
     },
 
-    animechar: async (nimesha, m, ctx) => {
+    animechar: async (maureonix, m, ctx) => {
         const { text, Jikan, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <character name>`);
         try {
@@ -303,7 +303,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  📖 MANGA (AniList + Jikan + MangaDex + Kitsu)
     // ═════════════════════════════════════════════════════════════════
-    manga: async (nimesha, m, ctx) => {
+    manga: async (maureonix, m, ctx) => {
         const { text, AniList, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         await m.reply('🔍 *Searching AniList Manga...*');
@@ -314,7 +314,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    mangadex: async (nimesha, m, ctx) => {
+    mangadex: async (maureonix, m, ctx) => {
         const { text, MangaDex, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
@@ -324,7 +324,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    mangajikan: async (nimesha, m, ctx) => {
+    mangajikan: async (maureonix, m, ctx) => {
         const { text, Jikan, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
@@ -337,7 +337,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  📚 BOOKS (Open Library)
     // ═════════════════════════════════════════════════════════════════
-    book: async (nimesha, m, ctx) => {
+    book: async (maureonix, m, ctx) => {
         const { text, OpenLibrary, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title or author>`);
         await m.reply('📚 *Searching Open Library...*');
@@ -348,7 +348,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    books: async (nimesha, m, ctx) => {
+    books: async (maureonix, m, ctx) => {
         const { text, OpenLibrary, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
@@ -360,7 +360,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  🎮 GAMES (RAWG)
     // ═════════════════════════════════════════════════════════════════
-    game: async (nimesha, m, ctx) => {
+    game: async (maureonix, m, ctx) => {
         const { text, RAWG, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <game title>`);
         await m.reply('🎮 *Searching RAWG...*');
@@ -371,7 +371,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    games: async (nimesha, m, ctx) => {
+    games: async (maureonix, m, ctx) => {
         const { text, RAWG, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
@@ -380,7 +380,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    topgames: async (nimesha, m, ctx) => {
+    topgames: async (maureonix, m, ctx) => {
         const { RAWG } = getCtx(ctx);
         try {
             const r = await RAWG.topGames();
@@ -394,7 +394,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  🧠 TRIVIA (Open Trivia DB)
     // ═════════════════════════════════════════════════════════════════
-    trivia: async (nimesha, m, ctx) => {
+    trivia: async (maureonix, m, ctx) => {
         const { text, TriviaDB, db, prefix, command } = getCtx(ctx);
         const [amount, category, difficulty] = (text || '').split(',').map(s => s.trim());
         const amt = parseInt(amount) || 5;
@@ -409,7 +409,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  😂 JOKES (JokeAPI)
     // ═════════════════════════════════════════════════════════════════
-    joke: async (nimesha, m, ctx) => {
+    joke: async (maureonix, m, ctx) => {
         const { text, JokeAPI } = getCtx(ctx);
         try {
             const d = await JokeAPI.getJoke(text || 'Any');
@@ -420,7 +420,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  💬 QUOTES (Quotable)
     // ═════════════════════════════════════════════════════════════════
-    quote: async (nimesha, m, ctx) => {
+    quote: async (maureonix, m, ctx) => {
         const { Quotable } = getCtx(ctx);
         try {
             const q = await Quotable.random();
@@ -428,7 +428,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    quotes: async (nimesha, m, ctx) => {
+    quotes: async (maureonix, m, ctx) => {
         const { text, Quotable, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <author name>`);
         try {
@@ -437,7 +437,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    quotetags: async (nimesha, m, ctx) => {
+    quotetags: async (maureonix, m, ctx) => {
         const { Quotable } = getCtx(ctx);
         try {
             const d = await Quotable.tags();
@@ -448,7 +448,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  🔢 FACTS (Numbers + Cat Facts + Dog CEO)
     // ═════════════════════════════════════════════════════════════════
-    numfact: async (nimesha, m, ctx) => {
+    numfact: async (maureonix, m, ctx) => {
         const { text, NumbersAPI, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <number>`);
         const num = parseInt(text);
@@ -459,7 +459,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    yearfact: async (nimesha, m, ctx) => {
+    yearfact: async (maureonix, m, ctx) => {
         const { text, NumbersAPI, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <year>`);
         const num = parseInt(text);
@@ -470,7 +470,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    datefact: async (nimesha, m, ctx) => {
+    datefact: async (maureonix, m, ctx) => {
         const { text, NumbersAPI, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <month/day> (e.g., 12/25)`);
         const [month, day] = text.split('/').map(Number);
@@ -481,7 +481,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    catfact: async (nimesha, m, ctx) => {
+    catfact: async (maureonix, m, ctx) => {
         const { CatFacts } = getCtx(ctx);
         try {
             const d = await CatFacts.random();
@@ -489,7 +489,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    catfacts: async (nimesha, m, ctx) => {
+    catfacts: async (maureonix, m, ctx) => {
         const { CatFacts } = getCtx(ctx);
         try {
             const d = await CatFacts.many(5);
@@ -497,15 +497,15 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    dog: async (nimesha, m, ctx) => {
+    dog: async (maureonix, m, ctx) => {
         const { DogCEO } = getCtx(ctx);
         try {
             const d = await DogCEO.random();
-            await nimesha.sendMessage(m.chat, { image: { url: d.message } }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { image: { url: d.message } }, { quoted: m });
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    dogbreeds: async (nimesha, m, ctx) => {
+    dogbreeds: async (maureonix, m, ctx) => {
         const { DogCEO } = getCtx(ctx);
         try {
             const d = await DogCEO.breeds();
@@ -517,7 +517,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  ⚽ SPORTS (ESPN + TheSportsDB + SportMonks + SportSRC + FootballData)
     // ═════════════════════════════════════════════════════════════════
-    espn: async (nimesha, m, ctx) => {
+    espn: async (maureonix, m, ctx) => {
         const { args, ESPN, prefix, command } = getCtx(ctx);
         if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <sport> <league>\nExample: ${prefix + command} soccer eng.1\n\nCommon leagues:\n• soccer eng.1 (Premier League)\n• soccer esp.1 (La Liga)\n• soccer ger.1 (Bundesliga)\n• soccer ita.1 (Serie A)\n• soccer fra.1 (Ligue 1)`);
         try {
@@ -526,7 +526,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    espnnews: async (nimesha, m, ctx) => {
+    espnnews: async (maureonix, m, ctx) => {
         const { args, ESPN, prefix, command } = getCtx(ctx);
         if (!args[0] || !args[1]) return m.reply(`Example: ${prefix + command} <sport> <league>\nExample: ${prefix + command} soccer eng.1`);
         try {
@@ -535,7 +535,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    sportsdbteam: async (nimesha, m, ctx) => {
+    sportsdbteam: async (maureonix, m, ctx) => {
         const { text, TheSportsDB, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <team name>`);
         try {
@@ -545,7 +545,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    sportsdbnext: async (nimesha, m, ctx) => {
+    sportsdbnext: async (maureonix, m, ctx) => {
         const { text, TheSportsDB, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <league-id>\nUse .sportsdbleagues to find IDs`);
         try {
@@ -557,7 +557,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    sportsdbleagues: async (nimesha, m, ctx) => {
+    sportsdbleagues: async (maureonix, m, ctx) => {
         const { TheSportsDB } = getCtx(ctx);
         try {
             const d = await TheSportsDB.leagues();
@@ -565,7 +565,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    sportmonkslive: async (nimesha, m, ctx) => {
+    sportmonkslive: async (maureonix, m, ctx) => {
         const { SportMonks } = getCtx(ctx);
         try {
             const d = await SportMonks.live();
@@ -576,7 +576,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    sportsrc: async (nimesha, m, ctx) => {
+    sportsrc: async (maureonix, m, ctx) => {
         const { SportSRC } = getCtx(ctx);
         try {
             const d = await SportSRC.scoreboard();
@@ -584,7 +584,7 @@ module.exports = {
         } catch (e) { m.reply(`❌ ${e.message}`); }
     },
 
-    footballstandings: async (nimesha, m, ctx) => {
+    footballstandings: async (maureonix, m, ctx) => {
         const { text, FootballData, prefix, command } = getCtx(ctx);
         if (!text) return m.reply(`Example: ${prefix + command} <competition-code>\nExample: ${prefix + command} PL (Premier League)\n\nCommon codes: PL, PD (La Liga), BL1 (Bundesliga), SA (Serie A), FL1 (Ligue 1)`);
         try {
@@ -596,44 +596,44 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════
     //  📋 CATEGORY MENUS (Text-only, won't interfere with your carousel)
     // ═════════════════════════════════════════════════════════════════
-    moviesmenu: async (nimesha, m, ctx) => {
+    moviesmenu: async (maureonix, m, ctx) => {
         const { prefix } = getCtx(ctx);
         const msg = `╔══════════════════════╗\n║  *🎬 MOVIES & TV*      ║\n╚══════════════════════╝\n\n🎬 *Movies*\n▸ ${prefix}movie <title>\n▸ ${prefix}film <title>\n▸ ${prefix}cinema <title>\n▸ ${prefix}imdb <id or title>\n▸ ${prefix}series <title>\n▸ ${prefix}rating <id or title>\n▸ ${prefix}season <id or title> <season>\n▸ ${prefix}moviequote\n\n📺 *TV Shows*\n▸ ${prefix}tv <show>\n▸ ${prefix}episodes <show-id>\n▸ ${prefix}tvschedule\n▸ ${prefix}tvcast <show-id>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
-    animemenu: async (nimesha, m, ctx) => {
+    animemenu: async (maureonix, m, ctx) => {
         const { prefix } = getCtx(ctx);
         const msg = `╔══════════════════════╗\n║  *📺 ANIME & MANGA*   ║\n╚══════════════════════╝\n\n📺 *Anime*\n▸ ${prefix}anime <title>\n▸ ${prefix}animesearch <title>\n▸ ${prefix}trendinganime\n▸ ${prefix}topanime\n▸ ${prefix}upcominganime\n▸ ${prefix}jikan <title>\n▸ ${prefix}topjikan\n▸ ${prefix}animechar <name>\n\n📖 *Manga*\n▸ ${prefix}manga <title>\n▸ ${prefix}mangadex <title>\n▸ ${prefix}mangajikan <title>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
-    gamesmenu: async (nimesha, m, ctx) => {
+    gamesmenu: async (maureonix, m, ctx) => {
         const { prefix } = getCtx(ctx);
         const msg = `╔══════════════════════╗\n║  *🎮 GAMES & BOOKS*    ║\n╚══════════════════════╝\n\n🎮 *Video Games (RAWG)*\n▸ ${prefix}game <title>\n▸ ${prefix}games <title>\n▸ ${prefix}topgames\n\n📚 *Books (Open Library)*\n▸ ${prefix}book <title>\n▸ ${prefix}books <title>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
-    funmenu: async (nimesha, m, ctx) => {
+    funmenu: async (maureonix, m, ctx) => {
         const { prefix } = getCtx(ctx);
         const msg = `╔══════════════════════╗\n║  *😂 FUN & FACTS*      ║\n╚══════════════════════╝\n\n🧠 *Trivia*\n▸ ${prefix}trivia [amount,category,difficulty]\n\n😂 *Jokes*\n▸ ${prefix}joke [category]\n\n💬 *Quotes*\n▸ ${prefix}quote\n▸ ${prefix}quotes <author>\n▸ ${prefix}quotetags\n\n🔢 *Facts*\n▸ ${prefix}numfact <number>\n▸ ${prefix}yearfact <year>\n▸ ${prefix}datefact <month/day>\n▸ ${prefix}catfact\n▸ ${prefix}catfacts\n▸ ${prefix}dog\n▸ ${prefix}dogbreeds\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
-    sportsmenu: async (nimesha, m, ctx) => {
+    sportsmenu: async (maureonix, m, ctx) => {
         const { prefix } = getCtx(ctx);
         const msg = `╔══════════════════════╗\n║  *⚽ SPORTS COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *ESPN (Free)*\n▸ ${prefix}espn <sport> <league>\n▸ ${prefix}espnnews <sport> <league>\n\n📌 *TheSportsDB (Free)*\n▸ ${prefix}sportsdbleagues\n▸ ${prefix}sportsdbteam <name>\n▸ ${prefix}sportsdbnext <league-id>\n\n📌 *SportMonks (Free Tier)*\n▸ ${prefix}sportmonkslive\n\n📌 *SportSRC (Free)*\n▸ ${prefix}sportsrc\n\n📌 *Football-Data*\n▸ ${prefix}footballstandings <code> (e.g., PL)\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },
 
     // ─── Aliases ───
-    livescore: async (nimesha, m, ctx) => { await module.exports.espn(nimesha, m, ctx); },
-    sportsnews: async (nimesha, m, ctx) => { await module.exports.espnnews(nimesha, m, ctx); },
-    scoreboard: async (nimesha, m, ctx) => { await module.exports.espn(nimesha, m, ctx); },
-    table: async (nimesha, m, ctx) => { await module.exports.footballstandings(nimesha, m, ctx); },
-    headtohead: async (nimesha, m, ctx) => { m.reply('⚠️ Head-to-head moved to TheSportsDB. Use .sportsdbteam and check their website for H2H.'); },
-    prediction: async (nimesha, m, ctx) => { m.reply('⚠️ Predictions API suspended. Use .sportmonkslive for live data.'); },
-    betting: async (nimesha, m, ctx) => { m.reply('⚠️ Betting odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
-    odds: async (nimesha, m, ctx) => { m.reply('⚠️ Odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
-    sports: async (nimesha, m, ctx) => { await module.exports.sportsmenu(nimesha, m, ctx); },
+    livescore: async (maureonix, m, ctx) => { await module.exports.espn(maureonix, m, ctx); },
+    sportsnews: async (maureonix, m, ctx) => { await module.exports.espnnews(maureonix, m, ctx); },
+    scoreboard: async (maureonix, m, ctx) => { await module.exports.espn(maureonix, m, ctx); },
+    table: async (maureonix, m, ctx) => { await module.exports.footballstandings(maureonix, m, ctx); },
+    headtohead: async (maureonix, m, ctx) => { m.reply('⚠️ Head-to-head moved to TheSportsDB. Use .sportsdbteam and check their website for H2H.'); },
+    prediction: async (maureonix, m, ctx) => { m.reply('⚠️ Predictions API suspended. Use .sportmonkslive for live data.'); },
+    betting: async (maureonix, m, ctx) => { m.reply('⚠️ Betting odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
+    odds: async (maureonix, m, ctx) => { m.reply('⚠️ Odds API suspended. Use .sportsrc or .sportmonkslive instead.'); },
+    sports: async (maureonix, m, ctx) => { await module.exports.sportsmenu(maureonix, m, ctx); },
 };

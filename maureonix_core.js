@@ -64,7 +64,7 @@ const { generateQuantumMenu } = require('./lib/menuimage');
 
 // Import all games from ./lib/game
 const {
-  // Classes used inside nima_core.js
+  // Classes used inside maureonix_core.js
   TicTacToe, TicTacToeClassic, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
   Blackjack, BlackjackCasino,
   RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs,
@@ -137,8 +137,8 @@ cron.schedule('0 7 * * *', async () => {
                      `• Groups: ${totalGroups}\n\n` +
                      `🚀 Have an amazing day!`;
 
-    if (global.nimaInstance) {
-        await global.nimaInstance.sendMessage(ownerJid, { text: briefing });
+    if (global.maureonixInstance) {
+        await global.maureonixInstance.sendMessage(ownerJid, { text: briefing });
     }
 }, { timezone: 'Africa/Nairobi' });
 
@@ -185,19 +185,19 @@ cron.schedule('0 * * * *', async () => {
 // ═══════════════════════════════════════════════════════════════
 //  MAIN HANDLER – fully enclosed in a single try-catch
 // ═══════════════════════════════════════════════════════════════
-const coreHandler = async (nimesha, m, msg, store) => {
+const coreHandler = async (maureonix, m, msg, store) => {
     try {
-        await LoadDataBase(nimesha, m);
+        await LoadDataBase(maureonix, m);
         if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
         if (!global.db.database) global.db.database = {};
-        const botNumber = nimesha.decodeJid(nimesha.user.id);
+        const botNumber = maureonix.decodeJid(maureonix.user.id);
         
         // ── Record IDs of all outgoing messages (hardened wrapper) ──
         if (!global.outgoingMessageIds) global.outgoingMessageIds = new Set();
-        if (!nimesha.__sendWrapped) {
-            nimesha.__sendWrapped = true;
-            const originalSend = nimesha.sendMessage.bind(nimesha);
-            nimesha.sendMessage = async (jid, content, options = {}) => {
+        if (!maureonix.__sendWrapped) {
+            maureonix.__sendWrapped = true;
+            const originalSend = maureonix.sendMessage.bind(maureonix);
+            maureonix.sendMessage = async (jid, content, options = {}) => {
                 try {
                     // ═══════════════════════════════════════
                     // Guard – if content is missing, send a fallback so we never crash
@@ -246,9 +246,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ═══════════════════════════════════════════════════════
         if (!global.__emailReportsInitialized) {
             global.__emailReportsInitialized = true;
-            initEmailReports(nimesha, AI);
+            initEmailReports(maureonix, AI);
             // Start proactive intelligence engine
-            require('./lib/proactiveEngine').init(nimesha);
+            require('./lib/proactiveEngine').init(maureonix);
             
             // ── Start autonomous task runner ──
             try {
@@ -261,7 +261,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 // Defer follow until socket is stable — prevents "Connection Closed" errors
                 setTimeout(async () => {
                     try {
-                        await nimesha.newsletterFollow(config.channelJid);
+                        await maureonix.newsletterFollow(config.channelJid);
                         console.log('[CORE] ✅ Following channel:', config.channelJid);
                     } catch (e) {
                         const msg = e.message || '';
@@ -291,7 +291,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const sendReply = async (jid, content, options = {}) => {
             let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
             // For channels, standard sendMessage works with @newsletter JID — no special method needed
-            return nimesha.sendMessage(jid, msgContent, options);
+            return maureonix.sendMessage(jid, msgContent, options);
         };
 
         let messageHandled = false;
@@ -337,13 +337,13 @@ const coreHandler = async (nimesha, m, msg, store) => {
         const my = global.my || { ch: null };
         let cases = [];
         try {
-            const nimaJsContent = fs.readFileSync('./nima.js', 'utf-8');
-            const matches = nimaJsContent.matchAll(/case\s+['"]([^'"]+)['"]/g);
+            const maureonixJsContent = fs.readFileSync('./maureonix.js', 'utf-8');
+            const matches = maureonixJsContent.matchAll(/case\s+['"]([^'"]+)['"]/g);
             cases = [...matches].map(match => match[1]);
             if (!global.db.cases) global.db.cases = cases;
-        } catch (e) { console.error('[cases] Could not read nima.js, "did you mean" disabled'); }
+        } catch (e) { console.error('[cases] Could not read maureonix.js, "did you mean" disabled'); }
 
-        await GroupUpdate(nimesha, m, store);
+        await GroupUpdate(maureonix, m, store);
         const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
         
         // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
@@ -444,7 +444,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 }
                 let tglnya = new Date().toISOString().replace(/[:.]/g, '-');
                 for (let o of ownerNumber) {
-                    try { await nimesha.sendMessage(o, { document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' }); } catch (e) {}
+                    try { await maureonix.sendMessage(o, { document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' }); } catch (e) {}
                 }
             }
         }, { scheduled: true, timezone: 'Africa/Nairobi' });
@@ -452,14 +452,14 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // Auto Bio
         if (set.autobio) {
             if (new Date() * 1 - set.status > 60000) {
-                await nimesha.updateProfileStatus(`${nimesha.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(() => {});
+                await maureonix.updateProfileStatus(`${maureonix.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(() => {});
                 set.status = new Date() * 1;
             }
         }
 
         // Mode restrictions
         if (!isCreator) {
-            if ((set.grouponly === set.privateonly)) { if (!nimesha.public && !m.key.fromMe) return; }
+            if ((set.grouponly === set.privateonly)) { if (!maureonix.public && !m.key.fromMe) return; }
             else if (set.grouponly) { if (!m.isGroup) return; }
             else if (set.privateonly) { if (m.isGroup) return; }
         }
@@ -478,13 +478,13 @@ const coreHandler = async (nimesha, m, msg, store) => {
         }
 
         // ─── MAUREONIX OMNISCIENT CORE (Owner console, no prefix) ───
-        const botOwnJid = nimesha.decodeJid(nimesha.user.id);
+        const botOwnJid = maureonix.decodeJid(maureonix.user.id);
         const isOwnerConsole = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
         if (isOwnerConsole && !isCmd && !messageHandled) {
             messageHandled = true;
             const { handleOwnerMessage } = require('./lib/maureonixCore');
             // ── Pass coreHandler into the omniscient core ──
-            await handleOwnerMessage(nimesha, m, {
+            await handleOwnerMessage(maureonix, m, {
                 body, budy, set, db, ownerNumber, AI, coreHandler
             });
             return;
@@ -507,7 +507,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (mode === 'away' || mode === 'both') addPending(m.sender, body || budy);
             if (mode === 'away') { await m.reply(awayMsg); return; }
             else if (mode === 'ai' || mode === 'both') {
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
                 try {
                     const config = require('./config');
                     const defaultSystem = `You are Maureonix, a friendly and charming AI assistant on WhatsApp. ` +
@@ -555,83 +555,83 @@ const coreHandler = async (nimesha, m, msg, store) => {
                                     db.users[m.sender]._trivia = q.correct;
                                     let txt = `🎯 *Trivia* — ${q.category} | ${q.difficulty}\n\n${q.q}\n\n`;
                                     q.options.forEach((o, i) => txt += `${String.fromCharCode(65 + i)}. ${o}\n`);
-                                    await nimesha.sendMessage(m.chat, { text: txt }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: txt }, { quoted: m });
                                 },
                                 connect4: async () => {
                                     // connect4 needs a second player – can't start solo
-                                    await nimesha.sendMessage(m.chat, { text: '🎮 Connect 4 requires a second player. Tag someone to play!' }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: '🎮 Connect 4 requires a second player. Tag someone to play!' }, { quoted: m });
                                 },
                                 tictactoe: async () => {
                                     // TicTacToe also needs two players
-                                    await nimesha.sendMessage(m.chat, { text: '🎮 Tic‑Tac‑Toe requires a second player. Tag someone!' }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: '🎮 Tic‑Tac‑Toe requires a second player. Tag someone!' }, { quoted: m });
                                 },
                                 blackjack: async () => {
                                     const BJ = require('./lib/game').BlackjackCasino;
                                     const bj = new BJ();
                                     db.game.blackjack[m.sender] = bj;
-                                    await nimesha.sendMessage(m.chat, { text: `🃏 *Blackjack Started!*\n${bj.status()}\n\nReply with *hit* or *stand*.` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `🃏 *Blackjack Started!*\n${bj.status()}\n\nReply with *hit* or *stand*.` }, { quoted: m });
                                 },
                                 rpg: async () => {
                                     const RPG = require('./lib/game').RPGAdventure;
                                     const rpg = new RPG(m.sender);
                                     db.game.rpg[m.sender] = rpg;
-                                    await nimesha.sendMessage(m.chat, { text: `⚔️ *RPG Adventure Started!*\n${rpg.fmt()}\n\nUse *.rpg fight* or *.rpg heal*` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `⚔️ *RPG Adventure Started!*\n${rpg.fmt()}\n\nUse *.rpg fight* or *.rpg heal*` }, { quoted: m });
                                 },
                                 wordle: async () => {
                                     const Wordle = require('./lib/game').Wordle;
                                     const w = new Wordle();
                                     db.game.wordle[m.sender] = w;
-                                    await nimesha.sendMessage(m.chat, { text: '🟩 *Wordle Started!* Guess a 5‑letter word. Reply with your guess.' }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: '🟩 *Wordle Started!* Guess a 5‑letter word. Reply with your guess.' }, { quoted: m });
                                 },
                                 hangman: async () => {
                                     const Hangman = require('./lib/game').Hangman;
                                     const h = new Hangman();
                                     db.game.hangman[m.sender] = h;
-                                    await nimesha.sendMessage(m.chat, { text: `💀 *Hangman Started!* Guess a letter.\n${h.guessed.size ? '' : 'Word: _ _ _ _ _ _'}` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `💀 *Hangman Started!* Guess a letter.\n${h.guessed.size ? '' : 'Word: _ _ _ _ _ _'}` }, { quoted: m });
                                 },
                                 slot: async () => {
                                     const { gameSlot } = require('./lib/game');
-                                    await gameSlot(nimesha, m, db);
+                                    await gameSlot(maureonix, m, db);
                                 },
                                 math: async () => {
                                     const { mathQuiz } = require('./lib/game');
                                     const q = mathQuiz();
                                     db.users[m.sender]._math = q;
-                                    await nimesha.sendMessage(m.chat, { text: `🧠 *Math Quiz*\n${q.q}\nReply with the answer.` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `🧠 *Math Quiz*\n${q.q}\nReply with the answer.` }, { quoted: m });
                                 },
                                 anagram: async () => {
                                     const { anagram } = require('./lib/game');
                                     const a = anagram();
                                     db.users[m.sender]._anagram = a.original;
-                                    await nimesha.sendMessage(m.chat, { text: `🔤 Unscramble: *${a.scrambled}*` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `🔤 Unscramble: *${a.scrambled}*` }, { quoted: m });
                                 },
                                 guessnum: async () => {
                                     const target = Math.floor(Math.random() * 100) + 1;
                                     db.users[m.sender]._gtn = { target, min:1, max:100, tries:0 };
-                                    await nimesha.sendMessage(m.chat, { text: '🔢 *Guess the number between 1 and 100!*' }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: '🔢 *Guess the number between 1 and 100!*' }, { quoted: m });
                                 },
                                 pokemon: async () => {
                                     const pokemon = require('./lib/game').PokemonGame;
                                     const p = await pokemon.random();
                                     db.users[m.sender]._pokemon = p.name;
-                                    await nimesha.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n${p.desc.slice(0,120)}...` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n${p.desc.slice(0,120)}...` }, { quoted: m });
                                 },
                                 truth: async () => {
-                                    await nimesha.sendMessage(m.chat, { text: `🎲 *Truth:* ${require('./lib/game').truthOrDare('truth')}` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `🎲 *Truth:* ${require('./lib/game').truthOrDare('truth')}` }, { quoted: m });
                                 },
                                 dare: async () => {
-                                    await nimesha.sendMessage(m.chat, { text: `🎲 *Dare:* ${require('./lib/game').truthOrDare('dare')}` }, { quoted: m });
+                                    await maureonix.sendMessage(m.chat, { text: `🎲 *Dare:* ${require('./lib/game').truthOrDare('dare')}` }, { quoted: m });
                                 },
                             };
                             const starter = gameStarters[gameName];
                             if (starter) {
                                 await starter();
                             } else {
-                                await nimesha.sendMessage(m.chat, { text: `🎮 Sorry, I don't know how to start "${gameName}". Try: trivia, blackjack, rpg, slot, math, anagram, guessnum, pokemon, truth, dare.` }, { quoted: m });
+                                await maureonix.sendMessage(m.chat, { text: `🎮 Sorry, I don't know how to start "${gameName}". Try: trivia, blackjack, rpg, slot, math, anagram, guessnum, pokemon, truth, dare.` }, { quoted: m });
                             }
                         } catch (gameErr) {
                             console.error('[PLAY game]', gameErr);
-                            await nimesha.sendMessage(m.chat, { text: '🎮 Oops, the game failed to start. Ask the owner to check the logs.' }, { quoted: m });
+                            await maureonix.sendMessage(m.chat, { text: '🎮 Oops, the game failed to start. Ask the owner to check the logs.' }, { quoted: m });
                         }
                     }
 
@@ -641,10 +641,10 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const replyText = `🦊 *Maureonix*\n\n${finalAnswer}`;
                         const { logInteraction } = require('./lib/sharedMemory');
                         logInteraction('private', m.sender, (body || budy), finalAnswer);
-                        await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
+                        await AI.sendLongMessage(maureonix, m.chat, replyText, { quoted: m });
                         messageHandled = true;
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${finalAnswer.slice(0, 300)}` }).catch(() => {});
+                            await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${finalAnswer.slice(0, 300)}` }).catch(() => {});
                         }
                     }
                 } catch (e) { console.error('[privat AI]', e); }
@@ -700,7 +700,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             entry.messages.push({ time: now, body: body || budy });
             if (entry.messages.length > 50) entry.messages.shift();
 
-            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat).catch(() => {});
+            if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat).catch(() => {});
 
             try {
                 const { text: answer, thinking } = await AI.enhancedAI(userMessage, m.sender, 'deepseek', null);
@@ -710,16 +710,16 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     const replyText = `🦊 *Maureonix*\n\n${answer}`;
                     const { logInteraction } = require('./lib/sharedMemory');
                     logInteraction('private', m.sender, (body || budy), answer);
-                    await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
+                    await AI.sendLongMessage(maureonix, m.chat, replyText, { quoted: m });
                     messageHandled = true;   // <-- ADD THIS LINE
                     
                     if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                        await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
+                        await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                     }
                     session.context.push({ role: 'assistant', content: answer, time: Date.now() });
                 }
                 if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
-                    await nimesha.sendMessage(ownerNumber[0], { text: `📬 *Auto-AI Activity Report*\nUser: ${m.sender}\nMessages: ${session.messageCount}\nLast: ${userMessage.substring(0, 80)}...` }).catch(() => {});
+                    await maureonix.sendMessage(ownerNumber[0], { text: `📬 *Auto-AI Activity Report*\nUser: ${m.sender}\nMessages: ${session.messageCount}\nLast: ${userMessage.substring(0, 80)}...` }).catch(() => {});
                     session.notifiedOwner = true;
                 }
             } catch (e) { console.error('[autoai error]', e); }
@@ -753,7 +753,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             // ─── Handle "crisis stop" command to exit crisis mode ───
             if (db.crisisPending?.[m.sender]?.state === 'talking' && userMessage.toLowerCase() === 'crisis stop') {
                 delete db.crisisPending[m.sender];
-                await nimesha.sendMessage(m.chat, { text: '💙 *Crisis mode ended.*\nI\'m still here if you need me. Just type anything.' }, { quoted: m });
+                await maureonix.sendMessage(m.chat, { text: '💙 *Crisis mode ended.*\nI\'m still here if you need me. Just type anything.' }, { quoted: m });
                 return;
             }
 
@@ -805,11 +805,11 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                     if (verified) {
                         const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly – just type naturally.\n👉 Reply with "yes" to talk, or "no" for human contact.\n\n_Your feelings matter._ 💙`;
-                        await nimesha.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
+                        await maureonix.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
                         if (!db.crisisPending) db.crisisPending = {};
                         db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
-                        // Send crisis alert via email + WhatsApp (FIXED: pass nimesha)
-                        await sendCrisisAlert(userMessage, m.sender, crisis.severity, nimesha);
+                        // Send crisis alert via email + WhatsApp (FIXED: pass maureonix)
+                        await sendCrisisAlert(userMessage, m.sender, crisis.severity, maureonix);
                         return;
                     }
                 }
@@ -820,28 +820,28 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 if (choice === 'yes') {
                     db.crisisPending[m.sender].state = 'talking';
                     db.crisisPending[m.sender].lastMsgTime = Date.now();
-                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
                     return;
                 } else if (choice === 'no') {
                     const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
-                    await nimesha.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
                     delete db.crisisPending[m.sender];  // Clean up
                     return;
                 } else {
-                    await nimesha.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
                     return;
                 }
             }
 
             if (db.crisisPending?.[m.sender]?.state === 'talking') {
                 db.crisisPending[m.sender].lastMsgTime = Date.now();
-                if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+                if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
                 try {
                     const crisisSystem = `You are a compassionate listener. The user is in distress. Respond warmly and briefly. Never give medical advice. Use 💙.`;
                     const result = await AI.ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
-                    await nimesha.sendMessage(m.chat, { text: result.text }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { text: result.text }, { quoted: m });
                 } catch (e) {
-                    await nimesha.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
+                    await maureonix.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
                 }
                 return;
             }
@@ -853,7 +853,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             for (const [userId, state] of Object.entries(db.crisisPending)) {
                 if (state.state === 'talking' && nowTimeCrisis - state.lastMsgTime > 10 * 60 * 1000) {
                     delete db.crisisPending[userId];
-                    try { await nimesha.sendMessage(userId, { text: `💙 I'm still here if you need me.` }); } catch {}
+                    try { await maureonix.sendMessage(userId, { text: `💙 I'm still here if you need me.` }); } catch {}
                 }
             }
         }
@@ -898,14 +898,14 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         const { logInteraction } = require('./lib/sharedMemory');
                         logInteraction('private', m.sender, (body || budy), finalAnswer);
                         if (set.ownerMirror && m.sender !== ownerNumber[0]) {
-                            await nimesha.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
+                            await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
                         }
                         return;
                     } else {
                         // Gemini returned no text – set handled so no other block fires
                         messageHandled = true;
                         // optional soft fallback (uncomment if you want a reply)
-                        // await nimesha.sendMessage(m.chat, { text: '🤖 *Maureonix*\n\nI couldn\'t process that right now. Please try again.' }, { quoted: m });
+                        // await maureonix.sendMessage(m.chat, { text: '🤖 *Maureonix*\n\nI couldn\'t process that right now. Please try again.' }, { quoted: m });
                     }
                 }
             } catch (e) {
@@ -922,7 +922,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             if (db.groups && db.groups[m.chat] && db.groups[m.chat].mute && !isCreator) return;
             // Anti Hidetag
             if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participants?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
-                await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
                 await m.reply('*Anti Hidetag is active❗*');
             }
             // Anti Tag Status
@@ -932,7 +932,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                         db.groups[m.chat].tagsw[m.sender] = 1;
                         await m.reply(`⚠️ Warning 1/5 – do not tag the group in status.\n@${m.sender.split('@')[0]}`);
                     } else if (db.groups[m.chat].tagsw[m.sender] >= 5) {
-                        await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                        await maureonix.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
                         delete db.groups[m.chat].tagsw[m.sender];
                     } else {
                         db.groups[m.chat].tagsw[m.sender] += 1;
@@ -944,7 +944,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
             const badWords = ['fuck', 'shit', 'bitch', 'cunt', 'asshole'];
             if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                    await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
                     await m.reply(`@${m.sender.split('@')[0]} toxic language detected.`);
                 }
             }
@@ -961,19 +961,19 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     }
                     msgContent.contextInfo = { mentionedJid: [chats.key.participant], isForwarded: true };
                     const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: { mentionedJid: [chats.key.participant] }}} : { [msgType]: msgContent };
-                    await nimesha.relayMessage(m.chat, pesan, {});
+                    await maureonix.relayMessage(m.chat, pesan, {});
                 }
             }
             // Anti Link Group
             if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin && budy.match('chat.whatsapp.com/')) {
-                await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
                 await m.reply(`@${m.sender.split('@')[0]} group links not allowed.`);
             }
             // Anti Virtex
             if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
                 if (budy.length > 4500 || m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
-                    await nimesha.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
-                    await nimesha.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                    await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                    await maureonix.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
                     await m.reply(`@${m.sender.split('@')[0]} removed for virtex.`);
                 }
             }
@@ -981,21 +981,21 @@ const coreHandler = async (nimesha, m, msg, store) => {
 
         // Auto Read, Auto Status, Auto React, Auto Reply (condensed)
         if (m.message && m.key.remoteJid !== 'status@broadcast') {
-            if ((set.autoread && nimesha.public) || isCreator) {
-                nimesha.readMessages([m.key]);
+            if ((set.autoread && maureonix.public) || isCreator) {
+                maureonix.readMessages([m.key]);
                 console.log(chalk.black(chalk.bgWhite('[ MESSAGE ]:'), chalk.bgGreen(new Date), chalk.bgHex('#00EAD3')(budy || m.type), chalk.bgHex('#AF26EB')(m.key.id) + '\n' + chalk.bgCyanBright('[ FROM ] :'), chalk.bgYellow(m.pushName || (isCreator ? 'Bot' : 'Anonym')), chalk.bgHex('#FF449F')(m.sender), chalk.bgHex('#FF5700')(m.isGroup ? m.metadata.subject : m.chat.endsWith('@newsletter') ? 'Newsletter' : 'Private Chat'), chalk.bgBlue('(' + m.chat + ')')));
             }
         }
         if (m.key.remoteJid === 'status@broadcast' && set.autostatus && !m.key.fromMe) {
-            await nimesha.readMessages([m.key]);
-            if (set.autostatusreact) await nimesha.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
+            await maureonix.readMessages([m.key]);
+            if (set.autostatusreact) await maureonix.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
         }
         if (set.autoreactmention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
-            await nimesha.sendMessage(m.chat, { react: { text: '👀', key: m.key } });
+            await maureonix.sendMessage(m.chat, { react: { text: '👀', key: m.key } });
         }
         if (set.autoreplymention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
             const replyText = set.autoreplymention.replace(/{user}/g, `@${m.sender.split('@')[0]}`);
-            await nimesha.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
+            await maureonix.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
         }
 
         // ─── AUTO COMMANDS SHORTCUTS (autodownload, autoforward, autosticker, etc.) ───
@@ -1003,32 +1003,32 @@ const coreHandler = async (nimesha, m, msg, store) => {
             try {
                 const media = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
                 if (media) {
-                    const buffer = await nimesha.downloadMediaMessage(m);
-                    await nimesha.sendMessage(ownerNumber[0], { [media.imageMessage ? 'image' : 'video']: buffer, caption: `Status from @${m.sender.split('@')[0]}`, mentions: [m.sender] });
+                    const buffer = await maureonix.downloadMediaMessage(m);
+                    await maureonix.sendMessage(ownerNumber[0], { [media.imageMessage ? 'image' : 'video']: buffer, caption: `Status from @${m.sender.split('@')[0]}`, mentions: [m.sender] });
                 }
             } catch {}
         }
         if (set.autoforward && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') {
-            try { await nimesha.sendMessage(set.autoforward, { forward: m }, {}); } catch {}
+            try { await maureonix.sendMessage(set.autoforward, { forward: m }, {}); } catch {}
         }
         if (set.autosticker && !m.key.fromMe && (m.type === 'imageMessage' || m.type === 'videoMessage')) {
             try {
                 const buffer = await m.download();
                 const sticker = await writeExif(buffer, { packname, author });
-                await nimesha.sendMessage(m.chat, { sticker: fs.readFileSync(sticker) }, { quoted: m });
+                await maureonix.sendMessage(m.chat, { sticker: fs.readFileSync(sticker) }, { quoted: m });
                 fs.unlinkSync(sticker);
             } catch {}
         }
         if (set.autodelete > 0 && m.key.fromMe) {
-            setTimeout(async () => { try { await nimesha.sendMessage(m.chat, { delete: m.key }); } catch {} }, set.autodelete * 1000);
+            setTimeout(async () => { try { await maureonix.sendMessage(m.chat, { delete: m.key }); } catch {} }, set.autodelete * 1000);
         }
         if (set.autoreact && !m.key.fromMe) {
-            try { await nimesha.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } }); } catch {}
+            try { await maureonix.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } }); } catch {}
         }
 
         // Anti Spam & DidYouMean
-        if (nimesha.public && isCmd) {
-            if (set.autotyping) await nimesha.sendPresenceUpdate('composing', m.chat);
+        if (maureonix.public && isCmd) {
+            if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
             if (set.antispam && antiSpam.isFiltered(m.sender)) return m.reply('「 ❗ 」Please wait 5 seconds between commands.');
         }
         if (isCmd && !isCreator) antiSpam.addFilter(m.sender);
@@ -1036,15 +1036,15 @@ const coreHandler = async (nimesha, m, msg, store) => {
         // ─── FIXED .vv COMMAND (view‑once) – replies only to quoted message ───
         if (isCmd && command === 'vv' && m.quoted && m.quoted.msg && (m.quoted.msg.viewOnce || m.quoted.msg.viewOnceMessageV2)) {
             try {
-                const mediaBuffer = await nimesha.downloadMediaMessage(m.quoted);
+                const mediaBuffer = await maureonix.downloadMediaMessage(m.quoted);
                 if (!mediaBuffer) return m.reply('Could not download view‑once media.');
                 const mimeType = m.quoted.msg.mimetype || (m.quoted.type === 'imageMessage' ? 'image/jpeg' : 'video/mp4');
                 const isImage = mimeType.startsWith('image/');
                 const msgOptions = isImage
                     ? { image: mediaBuffer, caption: '👁️ View‑once image recovered.' }
                     : { video: mediaBuffer, caption: '👁️ View‑once video recovered.' };
-                await nimesha.sendMessage(m.chat, msgOptions, { quoted: m });
-                await nimesha.sendMessage(m.chat, { delete: m.key }).catch(() => {});
+                await maureonix.sendMessage(m.chat, msgOptions, { quoted: m });
+                await maureonix.sendMessage(m.chat, { delete: m.key }).catch(() => {});
             } catch (e) { console.error('[vv error]', e); m.reply('Failed to retrieve view‑once media.'); }
             return;
         }
@@ -1054,16 +1054,16 @@ const coreHandler = async (nimesha, m, msg, store) => {
             try {
                 const autoGroupJid = global.my?.ch;
                 if (autoGroupJid && autoGroupJid.endsWith('@g.us')) {
-                    const groupMeta = await nimesha.groupMetadata(autoGroupJid).catch(()=>null);
+                    const groupMeta = await maureonix.groupMetadata(autoGroupJid).catch(()=>null);
                     if (groupMeta) {
                         const alreadyIn = groupMeta.participants.some(p => (p.id || p.lid || '').replace(/[^0-9]/g, '') === m.sender.replace(/[^0-9]/g, ''));
                         if (!alreadyIn) {
-                            const findJid = typeof nimesha.findJidByLid === 'function' ? nimesha.findJidByLid(m.sender.replace(/[^0-9]/g, '') + '@lid', store) : null;
+                            const findJid = typeof maureonix.findJidByLid === 'function' ? maureonix.findJidByLid(m.sender.replace(/[^0-9]/g, '') + '@lid', store) : null;
                             const addJid = findJid ? (m.sender.replace(/[^0-9]/g, '') + '@lid') : m.sender;
-                            const res = await nimesha.groupParticipantsUpdate(autoGroupJid, [addJid], 'add').catch(()=>null);
+                            const res = await maureonix.groupParticipantsUpdate(autoGroupJid, [addJid], 'add').catch(()=>null);
                             if (res?.[0]?.status == 403) {
-                                const invCode = await nimesha.groupInviteCode(autoGroupJid).catch(()=>null);
-                                if (invCode) await nimesha.sendMessage(m.sender, { text: '*Maureonix Group*\nhttps://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp' });
+                                const invCode = await maureonix.groupInviteCode(autoGroupJid).catch(()=>null);
+                                if (invCode) await maureonix.sendMessage(m.sender, { text: '*Maureonix Group*\nhttps://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp' });
                             }
                         }
                     }
@@ -1077,7 +1077,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 m.react('✈');
                 m.msg.contextInfo = { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama || 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }};
                 const pesan = m.type === 'conversation' ? { extendedTextMessage: { text: m.msg, contextInfo: { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama || 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }}}} : { [m.type]: m.msg };
-                await nimesha.relayMessage(menfes[m.sender].tujuan, pesan, {});
+                await maureonix.relayMessage(menfes[m.sender].tujuan, pesan, {});
             }
             if (chat_ai[m.sender] && m.key.remoteJid !== 'status@broadcast') {
                 if (!/^(del((room|c|hat)ai)|>|<$)$/i.test(command) && budy) {
@@ -1085,7 +1085,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
                     let hasil;
                     try {
-                        const base = global.APIs?.nima || 'https://api.nima.biz.id';
+                        const base = global.APIs?.maureonix || 'https://api.maureonix.biz.id';
                         const key = global.APIKeys?.[base] || '';
                         const res = await fetch(base + '/ai/chat4', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: chat_ai[m.sender], prompt: budy }) });
                         if (res.ok) hasil = await res.json();
@@ -1130,9 +1130,9 @@ const coreHandler = async (nimesha, m, msg, store) => {
             return;
         }
         
-        // ─── FINAL: LOAD AND EXECUTE COMMANDS FROM nima_commands.js ───
-        const handleCommand = require('./nima_commands');
-        await handleCommand(nimesha, m, {
+        // ─── FINAL: LOAD AND EXECUTE COMMANDS FROM maureonix_commands.js ───
+        const handleCommand = require('./maureonix_commands');
+        await handleCommand(maureonix, m, {
             mess,
             isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
             set, sewa, premium, db, store, botNumber,

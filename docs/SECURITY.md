@@ -56,7 +56,7 @@ config.js
 
 database/
 
-nimadev/
+maureonixdev/
 
 jadibot\_sessions/
 
@@ -298,7 +298,7 @@ Review ownerNumber and remove any unknown numbers.
 
 
 
-Delete the nimadev folder and re‑pair the bot.
+Delete the maureonixdev folder and re‑pair the bot.
 
 
 
@@ -330,7 +330,7 @@ API keys have appropriate restrictions (IP whitelist, usage limits).
 
 
 
-MongoDB user has minimal required permissions.
+MongoDB user has mimaureonixl required permissions.
 
 
 

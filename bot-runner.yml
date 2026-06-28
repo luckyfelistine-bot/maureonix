@@ -51,13 +51,13 @@ jobs:
       - name: 📦 Install Node Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: 📂 Restore Session (nimadev folder)
+      - name: 📂 Restore Session (maureonixdev folder)
         uses: actions/cache@v4
         with:
-          path: nimadev
-          key: session-nimadev-${{ github.run_id }}
+          path: maureonixdev
+          key: session-maureonixdev-${{ github.run_id }}
           restore-keys: |
-            session-nimadev-
+            session-maureonixdev-
 
       - name: 📂 Restore Database
         uses: actions/cache@v4
@@ -75,7 +75,7 @@ jobs:
         run: |
           # settings.js හි API key inject කරන්නේ නැතිව env use කරනවා නම් මෙහෙම
           echo "✅ Environment ready"
-          ls -la nimadev/ 2>/dev/null && echo "✅ Session found!" || echo "⚠️ No session - QR scan needed"
+          ls -la maureonixdev/ 2>/dev/null && echo "✅ Session found!" || echo "⚠️ No session - QR scan needed"
 
       - name: 🚀 Run Bot
         timeout-minutes: 345
@@ -94,8 +94,8 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: nimadev
-          key: session-nimadev-${{ github.run_id }}
+          path: maureonixdev
+          key: session-maureonixdev-${{ github.run_id }}
 
       - name: 💾 Save Database After Run
         if: always()

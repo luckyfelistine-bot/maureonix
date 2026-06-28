@@ -1,15 +1,15 @@
 // commands/search.js – Search, Wikipedia, News, Crypto, etc.
 module.exports = {
-    google: async (nimesha, m, { text, Search, prefix, command }) => {
+    google: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <query>`);
         try {
             const res = await Search.googleSearch(text);
             await m.reply(`🔍 *Google Results*\n\n${res || 'No results'}`);
         } catch (e) { m.reply('❌ Search failed: ' + e.message); }
     },
-    g: async (nimesha, m, ctx) => { await module.exports.google(nimesha, m, ctx); },
-    search: async (nimesha, m, ctx) => { await module.exports.google(nimesha, m, ctx); },
-    wiki: async (nimesha, m, { text, Search, prefix, command }) => {
+    g: async (maureonix, m, ctx) => { await module.exports.google(maureonix, m, ctx); },
+    search: async (maureonix, m, ctx) => { await module.exports.google(maureonix, m, ctx); },
+    wiki: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <query>`);
         try {
             const fetch = require('node-fetch');
@@ -29,7 +29,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ Wikipedia search failed: ' + e.message); }
         }
     },
-    github: async (nimesha, m, { text, Search, prefix, command }) => {
+    github: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <repo>`);
         try {
             const fetch = require('node-fetch');
@@ -50,7 +50,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ GitHub search failed: ' + e.message); }
         }
     },
-    npm: async (nimesha, m, { args, Search, prefix, command }) => {
+    npm: async (maureonix, m, { args, Search, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <package>`);
         try {
             const fetch = require('node-fetch');
@@ -69,7 +69,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ NPM search failed: ' + e.message); }
         }
     },
-    urban: async (nimesha, m, { text, Search, prefix, command }) => {
+    urban: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <word>`);
         try {
             const fetch = require('node-fetch');
@@ -88,7 +88,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ Urban Dictionary failed: ' + e.message); }
         }
     },
-    anime: async (nimesha, m, { text, Search, prefix, command }) => {
+    anime: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
             const fetch = require('node-fetch');
@@ -109,7 +109,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ Anime search failed: ' + e.message); }
         }
     },
-    manga: async (nimesha, m, { text, Search, prefix, command }) => {
+    manga: async (maureonix, m, { text, Search, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <title>`);
         try {
             const fetch = require('node-fetch');
@@ -130,7 +130,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ Manga search failed: ' + e.message); }
         }
     },
-    weather: async (nimesha, m, { text, Tools, prefix, command }) => {
+    weather: async (maureonix, m, { text, Tools, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <city>`);
         try {
             const fetch = require('node-fetch');
@@ -154,8 +154,8 @@ module.exports = {
             } catch (e2) { m.reply('❌ Weather lookup failed: ' + e.message); }
         }
     },
-    cuaca: async (nimesha, m, ctx) => { await module.exports.weather(nimesha, m, ctx); },
-    news: async (nimesha, m, { Tools }) => {
+    cuaca: async (maureonix, m, ctx) => { await module.exports.weather(maureonix, m, ctx); },
+    news: async (maureonix, m, { Tools }) => {
         try {
             const fetch = require('node-fetch');
             const rssUrl = 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml';
@@ -176,7 +176,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ News fetch failed: ' + e.message); }
         }
     },
-    covid: async (nimesha, m, { text, prefix, command }) => {
+    covid: async (maureonix, m, { text, prefix, command }) => {
         if (!text) return m.reply(`Example: ${prefix + command} <country>`);
         try {
             const fetch = require('node-fetch');
@@ -188,7 +188,7 @@ module.exports = {
             await m.reply(result);
         } catch (e) { m.reply('❌ COVID data failed: ' + e.message); }
     },
-    forex: async (nimesha, m, { args, Tools, prefix, command }) => {
+    forex: async (maureonix, m, { args, Tools, prefix, command }) => {
         if (args.length < 2) return m.reply(`Example: ${prefix + command} USD EUR`);
         try {
             const fetch = require('node-fetch');
@@ -207,7 +207,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ Forex lookup failed: ' + e.message); }
         }
     },
-    iplookup: async (nimesha, m, { args, Tools, prefix, command }) => {
+    iplookup: async (maureonix, m, { args, Tools, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <ip>`);
         try {
             const fetch = require('node-fetch');
@@ -224,7 +224,7 @@ module.exports = {
             } catch (e2) { m.reply('❌ IP lookup failed: ' + e.message); }
         }
     },
-    whois: async (nimesha, m, { args, prefix, command }) => {
+    whois: async (maureonix, m, { args, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <domain>`);
         try {
             const dns = require('dns').promises;
@@ -232,7 +232,7 @@ module.exports = {
             await m.reply(`📡 *Domain Info: ${args[0]}*\n\n🌐 IP: ${addresses.address}\n📡 Family: IPv${addresses.family}`);
         } catch (e) { m.reply('❌ WHOIS lookup failed: ' + e.message); }
     },
-    dns: async (nimesha, m, { args, prefix, command }) => {
+    dns: async (maureonix, m, { args, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <domain>`);
         try {
             const dns = require('dns').promises;
@@ -248,7 +248,7 @@ module.exports = {
             await m.reply(result || 'No DNS records found');
         } catch (e) { m.reply('❌ DNS lookup failed: ' + e.message); }
     },
-    shorten: async (nimesha, m, { args, prefix, command }) => {
+    shorten: async (maureonix, m, { args, prefix, command }) => {
         if (!args[0]) return m.reply(`Example: ${prefix + command} <url>`);
         try {
             const fetch = require('node-fetch');
@@ -271,7 +271,7 @@ module.exports = {
             if (!success) throw new Error('All URL shorteners failed');
         } catch (e) { m.reply('❌ URL shortening failed: ' + e.message); }
     },
-    searchmenu: async (nimesha, m, { prefix }) => {
+    searchmenu: async (maureonix, m, { prefix }) => {
         const msg = `╔══════════════════════╗\n║  *🔍 SEARCH COMMANDS*  ║\n╚══════════════════════╝\n\n📌 *Web Search*\n▸ ${prefix}google <query>\n▸ ${prefix}wiki <query>\n▸ ${prefix}urban <word>\n▸ ${prefix}weather <city>\n▸ ${prefix}news\n\n📌 *Anime & Manga*\n▸ ${prefix}anime <title>\n▸ ${prefix}manga <title>\n\n📌 *Developer*\n▸ ${prefix}github <repo>\n▸ ${prefix}npm <package>\n▸ ${prefix}iplookup <ip>\n▸ ${prefix}whois <domain>\n▸ ${prefix}dns <domain>\n\n━━━━━━━━━━━━━━━━━━━━━━\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX`;
         await m.reply(msg);
     },

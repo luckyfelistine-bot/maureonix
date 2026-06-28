@@ -20,7 +20,7 @@ const { jidNormalizedUser, proto, getBinaryNodeChildren, getBinaryNodeChildStrin
     * WhatsApp : https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h
 */
 
-async function GroupUpdate(nimesha, m, store) {
+async function GroupUpdate(maureonix, m, store) {
     function clearParse(parse) {
         try {
             return JSON.parse(parse);
@@ -48,13 +48,13 @@ async function GroupUpdate(nimesha, m, store) {
             123: 'Ephemeral messages disabled.',
             132: 'Group link has been updated!',
         };
-        if (nimesha.public && global.db?.groups?.[m.chat]?.setinfo && messages[type]) {
-            await nimesha.sendMessage(m.chat, { text: `${admin} ${messages[type]}`, mentions: [m.sender, ...((normalizedTarget?.id || normalizedTarget)?.includes('@') ? [`${normalizedTarget.id || normalizedTarget}`] : [])]}, { ephemeralExpiration: m.expiration || m?.metadata?.ephemeralDuration || store?.messages[m.chat]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+        if (maureonix.public && global.db?.groups?.[m.chat]?.setinfo && messages[type]) {
+            await maureonix.sendMessage(m.chat, { text: `${admin} ${messages[type]}`, mentions: [m.sender, ...((normalizedTarget?.id || normalizedTarget)?.includes('@') ? [`${normalizedTarget.id || normalizedTarget}`] : [])]}, { ephemeralExpiration: m.expiration || m?.metadata?.ephemeralDuration || store?.messages[m.chat]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
         }
         if (type === 20) {
             clearTimeout(groupMetadataTimers[m.chat]);
             groupMetadataTimers[m.chat] = setTimeout(async () => {
-                store.groupMetadata[m.chat] = await nimesha.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
+                store.groupMetadata[m.chat] = await maureonix.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
             }, 5000);
         } else if (type === 29 || type === 30) {
             const target = jidNormalizedUser(normalizedTarget.id || normalizedTarget);
@@ -72,11 +72,11 @@ async function GroupUpdate(nimesha, m, store) {
             if (!metadata.participants.some(a => (a.id === (normalizedTarget.id || normalizedTarget) || a.lid === (normalizedTarget.id || normalizedTarget)))) {
                 clearTimeout(groupMetadataTimers[m.chat]);
                 groupMetadataTimers[m.chat] = setTimeout(async () => {
-                    store.groupMetadata[m.chat] = await nimesha.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
+                    store.groupMetadata[m.chat] = await maureonix.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
                 }, 5000);
             }
         } else if (type === 28 || type === 32) {
-            if (m.fromMe && ((jidNormalizedUser(nimesha.user.id) == (normalizedTarget.id || normalizedTarget)) || (jidNormalizedUser(nimesha.user.lid) == (normalizedTarget.id || normalizedTarget)))) {
+            if (m.fromMe && ((jidNormalizedUser(maureonix.user.id) == (normalizedTarget.id || normalizedTarget)) || (jidNormalizedUser(maureonix.user.lid) == (normalizedTarget.id || normalizedTarget)))) {
                 delete store.messages[m.chat];
                 delete store.presences[m.chat];
                 delete store.groupMetadata[m.chat];
@@ -94,7 +94,7 @@ async function GroupUpdate(nimesha, m, store) {
     }
 }
 
-async function GroupParticipantsUpdate(nimesha, { id, participants, author, action }, store) {
+async function GroupParticipantsUpdate(maureonix, { id, participants, author, action }, store) {
     try {
         function updateAdminStatus(participants, metadataParticipants, status) {
             for (const participant of metadataParticipants) {
@@ -110,7 +110,7 @@ async function GroupParticipantsUpdate(nimesha, { id, participants, author, acti
                 const participant = metadata.participants.find(a => a.id == jidNormalizedUser(jid));
                 let profile;
                 try {
-                    profile = await nimesha.profilePictureUrl(jid, 'image');
+                    profile = await maureonix.profilePictureUrl(jid, 'image');
                 } catch {
                     profile = 'https://telegra.ph/file/95670d63378f7f4210f03.png';
                 }
@@ -137,12 +137,12 @@ Respect all members. 💚
                     if (!participant) {
                         clearTimeout(groupMetadataTimers[id]);
                         groupMetadataTimers[id] = setTimeout(async () => {
-                            store.groupMetadata[id] = await nimesha.groupMetadata(id).catch(e => ({ ...store.groupMetadata[id] }));
+                            store.groupMetadata[id] = await maureonix.groupMetadata(id).catch(e => ({ ...store.groupMetadata[id] }));
                         }, 5000);
                     }
                 } else if (action === 'remove') {
                     if (db.groups[id].leave) messageText = db.groups[id]?.text?.setleave || `╔══════════════════╗\n║  👋 *Left the group!* 👋\n╠══════════════════╣\n║\n║ 😢 @\n║ *${metadata.subject}*\n║ *has left the group.*\n║\n║ Wish them well!\n╚══════════════════╝`;
-                    if ((jidNormalizedUser(nimesha.user.lid) == jidNormalizedUser(jid)) || (jidNormalizedUser(nimesha.user.id) == jidNormalizedUser(jid))) {
+                    if ((jidNormalizedUser(maureonix.user.lid) == jidNormalizedUser(jid)) || (jidNormalizedUser(maureonix.user.id) == jidNormalizedUser(jid))) {
                         delete store.messages[id];
                         delete store.presences[id];
                         delete store.groupMetadata[id];
@@ -155,8 +155,8 @@ Respect all members. 💚
                     if (db.groups[id].demote) messageText = db.groups[id]?.text?.setdemote || `╔══════════════════╗\n║  🚫 *Admin Demotion* 🚫\n╠══════════════════╣\n║\n║ 📉 @\n║ *${metadata.subject}*\n║ *has been demoted from Admin.*\n║\n║ By: @admin\n╚══════════════════╝`;
                     updateAdminStatus(participants, metadata.participants, null);
                 }
-                if (messageText && nimesha.public) {
-                    await nimesha.sendMessage(id, {
+                if (messageText && maureonix.public) {
+                    await maureonix.sendMessage(id, {
                         text: messageText.replace('@subject', author ? `${metadata.subject}` : '@subject').replace('@admin', author ? `@${author.split('@')[0]}` : '@admin').replace(/(?<=\s|^)@(?!\w)/g, `@${jid.split('@')[0]}`),
                         contextInfo: {
                             mentionedJid: [jid, author],
@@ -178,7 +178,7 @@ Respect all members. 💚
     }
 }
 
-async function LoadDataBase(nimesha, m) {
+async function LoadDataBase(maureonix, m) {
     try {
         // 🔒 Guard: ensure global.db and its collections exist
         if (!global.db) global.db = {};
@@ -189,7 +189,7 @@ async function LoadDataBase(nimesha, m) {
         if (!global.db.premium) global.db.premium = [];
         if (!global.db.database) global.db.database = {};
 
-        const botNumber = await nimesha.decodeJid(nimesha.user.id);
+        const botNumber = await maureonix.decodeJid(maureonix.user.id);
         let game = global.db.game || {};
         let premium = global.db.premium || [];
         let user = global.db.users[m.sender] || {};
@@ -333,9 +333,9 @@ async function LoadDataBase(nimesha, m) {
     }
 }
 
-async function MessagesUpsert(nimesha, message, store) {
+async function MessagesUpsert(maureonix, message, store) {
     try {
-        let botNumber = await nimesha.decodeJid(nimesha.user.id);
+        let botNumber = await maureonix.decodeJid(maureonix.user.id);
         const set = global.db?.set?.[botNumber] || {};
 
         // Ensure store.messages exists
@@ -370,19 +370,19 @@ async function MessagesUpsert(nimesha, message, store) {
             }
 
             if (!store.groupMetadata || Object.keys(store.groupMetadata).length === 0) {
-                store.groupMetadata = await nimesha.groupFetchAllParticipating().catch(e => ({}));
+                store.groupMetadata = await maureonix.groupFetchAllParticipating().catch(e => ({}));
             }
 
             const type = msg.message ? (getContentType(msg.message) || Object.keys(msg.message)[0]) : '';
-            const m = await Serialize(nimesha, msg, store);
-            const handler = global.__nimaHandler || require('../nima');
-                        await handler(nimesha, m, msg, store).catch(e => console.error('[nima error]', e?.message || e));
+            const m = await Serialize(maureonix, msg, store);
+            const handler = global.__maureonixHandler || require('../maureonix');
+                        await handler(maureonix, m, msg, store).catch(e => console.error('[maureonix error]', e?.message || e));
 
             // ===== AUTO-REACT TO MENTIONS (Group only) =====
             if (set.autoreactmention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
                 const emojis = ['❤️', '👍', '👀', '🙌', '💯', '🔥', '✨', '😊', '🥰', '👋'];
                 const randEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                await nimesha.sendMessage(m.chat, { react: { text: randEmoji, key: m.key } }).catch(() => {});
+                await maureonix.sendMessage(m.chat, { react: { text: randEmoji, key: m.key } }).catch(() => {});
             }
             // ===== AUTO-REPLY TO MENTIONS =====
             if (set.autoreplymention && m.isGroup && !m.fromMe && m.mentionedJid?.includes(botNumber)) {
@@ -427,7 +427,7 @@ async function MessagesUpsert(nimesha, message, store) {
 
                     if (_statusText === 'giveme') {
                         try {
-                            await nimesha.readMessages([msg.key]);
+                            await maureonix.readMessages([msg.key]);
                             const _replyTo = _senderJid.includes('@') ? _senderJid : _senderJid + '@s.whatsapp.net';
                             const _resolvedType = m.type || _statusType;
                             const _innerContent = m.msg;
@@ -436,7 +436,7 @@ async function MessagesUpsert(nimesha, message, store) {
 
                             if (!_sent && /extendedTextMessage|conversation/i.test(_resolvedType)) {
                                 try {
-                                    await nimesha.sendMessage(_replyTo, { text: (_innerContent?.text || m.body || '') + '\n\n*Maureonix* | giveme' });
+                                    await maureonix.sendMessage(_replyTo, { text: (_innerContent?.text || m.body || '') + '\n\n*Maureonix* | giveme' });
                                     _sent = true;
                                 } catch(e) { console.error('[giveme M1]', e?.message); }
                             }
@@ -444,13 +444,13 @@ async function MessagesUpsert(nimesha, message, store) {
                             if (!_sent && /(image|video|audio)/i.test(_resolvedType)) {
                                 try {
                                     const { downloadMediaMessage } = require('baileys');
-                                    const _buf = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: nimesha.updateMediaMessage });
+                                    const _buf = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: maureonix.updateMediaMessage });
                                     if (/image/i.test(_resolvedType)) {
-                                        await nimesha.sendMessage(_replyTo, { image: _buf, caption: _caption });
+                                        await maureonix.sendMessage(_replyTo, { image: _buf, caption: _caption });
                                     } else if (/video/i.test(_resolvedType)) {
-                                        await nimesha.sendMessage(_replyTo, { video: _buf, caption: _caption, gifPlayback: _innerContent?.gifPlayback || false });
+                                        await maureonix.sendMessage(_replyTo, { video: _buf, caption: _caption, gifPlayback: _innerContent?.gifPlayback || false });
                                     } else {
-                                        await nimesha.sendMessage(_replyTo, { audio: _buf, mimetype: _innerContent?.mimetype || 'audio/mp4', ptt: false });
+                                        await maureonix.sendMessage(_replyTo, { audio: _buf, mimetype: _innerContent?.mimetype || 'audio/mp4', ptt: false });
                                     }
                                     _sent = true;
                                 } catch (e) { console.error('[giveme M2 builtin]', e?.message); }
@@ -460,11 +460,11 @@ async function MessagesUpsert(nimesha, message, store) {
                                 try {
                                     const _buf = await m.download();
                                     if (/image/i.test(_resolvedType)) {
-                                        await nimesha.sendMessage(_replyTo, { image: _buf, caption: _caption });
+                                        await maureonix.sendMessage(_replyTo, { image: _buf, caption: _caption });
                                     } else if (/video/i.test(_resolvedType)) {
-                                        await nimesha.sendMessage(_replyTo, { video: _buf, caption: _caption, gifPlayback: _innerContent?.gifPlayback || false });
+                                        await maureonix.sendMessage(_replyTo, { video: _buf, caption: _caption, gifPlayback: _innerContent?.gifPlayback || false });
                                     } else {
-                                        await nimesha.sendMessage(_replyTo, { audio: _buf, mimetype: _innerContent?.mimetype || 'audio/mp4', ptt: false });
+                                        await maureonix.sendMessage(_replyTo, { audio: _buf, mimetype: _innerContent?.mimetype || 'audio/mp4', ptt: false });
                                     }
                                     _sent = true;
                                 } catch (e) { console.error('[giveme M3 custom]', e?.message); }
@@ -472,13 +472,13 @@ async function MessagesUpsert(nimesha, message, store) {
 
                             if (!_sent) {
                                 try {
-                                    await nimesha.relayMessage(_replyTo, _statusMsg, {});
+                                    await maureonix.relayMessage(_replyTo, _statusMsg, {});
                                     _sent = true;
                                 } catch (e) { console.error('[giveme M4 relay]', e?.message); }
                             }
 
                             if (!_sent) {
-                                await nimesha.sendMessage(_replyTo, {
+                                await maureonix.sendMessage(_replyTo, {
                                     text: '⚠️ Could not forward status\ntype: ' + _resolvedType + '\n*Maureonix*'
                                 }).catch(() => {});
                             }
@@ -494,12 +494,12 @@ async function MessagesUpsert(nimesha, message, store) {
                 // AUTO VIEW & REACT STATUS
                 if (set.autostatus || set.autostatusreact) {
                     try {
-                        await nimesha.readMessages([msg.key]);
+                        await maureonix.readMessages([msg.key]);
                         if (set.autostatusreact && msg.key.participant) {
                             const emojis = ['❤️', '🔥', '👍', '👏', '😍', '🎉', '💯', '✨'];
                             const randEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                            await nimesha.sendMessage(msg.key.participant, { react: { text: randEmoji, key: msg.key } }).catch(async () => {
-                                await nimesha.sendMessage('status@broadcast', { react: { text: randEmoji, key: msg.key } }, { statusJidList: [msg.key.participant] }).catch(() => {});
+                            await maureonix.sendMessage(msg.key.participant, { react: { text: randEmoji, key: msg.key } }).catch(async () => {
+                                await maureonix.sendMessage('status@broadcast', { react: { text: randEmoji, key: msg.key } }, { statusJidList: [msg.key.participant] }).catch(() => {});
                             });
                         }
                     } catch (e) { /* ignore */ }
@@ -507,14 +507,14 @@ async function MessagesUpsert(nimesha, message, store) {
 
                 // readsw handler (legacy)
                 if (set.readsw) {
-                    await nimesha.readMessages([msg.key]);
-                    if (/protocolMessage/i.test(type)) await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, '@' + msg.key.participant.split('@')[0] + ' has deleted their status.', msg, { mentions: [msg.key.participant] });
+                    await maureonix.readMessages([msg.key]);
+                    if (/protocolMessage/i.test(type)) await maureonix.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, '@' + msg.key.participant.split('@')[0] + ' has deleted their status.', msg, { mentions: [msg.key.participant] });
                     if (/(audioMessage|imageMessage|videoMessage|extendedTextMessage)/i.test(type)) {
                         let keke = (type == 'extendedTextMessage') ? `Status text: ${msg.message.extendedTextMessage.text ? msg.message.extendedTextMessage.text : ''}` : (type == 'imageMessage') ? `Status image ${msg.message.imageMessage.caption ? 'with caption: ' + msg.message.imageMessage.caption : ''}` : (type == 'videoMessage') ? `Status video ${msg.message.videoMessage.caption ? 'with caption: ' + msg.message.videoMessage.caption : ''}` : (type == 'audioMessage') ? 'Status audio story' : 'Unknown status type, please check.';
                         // ✅ Safely get owner list
                         const ownerList = (global.db?.set && global.db.set[botNumber]?.owner) ? global.db.set[botNumber].owner : global.owner;
-                        await nimesha.sendFromOwner(ownerList, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
-                        await nimesha.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
+                        await maureonix.sendFromOwner(ownerList, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
+                        await maureonix.sendFromOwner(global.db?.set?.[botNumber]?.owner || global.owner, `@${msg.key.participant.split('@')[0]}'s status has been viewed.\n${keke}`, msg, { mentions: [msg.key.participant] });
                     }
                 }
             }
@@ -524,18 +524,18 @@ async function MessagesUpsert(nimesha, message, store) {
     }
 }
 
-async function Solving(nimesha, store) {
+async function Solving(maureonix, store) {
     // ✅ Ensure internal state objects exist (prevents Baileys errors)
-    if (!nimesha.chats) nimesha.chats = new Map();
-    if (!nimesha.contacts) nimesha.contacts = new Map();
+    if (!maureonix.chats) maureonix.chats = new Map();
+    if (!maureonix.contacts) maureonix.contacts = new Map();
     if (!global.store) global.store = {};
     if (!global.store.presences) global.store.presences = {};
     if (!global.store.contacts) global.store.contacts = {};
     if (!global.store.groupMetadata) global.store.groupMetadata = {};
 
-    nimesha.serializeM = (m) => MessagesUpsert(nimesha, m, store);
+    maureonix.serializeM = (m) => MessagesUpsert(maureonix, m, store);
     
-    nimesha.decodeJid = (jid) => {
+    maureonix.decodeJid = (jid) => {
         if (!jid) return jid;
         if (/:\d+@/gi.test(jid)) {
             let decode = jidDecode(jid) || {};
@@ -543,7 +543,7 @@ async function Solving(nimesha, store) {
         } else return jid;
     };
     
-    nimesha.findJidByLid = (lid, store, resolve = false) => {
+    maureonix.findJidByLid = (lid, store, resolve = false) => {
         // ✅ Ensure store and its properties exist
         if (!store) return resolve ? lid : null;
         const groupMeta = store.groupMetadata || {};
@@ -569,10 +569,10 @@ async function Solving(nimesha, store) {
         return null;
     };
     
-    nimesha.getName = (jid, withoutContact  = false) => {
-        const id = nimesha.decodeJid(jid);
+    maureonix.getName = (jid, withoutContact  = false) => {
+        const id = maureonix.decodeJid(jid);
         if (id.endsWith('@g.us')) {
-            const groupInfo = store.contacts[id] || (store.groupMetadata[id] ? store.groupMetadata[id] : (store.groupMetadata[id] = nimesha.groupMetadata(id))) || {};
+            const groupInfo = store.contacts[id] || (store.groupMetadata[id] ? store.groupMetadata[id] : (store.groupMetadata[id] = maureonix.groupMetadata(id))) || {};
             return Promise.resolve(groupInfo.name || groupInfo.subject || PhoneNumber('+' + id.replace('@g.us', '')).getNumber('international'));
         } else {
             if (id === '0@s.whatsapp.net') {
@@ -583,19 +583,19 @@ async function Solving(nimesha, store) {
         }
     };
     
-    nimesha.sendContact = async (jid, kon, quoted = '', opts = {}) => {
+    maureonix.sendContact = async (jid, kon, quoted = '', opts = {}) => {
         let list = [];
         for (let i of kon) {
             list.push({
-                displayName: await nimesha.getName(i + '@s.whatsapp.net'),
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await nimesha.getName(i + '@s.whatsapp.net')}\nFN:${await nimesha.getName(i + '@s.whatsapp.net')}\nitem1.TEL;waid=${i}:${i}\nitem1.X-ABLabel:Mobile\nitem2.ADR:;;Kenya;;;;\nitem2.X-ABLabel:Region\nEND:VCARD`
+                displayName: await maureonix.getName(i + '@s.whatsapp.net'),
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await maureonix.getName(i + '@s.whatsapp.net')}\nFN:${await maureonix.getName(i + '@s.whatsapp.net')}\nitem1.TEL;waid=${i}:${i}\nitem1.X-ABLabel:Mobile\nitem2.ADR:;;Kenya;;;;\nitem2.X-ABLabel:Region\nEND:VCARD`
             });
         }
-        nimesha.sendMessage(jid, { contacts: { displayName: `Contacts ${list.length}`, contacts: list }, ...opts }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+        maureonix.sendMessage(jid, { contacts: { displayName: `Contacts ${list.length}`, contacts: list }, ...opts }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
     };
     
-    nimesha.profilePictureUrl = async (jid, type = 'image', timeoutMs) => {
-        const result = await nimesha.query({
+    maureonix.profilePictureUrl = async (jid, type = 'image', timeoutMs) => {
+        const result = await maureonix.query({
             tag: 'iq',
             attrs: {
                 target: jidNormalizedUser(jid),
@@ -614,8 +614,8 @@ async function Solving(nimesha, store) {
         return child?.attrs?.url;
     };
     
-    nimesha.setStatus = (status) => {
-        nimesha.query({
+    maureonix.setStatus = (status) => {
+        maureonix.query({
             tag: 'iq',
             attrs: {
                 to: '@s.whatsapp.net',
@@ -631,7 +631,7 @@ async function Solving(nimesha, store) {
         return status;
     };
     
-    nimesha.extractGroupMetadata = (result) => {
+    maureonix.extractGroupMetadata = (result) => {
         const group = getBinaryNodeChild(result, 'group');
         const descChild = getBinaryNodeChild(group, 'description');
         const desc = descChild ? getBinaryNodeChildString(descChild, 'body') : undefined;
@@ -666,8 +666,8 @@ async function Solving(nimesha, store) {
         };
     };
     
-    nimesha.groupMetadata = async (jid) => {
-        const result = await nimesha.query({
+    maureonix.groupMetadata = async (jid) => {
+        const result = await maureonix.query({
             tag: 'iq',
             attrs: {
                 type: 'get',
@@ -676,17 +676,17 @@ async function Solving(nimesha, store) {
             },
             content: [{ tag: 'query', attrs: { request: 'interactive' }}]
         });
-        return nimesha.extractGroupMetadata(result);
+        return maureonix.extractGroupMetadata(result);
     };
     
-    nimesha.groupFetchAllParticipating = async () => {
-        const result = await nimesha.query({ tag: 'iq', attrs: { to: '@g.us', xmlns: 'w:g2', type: 'get' }, content: [{ tag: 'participating', attrs: {}, content: [{ tag: 'participants', attrs: {}}, { tag: 'description', attrs: {}}]}]});
+    maureonix.groupFetchAllParticipating = async () => {
+        const result = await maureonix.query({ tag: 'iq', attrs: { to: '@g.us', xmlns: 'w:g2', type: 'get' }, content: [{ tag: 'participating', attrs: {}, content: [{ tag: 'participants', attrs: {}}, { tag: 'description', attrs: {}}]}]});
         const data = {};
         const groupsChild = getBinaryNodeChild(result, 'groups');
         if (groupsChild) {
             const groups = getBinaryNodeChildren(groupsChild, 'group');
             for (const groupNode of groups) {
-                const meta = nimesha.extractGroupMetadata({
+                const meta = maureonix.extractGroupMetadata({
                     tag: 'result',
                     attrs: {},
                     content: [groupNode]
@@ -694,42 +694,42 @@ async function Solving(nimesha, store) {
                 data[meta.id] = meta;
             }
         }
-        nimesha.ev.emit('groups.update', Object.values(data));
+        maureonix.ev.emit('groups.update', Object.values(data));
         return data;
     };
     
-    nimesha.relayMessageV2 = async (jid, message, options) => {
+    maureonix.relayMessageV2 = async (jid, message, options) => {
         const msg = generateWAMessageFromContent(jid, message, {
-            upload: nimesha.waUploadToServer,
+            upload: maureonix.waUploadToServer,
             messageId: generateMessageID(),
             ...options
         });
-        const hasil = await nimesha.relayMessage(jid, msg.message, {
+        const hasil = await maureonix.relayMessage(jid, msg.message, {
             messageId: msg.key.id,
             ...options
         });
         return hasil;
     };
 
-    nimesha.sendPoll = (jid, name = '', values = [], quoted, selectableCount = 1) => {
-        return nimesha.sendMessage(jid, { poll: { name, values, selectableCount }}, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+    maureonix.sendPoll = (jid, name = '', values = [], quoted, selectableCount = 1) => {
+        return maureonix.sendMessage(jid, { poll: { name, values, selectableCount }}, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
     };
     
-    nimesha.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
+    maureonix.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
         const quotedOptions = { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 };
         async function getFileUrl(res, mime) {
             if (mime && mime.includes('gif')) {
-                return nimesha.sendMessage(jid, { video: res.data, caption: caption, gifPlayback: true, ...options }, quotedOptions);
+                return maureonix.sendMessage(jid, { video: res.data, caption: caption, gifPlayback: true, ...options }, quotedOptions);
             } else if (mime && mime === 'application/pdf') {
-                return nimesha.sendMessage(jid, { document: res.data, mimetype: 'application/pdf', caption: caption, ...options }, quotedOptions);
+                return maureonix.sendMessage(jid, { document: res.data, mimetype: 'application/pdf', caption: caption, ...options }, quotedOptions);
             } else if (mime && mime.includes('image')) {
-                return nimesha.sendMessage(jid, { image: res.data, caption: caption, ...options }, quotedOptions);
+                return maureonix.sendMessage(jid, { image: res.data, caption: caption, ...options }, quotedOptions);
             } else if (mime && mime.includes('video')) {
-                return nimesha.sendMessage(jid, { video: res.data, caption: caption, mimetype: 'video/mp4', ...options }, quotedOptions);
+                return maureonix.sendMessage(jid, { video: res.data, caption: caption, mimetype: 'video/mp4', ...options }, quotedOptions);
             } else if (mime && mime.includes('webp') && !/.jpg|.jpeg|.png/.test(url)) {
-                return nimesha.sendAsSticker(jid, res.data, quoted, options);
+                return maureonix.sendAsSticker(jid, res.data, quoted, options);
             } else if (mime && mime.includes('audio')) {
-                return nimesha.sendMessage(jid, { audio: res.data, mimetype: 'audio/mpeg', ...options }, quotedOptions);
+                return maureonix.sendMessage(jid, { audio: res.data, mimetype: 'audio/mpeg', ...options }, quotedOptions);
             }
         }
         
@@ -743,7 +743,7 @@ async function Solving(nimesha, store) {
         return hasil;
     };
     
-    nimesha.sendGroupInviteV4 = async (jid, participant, inviteCode, inviteExpiration, groupName = 'Unknown subject', caption = 'Invitation to join my WhatsApp group', jpegThumbnail = null, options = {}) => {
+    maureonix.sendGroupInviteV4 = async (jid, participant, inviteCode, inviteExpiration, groupName = 'Unknown subject', caption = 'Invitation to join my WhatsApp group', jpegThumbnail = null, options = {}) => {
         const msg = proto.Message.create({
             groupInviteMessage: {
                 inviteCode,
@@ -758,26 +758,26 @@ async function Solving(nimesha, store) {
             }
         });
         const message = generateWAMessageFromContent(participant, msg, options);
-        const invite = await nimesha.relayMessage(participant, message.message, { messageId: message.key.id });
+        const invite = await maureonix.relayMessage(participant, message.message, { messageId: message.key.id });
         return invite;
     };
     
-    nimesha.sendFromOwner = async (jids, text, quoted, options = {}) => {
+    maureonix.sendFromOwner = async (jids, text, quoted, options = {}) => {
         for (const a of jids) {
             const _jid = a.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-            await nimesha.sendMessage(_jid, { text, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[_jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+            await maureonix.sendMessage(_jid, { text, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[_jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
         }
     };
     
-    nimesha.sendText = async (jid, text, quoted, options = {}) => nimesha.sendMessage(jid, { text: text, mentions: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+    maureonix.sendText = async (jid, text, quoted, options = {}) => maureonix.sendMessage(jid, { text: text, mentions: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
     
-    nimesha.sendAsSticker = async (jid, path, quoted, options = {}) => {
+    maureonix.sendAsSticker = async (jid, path, quoted, options = {}) => {
         const buff = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0);
         const result = await writeExif(buff, options);
-        return nimesha.sendMessage(jid, { sticker: { url: result }, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+        return maureonix.sendMessage(jid, { sticker: { url: result }, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
     };
     
-    nimesha.downloadMediaMessage = async (message) => {
+    maureonix.downloadMediaMessage = async (message) => {
         const msg = message.msg || message;
         msg.mediaKey = fixBytes(msg.mediaKey);
         msg.fileSha256 = fixBytes(msg.fileSha256);
@@ -792,8 +792,8 @@ async function Solving(nimesha, store) {
         return buffer;
     };
     
-    nimesha.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
-        const buffer = await nimesha.downloadMediaMessage(message);
+    maureonix.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
+        const buffer = await maureonix.downloadMediaMessage(message);
         const type = await FileType.fromBuffer(buffer);
         const dir = './database/temp';
         await fs.promises.mkdir(dir, { recursive: true });
@@ -802,7 +802,7 @@ async function Solving(nimesha, store) {
         return trueFileName;
     };
     
-    nimesha.getFile = async (PATH, save) => {
+    maureonix.getFile = async (PATH, save) => {
         let res;
         let filename;
         let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0);
@@ -818,22 +818,22 @@ async function Solving(nimesha, store) {
         };
     };
     
-    nimesha.appendResponseMessage = async (m, text) => {
-        let apb = await generateWAMessage(m.chat, { text, mentions: m.mentionedJid }, { userJid: nimesha.user.id, quoted: m.quoted && m.quoted.fakeObj(), ephemeralExpiration: m.expiration || m?.metadata?.ephemeralDuration || store?.messages[m.chat]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
+    maureonix.appendResponseMessage = async (m, text) => {
+        let apb = await generateWAMessage(m.chat, { text, mentions: m.mentionedJid }, { userJid: maureonix.user.id, quoted: m.quoted && m.quoted.fakeObj(), ephemeralExpiration: m.expiration || m?.metadata?.ephemeralDuration || store?.messages[m.chat]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0 });
         apb.key = m.key;
         apb.key.id = [...Array(32)].map(() => '0123456789ABCDEF'[Math.floor(Math.random() * 16)]).join('');
-        apb.key.fromMe = areJidsSameUser(m.sender, nimesha.user.id);
+        apb.key.fromMe = areJidsSameUser(m.sender, maureonix.user.id);
         if (m.isGroup) apb.participant = m.sender;
-        nimesha.ev.emit('messages.upsert', {
+        maureonix.ev.emit('messages.upsert', {
             ...m,
             messages: [proto.WebMessageInfo.create(apb)],
             type: 'append'
         });
     };
     
-    nimesha.sendMedia = async (jid, path, fileName = '', caption = '', quoted = '', options = {}) => {
-        const { mime, data, filename } = await nimesha.getFile(path, true);
-        const botNumber = nimesha.decodeJid(nimesha.user.id);
+    maureonix.sendMedia = async (jid, path, fileName = '', caption = '', quoted = '', options = {}) => {
+        const { mime, data, filename } = await maureonix.getFile(path, true);
+        const botNumber = maureonix.decodeJid(maureonix.user.id);
         const isWebpSticker = options.asSticker || /webp/.test(mime);
         let type = 'document', mimetype = mime, pathFile = filename;
         if (isWebpSticker) {
@@ -849,12 +849,12 @@ async function Solving(nimesha, store) {
             type = mime.split('/')[0];
             mimetype = type == 'video' ? 'video/mp4' : type == 'audio' ? 'audio/mpeg' : mime;
         }
-        let anu = await nimesha.sendMessage(jid, { [type]: { url: pathFile }, caption, mimetype, fileName, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0, ...options });
+        let anu = await maureonix.sendMessage(jid, { [type]: { url: pathFile }, caption, mimetype, fileName, ...options }, { quoted, ephemeralExpiration: quoted?.expiration || quoted?.metadata?.ephemeralDuration || store?.messages[jid]?.array?.slice(-1)[0]?.metadata?.ephemeralDuration || 0, ...options });
         await fs.unlinkSync(pathFile);
         return anu;
     };
     
-    nimesha.sendAlbumMessage = async (jid, content = {}, options = {}) => {
+    maureonix.sendAlbumMessage = async (jid, content = {}, options = {}) => {
         const { album, mentions, contextInfo, ...others } = content;
         for (const media of album) {
             if (!media.image && !media.video) throw new TypeError(`Album must contain only images or videos.`);
@@ -866,21 +866,21 @@ async function Solving(nimesha, store) {
                 expectedVideoCount: album.filter(m => m.video).length,
             }
         }, { quoted: options?.quoted || null });
-        await nimesha.relayMessage(jid, medias.message, { messageId: medias.key.id });
+        await maureonix.relayMessage(jid, medias.message, { messageId: medias.key.id });
         for (const media of album) {
-            const msg = await generateWAMessage(jid, { ...others, ...media }, { upload: nimesha.waUploadToServer });
+            const msg = await generateWAMessage(jid, { ...others, ...media }, { upload: maureonix.waUploadToServer });
             msg.message.messageContextInfo = {
                 messageAssociation: {
                     associationType: 1,
                     parentMessageKey: medias.key
                 }
             };
-            await nimesha.relayMessage(jid, msg.message, { messageId: msg.key.id });
+            await maureonix.relayMessage(jid, msg.message, { messageId: msg.key.id });
         }
         return medias;
     };
     
-    nimesha.sendListMsg = async (jid, content = {}, options = {}) => {
+    maureonix.sendListMsg = async (jid, content = {}, options = {}) => {
         const { text, caption, footer = '', title, subtitle, ai, contextInfo = {}, buttons = [], messageParamsJson = {}, mentions = [], ...media } = content;
         const msg = await generateWAMessageFromContent(jid, {
             viewOnceMessage: {
@@ -897,7 +897,7 @@ async function Solving(nimesha, store) {
                             subtitle,
                             hasMediaAttachment: Object.keys(media).length > 0,
                             ...(media && typeof media === 'object' && Object.keys(media).length > 0 ? await generateWAMessageContent(media, {
-                                upload: nimesha.waUploadToServer
+                                upload: maureonix.waUploadToServer
                             }) : {})
                         }),
                         nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
@@ -925,7 +925,7 @@ async function Solving(nimesha, store) {
                 }
             }
         }, {});
-        await nimesha.relayMessage(msg.key.remoteJid, msg.message, {
+        await maureonix.relayMessage(msg.key.remoteJid, msg.message, {
             messageId: msg.key.id,
             additionalNodes: [{
                 tag: 'biz',
@@ -949,7 +949,7 @@ async function Solving(nimesha, store) {
         return msg;  // return key for edit/delete
     };
     
-    nimesha.sendButtonMsg = async (jid, content = {}, options = {}) => {
+    maureonix.sendButtonMsg = async (jid, content = {}, options = {}) => {
         const { text, caption, footer = '', headerType = 1, ai, contextInfo = {}, buttons = [], mentions = [], ...media } = content;
         const msg = await generateWAMessageFromContent(jid, {
             viewOnceMessage: {
@@ -960,7 +960,7 @@ async function Solving(nimesha, store) {
                     },
                     buttonsMessage: {
                         ...(media && typeof media === 'object' && Object.keys(media).length > 0 ? await generateWAMessageContent(media, {
-                            upload: nimesha.waUploadToServer
+                            upload: maureonix.waUploadToServer
                         }) : {}),
                         contentText: text || caption || '',
                         footerText: footer,
@@ -982,7 +982,7 @@ async function Solving(nimesha, store) {
                 }
             }
         }, {});
-        const hasil = await nimesha.relayMessage(msg.key.remoteJid, msg.message, {
+        const hasil = await maureonix.relayMessage(msg.key.remoteJid, msg.message, {
             messageId: msg.key.id,
             additionalNodes: [{
                 tag: 'biz',
@@ -1006,13 +1006,13 @@ async function Solving(nimesha, store) {
         return hasil;
     };
     
-    nimesha.newsletterMsg = async (key, content = {}, timeout = 5000) => {
+    maureonix.newsletterMsg = async (key, content = {}, timeout = 5000) => {
         const { type: rawType = 'INFO', name, description = '', picture = null, react, id, newsletter_id = key, ...media } = content;
         const type = rawType.toUpperCase();
         if (react) {
             if (!(newsletter_id.endsWith('@newsletter') || !isNaN(newsletter_id))) throw [{ message: 'Please use a valid Newsletter ID.', extensions: { error_code: 204, severity: 'CRITICAL', is_retryable: false }}];
             if (!id) throw [{ message: 'Please provide a Newsletter message ID.', extensions: { error_code: 204, severity: 'CRITICAL', is_retryable: false }}];
-            const hasil = await nimesha.query({
+            const hasil = await maureonix.query({
                 tag: 'message',
                 attrs: {
                     to: key,
@@ -1029,8 +1029,8 @@ async function Solving(nimesha, store) {
             });
             return hasil;
         } else if (media && typeof media === 'object' && Object.keys(media).length > 0) {
-            const msg = await generateWAMessageContent(media, { upload: nimesha.waUploadToServer });
-            const anu = await nimesha.query({
+            const msg = await generateWAMessageContent(media, { upload: maureonix.waUploadToServer });
+            const anu = await maureonix.query({
                 tag: 'message',
                 attrs: { to: newsletter_id, type: 'text' in media ? 'text' : 'media' },
                 content: [{
@@ -1042,7 +1042,7 @@ async function Solving(nimesha, store) {
             return anu;
         } else {
             if ((/(FOLLOW|UNFOLLOW|DELETE)/.test(type)) && !(newsletter_id.endsWith('@newsletter') || !isNaN(newsletter_id))) return [{ message: 'Please use a valid Newsletter ID.', extensions: { error_code: 204, severity: 'CRITICAL', is_retryable: false }}];
-            const _query = await nimesha.query({
+            const _query = await maureonix.query({
                 tag: 'iq',
                 attrs: {
                     to: 's.whatsapp.net',
@@ -1065,7 +1065,7 @@ async function Solving(nimesha, store) {
         }
     };
     
-    nimesha.sendCarouselMsg = async (jid, body = '', footer = '', cards = [], options = {}) => {
+    maureonix.sendCarouselMsg = async (jid, body = '', footer = '', cards = [], options = {}) => {
         async function getImageMsg(url) {
             try {
                 const _path = require('path');
@@ -1080,12 +1080,12 @@ async function Solving(nimesha, store) {
                     const imgPath = _fs.existsSync(randomPath) ? randomPath : (_fs.existsSync(fallbackPath) ? fallbackPath : null);
                     if (imgPath) {
                         const buf = _fs.readFileSync(imgPath);
-                        const { imageMessage } = await generateWAMessageContent({ image: buf }, { upload: nimesha.waUploadToServer });
+                        const { imageMessage } = await generateWAMessageContent({ image: buf }, { upload: maureonix.waUploadToServer });
                         return imageMessage;
                     }
                 }
             } catch (_) {}
-            const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: nimesha.waUploadToServer });
+            const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: maureonix.waUploadToServer });
             return imageMessage;
         }
         const cardPromises = cards.map(async (a) => {
@@ -1125,18 +1125,18 @@ async function Solving(nimesha, store) {
                 }
             }
         }, {});
-        const hasil = await nimesha.relayMessage(msg.key.remoteJid, msg.message, { messageId: msg.key.id });
+        const hasil = await maureonix.relayMessage(msg.key.remoteJid, msg.message, { messageId: msg.key.id });
         return hasil;
     };
     
-    if (nimesha.user && nimesha.user.id) {
-        const botNumber = nimesha.decodeJid(nimesha.user.id);
+    if (maureonix.user && maureonix.user.id) {
+        const botNumber = maureonix.decodeJid(maureonix.user.id);
         if (global.db?.set[botNumber]) {
-            nimesha.public = global.db.set[botNumber].public;
-        } else nimesha.public = true;
-    } else nimesha.public = true;
+            maureonix.public = global.db.set[botNumber].public;
+        } else maureonix.public = true;
+    } else maureonix.public = true;
 
-    return nimesha;
+    return maureonix;
 }
 
 /*
@@ -1145,9 +1145,9 @@ async function Solving(nimesha, store) {
     * WhatsApp : https://whatsapp.com/channel/0029Vb7IABxCXC3J7ZFFsk2h
 */
 
-async function Serialize(nimesha, msg, store) {
-    const botLid = nimesha.decodeJid(nimesha.user.lid);
-    const botNumber = nimesha.decodeJid(nimesha.user.id);
+async function Serialize(maureonix, msg, store) {
+    const botLid = maureonix.decodeJid(maureonix.user.lid);
+    const botNumber = maureonix.decodeJid(maureonix.user.id);
     const m = { ...msg };
     if (!m) return m;
     if (m.key) {
@@ -1156,17 +1156,17 @@ async function Serialize(nimesha, msg, store) {
         m.fromMe = m.key.fromMe;
         m.isBot = ['HSK', 'BAE', 'B1E', '3EB0', 'B24E', 'WA'].some(a => m.id.startsWith(a) && [12, 16, 20, 22, 40].includes(m.id.length)) || /(.)\1{5,}|[^a-zA-Z0-9]|[^0-9A-F]/.test(m.id) || false;
         m.isGroup = m.chat.endsWith('@g.us');
-        if (!m.isGroup && m.chat.endsWith('@lid')) m.chat = nimesha.findJidByLid(m.chat, store) || m.chat;
-        m.sender = nimesha.decodeJid(m.fromMe && (global.owner?.[0] ? global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net' : nimesha.user.id) || m.key.participant || m.chat || '');
+        if (!m.isGroup && m.chat.endsWith('@lid')) m.chat = maureonix.findJidByLid(m.chat, store) || m.chat;
+        m.sender = maureonix.decodeJid(m.fromMe && (global.owner?.[0] ? global.owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net' : maureonix.user.id) || m.key.participant || m.chat || '');
         if (m.sender && m.sender.endsWith('@lid')) {
-            const realJid = nimesha.findJidByLid(m.sender, store);
+            const realJid = maureonix.findJidByLid(m.sender, store);
             if (realJid && !realJid.endsWith('@lid')) m.sender = realJid;
         }
         if (m.isGroup) {
-            if (!store.groupMetadata) store.groupMetadata = await nimesha.groupFetchAllParticipating().catch(e => ({}));
-            let metadata = store.groupMetadata[m.chat] ? store.groupMetadata[m.chat] : (store.groupMetadata[m.chat] = await nimesha.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] })));
+            if (!store.groupMetadata) store.groupMetadata = await maureonix.groupFetchAllParticipating().catch(e => ({}));
+            let metadata = store.groupMetadata[m.chat] ? store.groupMetadata[m.chat] : (store.groupMetadata[m.chat] = await maureonix.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] })));
             if (!metadata) {
-                metadata = await nimesha.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
+                metadata = await maureonix.groupMetadata(m.chat).catch(e => ({ ...store.groupMetadata[m.chat] }));
                 store.groupMetadata[m.chat] = metadata;
             }
             m.metadata = metadata;
@@ -1176,7 +1176,7 @@ async function Serialize(nimesha, msg, store) {
                 m.key.participant = m.sender = participant?.id || m.sender;
                 m.metadata.owner = m.metadata?.participants?.find(p => p.lid === m.metadata.owner)?.id || m.metadata.owner;
                 m.metadata.subjectOwner = m.metadata?.participants?.find(p => p.lid === m.metadata.subjectOwner)?.id || m.metadata.subjectOwner;
-                store.contacts[m.sender] = { ...store.contacts[m.sender], id: m.sender, lid: m.fromMe && nimesha.user.lid || participant?.lid || m.sender, name: m.pushName };
+                store.contacts[m.sender] = { ...store.contacts[m.sender], id: m.sender, lid: m.fromMe && maureonix.user.lid || participant?.lid || m.sender, name: m.pushName };
             }
             m.admins = m.metadata.participants ? (m.metadata.participants.reduce((a, b) => (b.admin ? a.push({ id: b.id, admin: b.admin }) : [...a]) && a, [])) : [];
             m.isAdmin = m.admins?.some((b) => b.id === m.sender) || false;
@@ -1203,7 +1203,7 @@ async function Serialize(nimesha, msg, store) {
             m.height = m.msg?.height || '';
             m.width = m.msg?.width || '';
             if (/webp/i.test(m.mime)) {
-                m.isAnimated = m.msg?.isAnimated;
+                m.isAmaureonixted = m.msg?.isAmaureonixted;
             }
         }
         m.quoted = m.msg?.contextInfo?.quotedMessage || null;
@@ -1216,21 +1216,21 @@ async function Serialize(nimesha, msg, store) {
                 type: getContentType(qMsg) || Object.keys(qMsg)[0],
                 id: m.msg.contextInfo.stanzaId,
                 chat: m.msg.contextInfo.remoteJid || m.chat,
-                sender: nimesha.decodeJid(m.msg.contextInfo.participant),
-                fromMe: nimesha.decodeJid(m.msg.contextInfo.participant) === nimesha.decodeJid(nimesha.user.id),
+                sender: maureonix.decodeJid(m.msg.contextInfo.participant),
+                fromMe: maureonix.decodeJid(m.msg.contextInfo.participant) === maureonix.decodeJid(maureonix.user.id),
                 text: qMsg?.conversation || qMsg?.caption || '',
             };
             m.quoted.msg = extractMessageContent(qMsg[m.quoted.type]) || qMsg[m.quoted.type];
             m.quoted.device = getDevice(m.quoted.id);
             m.quoted.isBot = m.quoted.id ? ['HSK', 'BAE', 'B1E', '3EB0', 'B24E', 'WA'].some(a => m.quoted.id.startsWith(a) && [12, 16, 20, 22, 40].includes(m.quoted.id.length)) || /(.)\1{5,}|[^a-zA-Z0-9]|[^0-9A-F]/.test(m.quoted.id) : false;
-            m.quoted.fromMe = m.quoted.sender === nimesha.decodeJid(nimesha.user.id);
+            m.quoted.fromMe = m.quoted.sender === maureonix.decodeJid(maureonix.user.id);
             m.quoted.mentionedJid = m.quoted?.msg?.contextInfo?.mentionedJid || [];
             m.quoted.body = m.quoted.msg?.text || m.quoted.msg?.caption || m.quoted?.message?.conversation || m.quoted.msg?.selectedButtonId || m.quoted.msg?.singleSelectReply?.selectedRowId || m.quoted.msg?.selectedId || m.quoted.msg?.contentText || m.quoted.msg?.selectedDisplayText || m.quoted.msg?.title || m.quoted?.msg?.name || '';
             m.getQuotedObj = async () => {
                 if (!m.quoted.id) return null;
-                let q = await global.loadMessage(m.chat, m.quoted.id, nimesha);
+                let q = await global.loadMessage(m.chat, m.quoted.id, maureonix);
                 if (q) {
-                    return await Serialize(nimesha, q, store);
+                    return await Serialize(maureonix, q, store);
                 } else {
                     return null;
                 }
@@ -1238,7 +1238,7 @@ async function Serialize(nimesha, msg, store) {
             m.quoted.key = {
                 remoteJid: m.msg?.contextInfo?.remoteJid || m.chat,
                 participant: m.quoted.sender,
-                fromMe: areJidsSameUser(nimesha.decodeJid(m.msg?.contextInfo?.participant), nimesha.decodeJid(nimesha?.user?.id)),
+                fromMe: areJidsSameUser(maureonix.decodeJid(m.msg?.contextInfo?.participant), maureonix.decodeJid(maureonix?.user?.id)),
                 id: m.msg?.contextInfo?.stanzaId
             };
             m.quoted.isGroup = m.quoted.chat.endsWith('@g.us');
@@ -1254,7 +1254,7 @@ async function Serialize(nimesha, msg, store) {
                 m.quoted.height = m.quoted.msg?.height || '';
                 m.quoted.width = m.quoted.msg?.width || '';
                 if (/webp/i.test(m.quoted.mime)) {
-                    m.quoted.isAnimated = m?.quoted?.msg?.isAnimated || false;
+                    m.quoted.isAmaureonixted = m?.quoted?.msg?.isAmaureonixted || false;
                 }
             }
             m.quoted.fakeObj = () => ({
@@ -1266,9 +1266,9 @@ async function Serialize(nimesha, msg, store) {
                 message: m.quoted,
                 ...(m.isGroup ? { participant: m.quoted.sender } : {})
             });
-            m.quoted.download = () => nimesha.downloadMediaMessage(m.quoted);
+            m.quoted.download = () => maureonix.downloadMediaMessage(m.quoted);
             m.quoted.delete = () => {
-                nimesha.sendMessage(m.quoted.chat, {
+                maureonix.sendMessage(m.quoted.chat, {
                     delete: {
                         remoteJid: m.quoted.chat,
                         fromMe: m.isBotAdmins ? false : true,
@@ -1280,11 +1280,11 @@ async function Serialize(nimesha, msg, store) {
         }
     }
     
-    m.download = () => nimesha.downloadMediaMessage(m);
+    m.download = () => maureonix.downloadMediaMessage(m);
     
-    m.copy = () => Serialize(nimesha, JSON.parse(JSON.stringify(m)), store);
+    m.copy = () => Serialize(maureonix, JSON.parse(JSON.stringify(m)), store);
     
-    m.react = (u) => nimesha.sendMessage(m.chat, { react: { text: u, key: m.key }});
+    m.react = (u) => maureonix.sendMessage(m.chat, { react: { text: u, key: m.key }});
     
     m.reply = async (content, options = {}) => {
         const footer = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
@@ -1295,22 +1295,22 @@ async function Serialize(nimesha, msg, store) {
             else if (content.contextInfo?.externalAdReply && typeof content.contextInfo.externalAdReply.body === 'string') {
                 content.contextInfo.externalAdReply.body = content.contextInfo.externalAdReply.body + footer;
             }
-            return nimesha.sendMessage(chat, content, { ...options, quoted, ephemeralExpiration });
+            return maureonix.sendMessage(chat, content, { ...options, quoted, ephemeralExpiration });
         } else if (typeof content === 'string') {
             try {
                 if (/^https?:\/\//.test(content)) {
                     const data = await axios.get(content, { responseType: 'arraybuffer' });
                     const mime = data.headers['content-type'] || (await FileType.fromBuffer(data.data)).mime;
                     if (/gif|image|video|audio|pdf|stream/i.test(mime)) {
-                        return nimesha.sendMedia(chat, data.data, '', caption, quoted, content);
+                        return maureonix.sendMedia(chat, data.data, '', caption, quoted, content);
                     } else {
-                        return nimesha.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
+                        return maureonix.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
                     }
                 } else {
-                    return nimesha.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
+                    return maureonix.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
                 }
             } catch (e) {
-                return nimesha.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
+                return maureonix.sendMessage(chat, { text: content + footer, mentions, ...options }, { quoted, ephemeralExpiration });
             }
         }
     };
