@@ -709,7 +709,7 @@ const coreHandler = async (nimesha, m, msg, store) => {
                     db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
                     const replyText = `🦊 *Maureonix*\n\n${answer}`;
                     const { logInteraction } = require('./lib/sharedMemory');
-                    logInteraction('private', m.sender, (body || budy), finalAnswer);
+                    logInteraction('private', m.sender, (body || budy), answer);
                     await AI.sendLongMessage(nimesha, m.chat, replyText, { quoted: m });
                     messageHandled = true;   // <-- ADD THIS LINE
                     
@@ -757,7 +757,17 @@ const coreHandler = async (nimesha, m, msg, store) => {
                 return;
             }
 
-            const crisis = await AI.detectCrisis(userMessage);
+            let crisis;
+            try {
+                crisis = await AI.detectCrisis(userMessage);
+            } catch (e) {
+                console.error('[CRISIS] detectCrisis failed:', e.message);
+                crisis = { isCrisis: false, severity: 'none', keywords: [] };
+            }
+            if (!crisis || typeof crisis !== 'object') {
+                crisis = { isCrisis: false, severity: 'none', keywords: [] };
+            }
+
             // ── Enhance crisis detection with symbolic rules ──
             try {
                 const { ruleEngine } = require('./lib/neuralSymbolicBridge');
