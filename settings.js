@@ -16,6 +16,13 @@ global.autoread = false;
 global.antitag = true;
 if (!global.set) global.set = {};
 global.set.aiCrisisVerification = true; // or false to disable
+global.privateMode = false;
+
+global.togglePrivateMode = function() {
+  global.privateMode = !global.privateMode;
+  return global.privateMode;
+};
+
 
 // ─── API Keys (from config) ────────────────────────
 global.poeApiKey = SecureConfig.poeApiKey;
