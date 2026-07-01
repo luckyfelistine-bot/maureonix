@@ -15,17 +15,27 @@ for (const [key, value] of Object.entries(SecureConfig)) {
 
 const cron = require('node-cron');
 // ── Daily & Weekly reports from the new email engine ──
-const { sendDailyReport, sendWeeklyReport } = require('./lib/emailReports');
+let sendDailyReport, sendWeeklyReport;
+try {
+    const emailReports = require('./lib/emailReports');
+    sendDailyReport = emailReports.sendDailyReport;
+    sendWeeklyReport = emailReports.sendWeeklyReport;
+} catch (e) {
+    sendDailyReport = async () => console.log('[CRON] Daily report module not available');
+    sendWeeklyReport = async () => console.log('[CRON] Weekly report module not available');
+}
 
-cron.schedule(SecureConfig.reportDailyTime, async () => {
-    console.log('[CRON] Daily report');
-    await sendDailyReport();
-}, { timezone: 'Africa/Nairobi' });
+if (sendDailyReport && sendWeeklyReport) {
+    cron.schedule(SecureConfig.reportDailyTime || '0 9 * * *', async () => {
+        console.log('[CRON] Daily report');
+        await sendDailyReport();
+    }, { timezone: 'Africa/Nairobi' });
 
-cron.schedule(SecureConfig.reportWeeklyTime, async () => {
-    console.log('[CRON] Weekly report');
-    await sendWeeklyReport();
-}, { timezone: 'Africa/Nairobi' });
+    cron.schedule(SecureConfig.reportWeeklyTime || '0 9 * * 1', async () => {
+        console.log('[CRON] Weekly report');
+        await sendWeeklyReport();
+    }, { timezone: 'Africa/Nairobi' });
+}
 
 // ═══════════════════════════════════════════════════════
 //  AUTO‑INSTALL & SYSTEM PREP
@@ -127,6 +137,13 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const { assertInstalled, unsafeAgent } = require('./lib/function');
     const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
 
+    // ── Validate that MessagesUpsert is actually a function ──
+    if (typeof MessagesUpsert !== 'function') {
+        console.error(chalk.red.bold('[CRITICAL] MessagesUpsert is not a function! Check src/message.js exports.'));
+        console.error('Type:', typeof MessagesUpsert);
+        process.exit(1);
+    }
+
     const maureonix = require('./maureonix');
     global.__maureonixHandler = maureonix;
 
@@ -137,7 +154,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const database = dataBase(global.tempatDB);
     const msgRetryCounterCache = new NodeCache();
 
-        // ═══════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
     //   SYMPHONY ORCHESTRATOR INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -147,6 +164,13 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             process.env.GITHUB_TOKEN = SecureConfig.githubToken;
 
             const { startSymphony, symphonyOrchestrator } = require('./lib/symphonyOrchestrator');
+
+            // Validate exports
+            if (typeof startSymphony !== 'function') {
+                console.warn('[Symphony] startSymphony is not a function, skipping initialization');
+                return;
+            }
+
             symphonyOrchestrator.notifications.setmaureonix(maureonixInstance);
             const status = await startSymphony();
             console.log('🎼 Symphony Orchestrator Status:', JSON.stringify(status, null, 2));
@@ -165,11 +189,11 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             });
         } catch (e) {
             console.error('❌ Symphony initialization failed:', e.message);
-            // Don't crash the bot
+            // Don't crash the bot — log and continue
         }
     }
 
-    
+
     // ═══════════════════════════════════════════════════════════════════════════════
     //   SUPER INTELLIGENCE INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -253,7 +277,21 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
         global.learningEngine.setAIChat(AI.groqChat);
         console.log('✅ Learning Engine initialized');
 
-        const { loadDocs } = require('./lib/docs'); loadDocs();
+        const { loadDocs } = require('./lib/docs'); 
+        try { loadDocs(); } catch (e) { console.log('[Docs] loadDocs skipped:', e.message); }
+
+        // ── Menu cards: safe initialization ──
+        try {
+            const menuModule = require('./lib/menuCards');
+            if (menuModule && typeof menuModule.generateMenuCards === 'function') {
+                await menuModule.generateMenuCards();
+                console.log('✅ Menu cards generated');
+            } else {
+                console.log('[STARTUP] generateMenuCards not available — using fallback');
+            }
+        } catch (e) {
+            console.log('[STARTUP] Menu card generation skipped:', e.message);
+        }
 
         const level = pino({ level: 'silent' });
         const { version } = await fetchLatestWaWebVersion();
@@ -315,15 +353,20 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
             }
         });
 
+        // ── SINGLE messages.upsert handler (merged private + channel) ──
         maureonixBot.ev.on('messages.upsert', async (message) => {
-            await MessagesUpsert(maureonixBot, message, global.store);
+            try {
+                await MessagesUpsert(maureonixBot, message, global.store);
+            } catch (err) {
+                console.error('[MessagesUpsert error]', err.message);
+            }
         });
 
         // ── Follow configured channel so bot receives channel messages ──
         const config = require('./config');
         const followChannel = async (attempt = 1) => {
             if (!config.channelJid || !config.channelJid.endsWith('@newsletter')) return;
-            
+
             // Wait for connection to be fully open before attempting follow
             if (maureonixBot.ws?.readyState !== 1) { // 1 = WebSocket.OPEN
                 if (attempt <= 5) {
@@ -331,7 +374,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
                 }
                 return;
             }
-            
+
             try {
                 await maureonixBot.newsletterFollow(config.channelJid);
                 console.log('[CHANNEL] ✅ Following channel:', config.channelJid);
@@ -354,28 +397,16 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
                 }
             }
         };
-        
+
         // Delay follow until connection is stable
         setTimeout(() => followChannel(), 5000);
 
-        // ── Route newsletter (channel) messages into the core handler ──
-        // Channel messages arrive via messages.upsert with remoteJid ending in @newsletter
-        maureonixBot.ev.on('messages.upsert', async (message) => {
-            if (message.type === 'notify') {
-                for (const msg of message.messages) {
-                    const remoteJid = msg.key?.remoteJid || '';
-                    // Only route if it's a channel message
-                    if (remoteJid.endsWith('@newsletter')) {
-                        await MessagesUpsert(maureonixBot, { messages: [msg], type: 'notify' }, global.store)
-                            .catch(err => console.error('[newsletter msg]', err));
-                    }
-                }
-            }
-        });
-
-        
         maureonixBot.ev.on('group-participants.update', async (update) => {
-            await GroupParticipantsUpdate(maureonixBot, update, global.store);
+            try {
+                await GroupParticipantsUpdate(maureonixBot, update, global.store);
+            } catch (err) {
+                console.error('[GroupParticipantsUpdate error]', err.message);
+            }
         });
 
         maureonixBot.ev.on('groups.update', (update) => {
@@ -401,9 +432,7 @@ cron.schedule(SecureConfig.reportWeeklyTime, async () => {
     const test = spawn('yt-dlp', ['--version']);
 
     test.stdout.on('data', d => console.log('✅ yt-dlp version:', d.toString().trim()));
-
     test.stderr.on('data', d => console.error('❌ yt-dlp error:', d.toString()));
-
     test.on('close', c => console.log('Exit code:', c));
 
     process.on('SIGINT', async () => {
