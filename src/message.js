@@ -1,5 +1,7 @@
 // src/message.js — Maureonix Message Handler
 // Exports: MessagesUpsert, GroupParticipantsUpdate, Solving
+const processedMessages = new Set();
+const MESSAGE_DEDUP_WINDOW = 60000;
 
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +44,17 @@ async function MessagesUpsert(sock, message, store) {
             if (!msg || !msg.key) continue;
 
             const remoteJid = msg.key.remoteJid || '';
+            const dedupKey = `${msg.key.id}-${remoteJid}`;
+      if (processedMessages.has(dedupKey)) {
+        console.log(`[MessagesUpsert] Skipping duplicate: ${dedupKey}`);
+        continue;
+      }
+      processedMessages.add(dedupKey);
+      if (processedMessages.size > 1000) {
+        const entries = Array.from(processedMessages).slice(-500);
+        processedMessages.clear();
+        entries.forEach(e => processedMessages.add(e));
+      }
             const fromMe = msg.key.fromMe || false;
             const id = msg.key.id || '';
 
