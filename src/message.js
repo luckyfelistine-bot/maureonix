@@ -16,12 +16,12 @@ try {
 }
 
 // ── Load command handler ──
-let cmdHandler = null;
-try {
-    cmdHandler = require('../maureonix');
-} catch (e) {
-    console.error('[src/message.js] Failed to load maureonix:', e.message);
-}
+//let cmdHandler = null;
+//try {
+//    cmdHandler = require('../maureonix');
+//} catch (e) {
+//   console.error('[src/message.js] Failed to load maureonix:', e.message);
+//}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //   MessagesUpsert — Main message entry point
