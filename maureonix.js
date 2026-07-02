@@ -1,15 +1,7 @@
-// maureonix.js – Wrapper that loads core handler and commands
-const coreHandler = require('./maureonix_core');
-const fs = require('fs');
-const chalk = require('chalk');
+// maureonix.js — Loader wrapper (NO-OP export to prevent double handling)
+// src/message.js calls both coreHandler and cmdHandler.
+// By exporting null here, cmdHandler becomes null and messages are handled ONCE.
 
-module.exports = coreHandler;
+require('./maureonix_core');
 
-// Hot reload watcher (optional but kept for development)
-let file = require.resolve(__filename);
-fs.watchFile(file, () => {
-    fs.unwatchFile(file);
-    console.log(chalk.redBright(`Update ${__filename}`));
-    delete require.cache[file];
-    require(file);
-});
+module.exports = null;
