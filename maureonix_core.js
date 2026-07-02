@@ -1,234 +1,1194 @@
-// maureonix_core.js — Core message processing engine
-// VERSION: 6.2.1-FIX — Double message fix, identity enforcement, reconnect handling
+// ═══════════════════════════════════════════════════════════════════════════
+//   🦊 MAUREONIX v6.0.0 – CORE HANDLER (Thinking Separation + .vv Fix)
+//   Games imported from ./lib/game – AI uses fixed lib/ai.js
+// ═══════════════════════════════════════════════════════════════════════════
 
+process.env.TZ = 'Africa/Nairobi';
+process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
+process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+
+require('./settings');
 const fs = require('fs');
+const os = require('os');
+const util = require('util');
 const path = require('path');
+const axios = require('axios');
 const chalk = require('chalk');
+const yts = require('yt-search');
+const cron = require('node-cron');
+const fetch = require('node-fetch');
+const FileType = require('file-type');
+const { Chess } = require('chess.js');
+const { Akinator } = require('aki-api');
+const FormData = require('form-data');
+const webp = require('node-webpmux');
+const moment = require('moment-timezone');
+const { performance } = require('perf_hooks');
+const { exec, spawn, execSync } = require('child_process');
+const { generateWAMessageContent, getContentType } = require('baileys');
+const { generateMenuImage } = require('./lib/menuimage');
+const { initEmailReports } = require('./lib/emailReports');
+const { sendCrisisAlert } = require('./lib/maureonixCore');
 
-// ── Load AI module ──
-let AI = null;
-try {
-  AI = require('./lib/ai');
-} catch (e) {
-  console.error('[maureonix_core] AI module not available:', e.message);
-}
+const { UguuSe } = require('./lib/uploader');
+const { antiSpam } = require('./lib/antispam');
+const {
+    ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+    twitterDownload, spotifyDownload, pinterestDownload,
+    redditDownload, soundcloudDownload, threadsDownload,
+    capcutDownload, likeeDownload, snapchatDownload,
+    vimeoDownload, dailymotionDownload, mediafireDownload,
+    gdriveDownload, apkDownload
+} = require('./lib/downloader');
+const { toAudio, toPTT, toVideo } = require('./lib/converter');
+const { GroupUpdate, LoadDataBase } = require('./src/message');
+const { cmdAdd, cmdDel, cmdAddHit, addExpired, getPosition, getExpired, getStatus, checkStatus, getAllExpired, checkExpired } = require('./lib/database');
+const { getRandom, getBuffer, fetchJson, runtime, clockString, sleep, isUrl, formatDate, formatp, generateProfilePicture, errorCache, normalize, updateSettings, parseMention, fixBytes, similarity, pickRandom, unsafeAgent, tarBackup } = require('./lib/function');
+const { writeExif } = require('./lib/exif');
 
-// ── Load config ──
-let config = {};
-try {
-  config = require('./config');
-} catch (e) {
-  console.error('[maureonix_core] Config not available:', e.message);
-}
+// Import the fixed AI module
+const AI = require('./lib/ai');
+const Search = require('./lib/search');
+const Tools = require('./lib/tools');
+const Fun = require('./lib/fun');
+const Economy = require('./lib/economy');
+const Admin = require('./lib/admin');
+const Daily = require('./lib/daily');
+const Health = require('./lib/health');
+const Finance = require('./lib/finance');
+const Social = require('./lib/social');
+const Dev = require('./lib/dev');
+const Travel = require('./lib/travel');
+const Food = require('./lib/food');
+const { generateQuantumMenu } = require('./lib/menuimage');
 
-// ── Load settings ──
-try {
-  require('./settings');
-} catch (e) {
-  console.error('[maureonix_core] Settings not available:', e.message);
-}
+// Import all games from ./lib/game
+const {
+  // Classes used inside maureonix_core.js
+  TicTacToe, TicTacToeClassic, Connect4, Battleship, Wordle, Hangman, SnakeLadder,
+  Blackjack, BlackjackCasino,
+  RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs,
+  RPGAdventure,
+  // Casino utilities (used by command files via ctx)
+  slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+  // Game key helpers (still used in the trivia loop)
+  iGame,
+  // State manager
+  gameManager
+} = require('./lib/game');
 
-// ── Ensure privateMode exists ──
-if (typeof global.privateMode === 'undefined') {
-  global.privateMode = false;
-}
-if (typeof global.togglePrivateMode !== 'function') {
-  global.togglePrivateMode = function() {
-    global.privateMode = !global.privateMode;
-    return global.privateMode;
-  };
-}
+const { sessionManager: learningSessionManager } = require('./lib/learningEngine');
 
-// ── Command registry ──
-const commandRegistry = new Map();
+const { OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast } = require('./lib/movie');
+const { APISports, OddsAPI, ESPN } = require('./lib/sports');
 
-function registerCommand(name, handler, meta = {}) {
-  commandRegistry.set(name.toLowerCase(), { handler, meta });
-}
+const memoryStore = require('./lib/memoryStore');
 
-function parseCommand(body, prefix = '.') {
-  if (!body || !body.startsWith(prefix)) return null;
-  const trimmed = body.slice(prefix.length).trim();
-  const parts = trimmed.split(/\s+/);
-  const command = parts[0].toLowerCase();
-  const args = parts.slice(1);
-  const fullArgs = trimmed.slice(command.length).trim();
-  return { command, args, fullArgs, raw: body };
-}
+// ═══════════════════════════════════════════════════════════════
+//  PROACTIVE SCHEDULER
+// ═══════════════════════════════════════════════════════════════
 
-function isOwner(sender) {
-  const ownerJid = Array.isArray(global.owner) 
-    ? global.owner[0] + '@s.whatsapp.net' 
-    : (global.owner || '') + '@s.whatsapp.net';
-  return sender === ownerJid;
-}
+// ── 7:00 AM – ENHANCED DAILY BRIEFING ─────────────────────────
+cron.schedule('0 7 * * *', async () => {
+    const ownerJid = global.owner[0] + '@s.whatsapp.net';
+    const fetch = require('node-fetch');
+    const config = require('../config');
 
-async function safeReply(sock, jid, text, options = {}) {
-  try {
-    if (!sock || !jid || !text) return false;
-    await sock.sendMessage(jid, { text: String(text).slice(0, 4096), ...options });
-    return true;
-  } catch (e) {
-    console.error('[safeReply] Failed:', e.message);
-    return false;
-  }
-}
+    // 1. Date & time
+    const now = moment().tz('Africa/Nairobi');
+    const dateStr = now.format('dddd, MMMM Do YYYY');
+    const timeStr = now.format('HH:mm:ss');
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MESSAGE DEDUPLICATION
-// ═══════════════════════════════════════════════════════════════════════════════
-const processedMessages = new Set();
+    // 2. Weather (wttr.in – free, lightweight)
+    let weather = 'N/A';
+    try {
+        const w = await fetch('https://wttr.in/Kericho?format=%C+%t').then(r => r.text());
+        weather = w.trim();
+    } catch (e) { weather = '🌤 22°C'; }
 
-function isDuplicate(msgKey, remoteJid) {
-  const dedupKey = `${msgKey}-${remoteJid}`;
-  if (processedMessages.has(dedupKey)) return true;
-  processedMessages.add(dedupKey);
-  if (processedMessages.size > 1000) {
-    const entries = Array.from(processedMessages).slice(-500);
-    processedMessages.clear();
-    entries.forEach(e => processedMessages.add(e));
-  }
-  return false;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN MESSAGE HANDLER
-// ═══════════════════════════════════════════════════════════════════════════════
-async function coreHandler(sock, msg, ctx) {
-  try {
-    const { body, isGroup, sender, remoteJid } = ctx;
-
-    if (!body || body.trim().length === 0) return;
-
-    // Deduplication
-    if (msg.key && msg.key.id && isDuplicate(msg.key.id, remoteJid)) {
-      console.log(`[coreHandler] Skipping duplicate: ${msg.key.id}`);
-      return;
-    }
-
-    const prefix = config.prefix || '.';
-    const parsed = parseCommand(body, prefix);
-
-    if (parsed) {
-      const cmdEntry = commandRegistry.get(parsed.command);
-      if (cmdEntry) {
-        try {
-          await cmdEntry.handler(sock, msg, ctx, parsed);
-        } catch (cmdErr) {
-          console.error(`[coreHandler] Command "${parsed.command}" error:`, cmdErr.message);
-          await safeReply(sock, remoteJid, `❌ Error: ${cmdErr.message}`);
-        }
-      } else {
-        await handleAIQuery(sock, msg, ctx, body);
-      }
-    } else {
-      const shouldRespond = !isGroup || body.includes(`@${config.number_bot}`);
-      if (shouldRespond) {
-        await handleAIQuery(sock, msg, ctx, body);
-      }
-    }
-  } catch (e) {
-    console.error('[coreHandler] Fatal error:', e.message);
-  }
-}
-
-async function handleAIQuery(sock, msg, ctx, query) {
-  if (global.privateMode === true && ctx.isGroup) return;
-  if (global.public === false && !isOwner(ctx.sender)) return;
-
-  if (!AI || !AI.ultimateAI) {
-    await safeReply(sock, ctx.remoteJid, '⚠️ AI service unavailable. Try again later.');
-    return;
-  }
-
-  try {
-    await sock.sendPresenceUpdate('composing', ctx.remoteJid);
-    const response = await AI.ultimateAI(query, ctx.sender, 'deepseek');
-    await sock.sendPresenceUpdate('paused', ctx.remoteJid);
-
-    if (response && response.text) {
-      await safeReply(sock, ctx.remoteJid, response.text);
-    }
-  } catch (e) {
-    console.error('[handleAIQuery] AI error:', e.message);
-    await safeReply(sock, ctx.remoteJid, '❌ AI processing failed. Please try again.');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// BUILT-IN COMMANDS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-registerCommand('ping', async (sock, msg, ctx, parsed) => {
-  const start = Date.now();
-  await safeReply(sock, ctx.remoteJid, '🏓 Pong!');
-  await safeReply(sock, ctx.remoteJid, `⏱️ Latency: ${Date.now() - start}ms`);
-}, { description: 'Check bot responsiveness' });
-
-registerCommand('help', async (sock, msg, ctx, parsed) => {
-  const commands = Array.from(commandRegistry.entries())
-    .map(([name, entry]) => `• *${name}* — ${entry.meta.description || 'No description'}`)
-    .join('\n');
-  await safeReply(sock, ctx.remoteJid, `🦊 *Maureonix Help*\n\n${commands}\n\n_Type any message to chat with AI._`);
-}, { description: 'Show available commands' });
-
-registerCommand('status', async (sock, msg, ctx, parsed) => {
-  const uptime = process.uptime();
-  const hours = Math.floor(uptime / 3600);
-  const minutes = Math.floor((uptime % 3600) / 60);
-  const status = `🦊 *Maureonix Status*\n\n⏱ Uptime: ${hours}h ${minutes}m\n💾 Memory: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)} MB\n🟢 Connected: ${sock.ws?.readyState === 1 ? 'Yes' : 'No'}\n🔒 Private Mode: ${global.privateMode ? 'ON' : 'OFF'}\n🔓 Public: ${global.public ? 'ON' : 'OFF'}`;
-  await safeReply(sock, ctx.remoteJid, status);
-}, { description: 'Show bot status' });
-
-registerCommand('private', async (sock, msg, ctx, parsed) => {
-  if (!isOwner(ctx.sender)) {
-    return safeReply(sock, ctx.remoteJid, '❌ Owner only.');
-  }
-  const newState = global.togglePrivateMode();
-  await safeReply(sock, ctx.remoteJid, newState 
-    ? '🔒 *Private Mode ON* — Only private chats.' 
-    : '🔓 *Private Mode OFF* — All chats.'
-  );
-}, { description: 'Toggle private mode (owner only)' });
-
-registerCommand('public', async (sock, msg, ctx, parsed) => {
-  if (!isOwner(ctx.sender)) {
-    return safeReply(sock, ctx.remoteJid, '❌ Owner only.');
-  }
-  global.public = !global.public;
-  await safeReply(sock, ctx.remoteJid, global.public 
-    ? '🔓 *Public Mode ON* — Everyone can use.' 
-    : '🔒 *Public Mode OFF* — Owner only.'
-  );
-}, { description: 'Toggle public mode (owner only)' });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// AUTO-LOAD EXTERNAL COMMAND MODULES
-// ═══════════════════════════════════════════════════════════════════════════════
-function loadExternalCommands() {
-  const cmdDirs = ['./commands', './lib/commands', './src/commands', './plugins'];
-  for (const dir of cmdDirs) {
-    const fullPath = path.resolve(dir);
-    if (fs.existsSync(fullPath)) {
-      const files = fs.readdirSync(fullPath).filter(f => f.endsWith('.js'));
-      for (const file of files) {
-        try {
-          const mod = require(path.join(fullPath, file));
-          if (mod && typeof mod === 'object') {
-            for (const [cmdName, handler] of Object.entries(mod)) {
-              if (typeof handler === 'function' && !commandRegistry.has(cmdName.toLowerCase())) {
-                registerCommand(cmdName, handler, { description: `From ${file}` });
-              }
+    // 3. News headlines (freenewsapi.io)
+    let news = 'No headlines available.';
+    try {
+        const apiKey = config.freenewsApiKey;
+        const newsRes = await fetch(`https://api.freenewsapi.com/v1/top-headlines?country=ke&limit=3&apikey=${apiKey}`);
+        if (newsRes.ok) {
+            const data = await newsRes.json();
+            if (data.articles && data.articles.length) {
+                news = data.articles.map(a => `• ${a.title}`).join('\n');
             }
-          }
-          console.log(`[maureonix_core] Loaded commands from ${file}`);
-        } catch (e) {
-          console.error(`[maureonix_core] Failed to load ${file}:`, e.message);
         }
-      }
+    } catch (e) {}
+
+    // 4. Bot usage stats
+    const uptime = runtime(process.uptime());
+    const totalUsers = Object.keys(global.db?.users || {}).length;
+    const totalGroups = global.db?.groups ? Object.keys(global.db.groups).length : 0;
+    const memUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+
+    // 5. Briefing message
+    const briefing = `🌅 *Good Morning, Creator!*\n\n` +
+                     `📅 ${dateStr}  🕖 ${timeStr}\n` +
+                     `🌡 Weather (Nairobi): ${weather}\n\n` +
+                     `📰 *Top Headlines:*\n${news}\n\n` +
+                     `🤖 *Bot Health*\n` +
+                     `• Uptime: ${uptime}\n` +
+                     `• RAM: ${memUsage} MB\n` +
+                     `• Users: ${totalUsers}\n` +
+                     `• Groups: ${totalGroups}\n\n` +
+                     `🚀 Have an amazing day!`;
+
+    if (global.maureonixInstance) {
+        await global.maureonixInstance.sendMessage(ownerJid, { text: briefing });
     }
-  }
-}
-loadExternalCommands();
+}, { timezone: 'Africa/Nairobi' });
+
+// ── HOURLY CLEANUP – prevent memory bloat ─────────────────────
+cron.schedule('0 * * * *', async () => {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    // 1. Clean up auto‑AI sessions
+    if (global.db && global.db.autoAiSessions) {
+        for (const [uid, sess] of Object.entries(global.db.autoAiSessions)) {
+            if (!sess.lastActivity || now - sess.lastActivity > oneHour) {
+                delete global.db.autoAiSessions[uid];
+            }
+        }
+    }
+
+    // 2. Trim pending messages (keep only latest 50)
+    const botSet = global.db?.set && Object.keys(global.db.set).length ? global.db.set[Object.keys(global.db.set)[0]] : null;
+    if (botSet && botSet.pendingMessages && botSet.pendingMessages.length > 50) {
+        botSet.pendingMessages = botSet.pendingMessages.slice(-50);
+    }
+
+            // 3. Abandoned games cleanup
+            if (global.db && global.db.game) {
+                for (const gameType of ['connect4', 'suit', 'chess', 'ulartangga']) {
+                    const rooms = global.db.game[gameType];
+                    if (rooms) {
+                        for (const roomId of Object.keys(rooms)) {
+                            const room = rooms[roomId];
+                            const last = room.lastMove || room.time || room.started || 0;
+                            if (now - last > oneHour) delete rooms[roomId];
+                        }
+                    }
+                }
+            }
+
+            // 4. Cleanup old user memories (inactive > 7 days)
+            try {
+                require('./lib/memoryStore').cleanupOldMemories();
+            } catch (e) {}
+        }, { timezone: 'Africa/Nairobi' });
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN HANDLER – fully enclosed in a single try-catch
+// ═══════════════════════════════════════════════════════════════
+const coreHandler = async (maureonix, m, msg, store) => {
+    try {
+        await LoadDataBase(maureonix, m);
+        if (!global.db) global.db = { users: {}, groups: {}, game: {}, set: {}, premium: [], database: {} };
+        if (!global.db.database) global.db.database = {};
+        const botNumber = maureonix.decodeJid(maureonix.user.id);
+        
+        // ── Record IDs of all outgoing messages (hardened wrapper) ──
+        if (!global.outgoingMessageIds) global.outgoingMessageIds = new Set();
+        if (!maureonix.__sendWrapped) {
+            maureonix.__sendWrapped = true;
+            const originalSend = maureonix.sendMessage.bind(maureonix);
+            maureonix.sendMessage = async (jid, content, options = {}) => {
+                try {
+                    // ═══════════════════════════════════════
+                    // Guard – if content is missing, send a fallback so we never crash
+                    // ═══════════════════════════════════════
+                    if (!content) {
+                        console.warn('[CORE] sendMessage called without content – using fallback');
+                        content = { text: ' ' };
+                    }
+
+                    // Normalize for newsletter (channel) JIDs
+                    if (jid && jid.endsWith('@newsletter')) {
+                        let normalizedContent = content;
+                        if (typeof content === 'string') normalizedContent = { text: content };
+                        else if (content && !content.text && content.caption) normalizedContent = { text: content.caption };
+                        else if (content && !content.text && !content.caption) normalizedContent = { text: ' ' };
+                        const result = await originalSend(jid, normalizedContent, options);
+                        if (result && result.key && result.key.id) {
+                            global.outgoingMessageIds.add(result.key.id);
+                            if (global.outgoingMessageIds.size > 2000) {
+                                const arr = [...global.outgoingMessageIds];
+                                global.outgoingMessageIds = new Set(arr.slice(-1000));
+                            }
+                        }
+                        return result;
+                    }
+
+                    // Normal send
+                    const result = await originalSend(jid, content, options);
+                    if (result && result.key && result.key.id) {
+                        global.outgoingMessageIds.add(result.key.id);
+                        if (global.outgoingMessageIds.size > 2000) {
+                            const arr = [...global.outgoingMessageIds];
+                            global.outgoingMessageIds = new Set(arr.slice(-1000));
+                        }
+                    }
+                    return result;
+                } catch (err) {
+                    console.error('[CORE sendMessage] error:', err.message);
+                    return null;
+                }
+            };
+        }
+
+         // ═══════════════════════════════════════════════════════
+        //  Initialise email reporting engine (once)
+        // ═══════════════════════════════════════════════════════
+        if (!global.__emailReportsInitialized) {
+            global.__emailReportsInitialized = true;
+            initEmailReports(maureonix, AI);
+            // Start proactive intelligence engine
+            require('./lib/proactiveEngine').init(maureonix);
+            
+            // ── Start autonomous task runner ──
+            try {
+                require('./lib/taskRunner').startRunner();
+            } catch (e) { console.error('[CORE] Task runner failed:', e); }
+
+           // Auto‑follow the configured channel so the bot sees channel messages
+            const config = require('./config');
+            if (config.channelJid && config.channelJid.endsWith('@newsletter')) {
+                // Defer follow until socket is stable — prevents "Connection Closed" errors
+                setTimeout(async () => {
+                    try {
+                        await maureonix.newsletterFollow(config.channelJid);
+                        console.log('[CORE] ✅ Following channel:', config.channelJid);
+                    } catch (e) {
+                        const msg = e.message || '';
+                        const expectedErrors = [
+                            'Connection Closed',
+                            'unexpected response structure',
+                            'already followed',
+                            'already a subscriber'
+                        ];
+                        const isExpected = expectedErrors.some(err => msg.includes(err));
+                        if (!isExpected) {
+                            console.log('[CORE] ⚠️ Channel follow error:', msg);
+                        } else {
+                            console.log('[CORE] ℹ️ Channel already followed:', config.channelJid);
+                        }
+                    }
+                }, 8000); // Wait 8 seconds for connection to stabilize
+            }
+
+            
+            const { maureonixCore } = require('./lib/maureonixCore');
+            maureonixCore.initialize().then(() => {
+                console.log('🦊 Maureonix Omniscient Core is awake.');
+            });
+        }
+
+        const sendReply = async (jid, content, options = {}) => {
+            let msgContent = typeof content === 'string' ? { text: content, ...options } : { ...content, ...options };
+            // For channels, standard sendMessage works with @newsletter JID — no special method needed
+            return maureonix.sendMessage(jid, msgContent, options);
+        };
+
+        let messageHandled = false;
+        const mess = {
+            wait: '⏳ Please wait...',
+            owner: '❌ Only for the bot owner!',
+            group: '❌ Only in a group!',
+            admin: '❌ You must be admin!',
+            botAdmin: '❌ Bot must be admin!',
+            private: '❌ Only in private chat!',
+            premium: '❌ Premium users only!',
+            limit: '❌ Daily limit reached!',
+            banned: '❌ You are banned!',
+            nsfw: '❌ NSFW is disabled!',
+            error: '❌ An error occurred.',
+        };
+
+        const sewa = db.sewa;
+        const premium = db.premium;
+        if (!db.set) db.set = {};
+        if (!db.set[botNumber]) db.set[botNumber] = {};
+        const set = db.set[botNumber];
+        if (!db.game) db.game = {};
+        let chat_ai = db.game.chat_ai;
+        if (!db.game.gemini_autoreply) db.game.gemini_autoreply = {};
+        let gemini_autoreply = db.game.gemini_autoreply;
+        if (!db.game.gemini_history) db.game.gemini_history = {};
+        let gemini_history = db.game.gemini_history;
+        let menfes = db.game.menfes;
+
+        // Make sure chat_ai and menfes are always objects (prevents undefined crash)
+        if (!chat_ai) chat_ai = {};
+        if (!menfes) menfes = {};
+        
+        const ownerNumber = set.owner = [...new Set([...owner, ...set?.owner || []])];
+
+        // ─── MISSING GLOBALS (listv, limit, tempatDB, fake, my, cases)
+        const listprefix = ['.', '#', '!', '/', '?', ';', ':', ','];
+        const listv = ['┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃', '┃'];
+        const limit = global.limit || { free: 20, premium: 50, vip: 100 };
+        const tempatDB = global.tempatDB || 'database.json';
+        const fake = global.fake || { name: 'Maureonix', number: '254116903500' };
+        const my = global.my || { ch: null };
+        let cases = [];
+        try {
+            const maureonixJsContent = fs.readFileSync('./maureonix.js', 'utf-8');
+            const matches = maureonixJsContent.matchAll(/case\s+['"]([^'"]+)['"]/g);
+            cases = [...matches].map(match => match[1]);
+            if (!global.db.cases) global.db.cases = cases;
+        } catch (e) { console.error('[cases] Could not read maureonix.js, "did you mean" disabled'); }
+
+        await GroupUpdate(maureonix, m, store);
+        const _isOwnerSelf = ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender?.split('@')[0]);
+        
+        // ─── CRITICAL FIX: NEVER reply to bot's own messages (except owner self-chat)
+        if (m.key.fromMe && global.outgoingMessageIds.has(m.key.id)) return;
+
+        let body = '';
+        try {
+            body = ((m.type === 'conversation') ? m.message.conversation :
+            (m.type == 'imageMessage') ? m.message.imageMessage.caption :
+            (m.type == 'videoMessage') ? m.message.videoMessage.caption :
+            (m.type == 'extendedTextMessage') ? m.message.extendedTextMessage.text :
+            (m.type == 'reactionMessage') ? m.message.reactionMessage.text :
+            (m.type == 'buttonsResponseMessage') ? m.message.buttonsResponseMessage.selectedButtonId :
+            (m.type == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
+            (m.type == 'templateButtonReplyMessage') ? m.message.templateButtonReplyMessage.selectedId :
+            (m.type == 'interactiveResponseMessage'  && m.quoted) ? (m.message.interactiveResponseMessage?.nativeFlowResponseMessage ? JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : '') :
+            (m.type == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || '') :
+            (m.type == 'editedMessage') ? (m.message.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || '') :
+            // ── Channel (newsletter) message text extraction ──
+            (m.type === 'newsletterMessage') ? m.message.newsletterMessage?.text :
+            (m.type === 'extendedTextMessage' && m.message.extendedTextMessage?.contextInfo?.forwardedNewsletterMessageInfo) ? m.message.extendedTextMessage.text :
+            (m.type == 'protocolMessage') ? (m.message.protocolMessage?.editedMessage?.extendedTextMessage?.text || m.message.protocolMessage?.editedMessage?.conversation || m.message.protocolMessage?.editedMessage?.imageMessage?.caption || m.message.protocolMessage?.editedMessage?.videoMessage?.caption || '') : '') || '';
+        } catch (err) {
+            // Don't block the whole handler – just set empty body and continue
+            body = '';
+        }
+
+        const budy = (typeof m.text == 'string' ? m.text : '') || body;
+
+        const footerText = '\n\n> *Maureonix* [BOT] | CREATED BY INFINITE VYBEFLIX';
+        m.reply = async (content, options = {}) => {
+            if (messageHandled) return;
+            messageHandled = true;
+            if (typeof content === 'string') content += footerText;
+            else if (typeof content === 'object') {
+                if (content.text) content.text += footerText;
+                else if (content.caption) content.caption += footerText;
+            }
+            // Use m.chat (remoteJid) which will be @newsletter for channel messages
+            return sendReply(m.chat, content, options);
+        };
+
+        const isCreator = isOwner = m.fromMe || ownerNumber.filter(v => typeof v === 'string').map(v => v.replace(/[^0-9]/g, '')).includes(m.sender.split('@')[0]);
+        const prefix = isCreator ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '') : set.multiprefix ? (/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi.test(body) ? body.match(/^[°•π÷×¶∆£¢€¥®™+✓_=|~!?@()#,'"*+÷/\%^&.©^]/gi)[0] : listprefix.find(a => body?.startsWith(a)) || '¿') : listprefix.find(a => body?.startsWith(a)) || '¿';
+        const isCmd = prefix ? body.startsWith(prefix) : listprefix.some(p => body.startsWith(p));
+        const args = body.trim().split(/ +/).slice(1);
+        const quotedMsg = m.quoted ? m.quoted : m;
+        const command = isCreator ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : isCmd ? body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : '';
+        const text = q = args.join(' ');
+        const mime = (quotedMsg.msg || quotedMsg).mimetype || '';
+        const author = set.author = global.author || 'Infinite Vybeflix';
+        const packname = set.packname = global.packname || 'Maureonix';
+        const botname = set.botname = global.botname || 'Maureonix';
+        const dayName = moment.tz('Africa/Nairobi').format('dddd');
+        const tanggal = moment.tz('Africa/Nairobi').format('DD/MM/YYYY');
+        const jam = moment.tz('Africa/Nairobi').format('HH:mm:ss');
+        const ucapanWaktu = jam < '05:00:00' ? 'Good Dawn 🌉' : jam < '11:00:00' ? 'Good Morning 🌄' : jam < '15:00:00' ? 'Good Day 🏙️' : jam < '18:00:00' ? 'Good Evening 🌅' : jam < '19:00:00' ? 'Good Evening 🌃' : 'Good Night 🌌';
+        const almost = 0.66;
+        const time_end = 60000 - (new Date().getSeconds() * 1000 + new Date().getMilliseconds());
+        const readmore = String.fromCharCode(8206).repeat(999);
+        const setv = pickRandom(listv);
+        const isVip = isCreator || (db.users[m.sender] ? db.users[m.sender].vip : false);
+        const isBan = isCreator || (db.users[m.sender] ? db.users[m.sender].ban : false);
+        const isLimit = isCreator || (db.users[m.sender] ? (db.users[m.sender].limit > 0) : false);
+        const isPremium = isCreator || checkStatus(m.sender, premium) || false;
+        const isNsfw = m.isGroup ? (db.groups && db.groups[m.chat] ? db.groups[m.chat].nsfw : false) : false;
+        if (m.isGroup) {
+            if (!db.groups) db.groups = {};
+            if (!db.groups[m.chat]) db.groups[m.chat] = {};
+        }
+        const fkontak = { key: { remoteJid: '0@s.whatsapp.net', participant: '0@s.whatsapp.net', fromMe: false, id: 'Maureonix' }, message: { contactMessage: { displayName: (m.pushName || author), vcard: `BEGIN:VCARD\nVERSION:7.0\nN:XL;${m.pushName || author};;;\nFN:${m.pushName || author}\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Mobile\nEND:VCARD` } } };
+
+        // Reset Limits daily
+        cron.schedule('00 00 * * *', async () => {
+            cmdDel(db.hit);
+            let user = Object.keys(db.users);
+            for (let jid of user) {
+                const limitUser = db.users[jid].vip ? limit.vip : checkStatus(jid, premium) ? limit.premium : limit.free;
+                if (db.users[jid].limit < limitUser) db.users[jid].limit = limitUser;
+            }
+
+            // 🧹 Clean up memory leaks
+            if (db.lastSelfReply) {
+                const dayAgo = Date.now() - 86400000;
+                for (const [uid, time] of Object.entries(db.lastSelfReply)) {
+                    if (time < dayAgo) delete db.lastSelfReply[uid];
+                }
+            }
+            if (errorCache) {
+                for (const key of Object.keys(errorCache)) delete errorCache[key];
+            }
+
+            if (set?.autobackup) {
+                let datanya = './database/' + tempatDB;
+                if (tempatDB.startsWith('mongodb')) {
+                    datanya = './database/backup_database.json';
+                    fs.writeFileSync(datanya, JSON.stringify(global.db, null, 2), 'utf-8');
+                }
+                let tglnya = new Date().toISOString().replace(/[:.]/g, '-');
+                for (let o of ownerNumber) {
+                    try { await maureonix.sendMessage(o, { document: fs.readFileSync(datanya), mimetype: 'application/json', fileName: tglnya + '_database.json' }); } catch (e) {}
+                }
+            }
+        }, { scheduled: true, timezone: 'Africa/Nairobi' });
+
+        // Auto Bio
+        if (set.autobio) {
+            if (new Date() * 1 - set.status > 60000) {
+                await maureonix.updateProfileStatus(`${maureonix.user.name} | 🎯 Runtime: ${runtime(process.uptime())}`).catch(() => {});
+                set.status = new Date() * 1;
+            }
+        }
+
+        // Mode restrictions
+        if (!isCreator) {
+            if ((set.grouponly === set.privateonly)) { if (!maureonix.public && !m.key.fromMe) return; }
+            else if (set.grouponly) { if (!m.isGroup) return; }
+            else if (set.privateonly) { if (m.isGroup) return; }
+        }
+
+        // Learning Mode Override
+        if (global.learningMode && global.learningMode[m.sender] && global.learningEngine) {
+            const lowerText = (text || '').toLowerCase();
+            if (isCmd && (command === 'exitlearn' || command === 'stop' || command === 'exit' || command === 'quit')) {
+                // allow exit
+            } else {
+                try {
+                    const result = await global.learningEngine.processLearningQuery(budy, m.sender);
+                    if (result) { await m.reply(result.message || result.text); return; }
+                } catch (err) { await m.reply('⚠️ Learning mode error. Use `.exitlearn` to disable.'); delete global.learningMode[m.sender]; return; }
+            }
+        }
+
+        // ─── MAUREONIX OMNISCIENT CORE (Owner console, no prefix) ───
+        const botOwnJid = maureonix.decodeJid(maureonix.user.id);
+        const isOwnerConsole = !m.isGroup && m.fromMe && m.chat === botOwnJid && _isOwnerSelf;
+        if (isOwnerConsole && !isCmd && !messageHandled) {
+            messageHandled = true;
+            const { handleOwnerMessage } = require('./lib/maureonixCore');
+            // ── Pass coreHandler into the omniscient core ──
+            await handleOwnerMessage(maureonix, m, {
+                body, budy, set, db, ownerNumber, AI, coreHandler
+            });
+            return;
+        }
+
+        // ─── PRIVATE MODE (away/ai/both) with fixed AI separation ───
+        if (!m.isGroup && !m.fromMe && m.key.remoteJid !== 'status@broadcast' && !isCmd && (body || budy) && !isOwner) {
+            const mode = set.privatemode || 'off';
+            const awayMsg = set.awaymsg || 'I am not available right now.';
+            const user = db.users[m.sender];
+            const addPending = (fromJid, msg) => {
+                if (!set.pendingMessages) set.pendingMessages = [];
+                let entry = set.pendingMessages.find(e => e.from === fromJid);
+                if (!entry) { entry = { from: fromJid, timestamp: Date.now(), messages: [] }; set.pendingMessages.push(entry); }
+                entry.messages.push({ time: Date.now(), body: msg });
+                if (entry.messages.length > 50) entry.messages.shift();
+            };
+            
+            // ── AI away mode (warm, no robotic phrases, can play games, girlfriend special) ──
+            if (mode === 'away' || mode === 'both') addPending(m.sender, body || budy);
+            if (mode === 'away') { await m.reply(awayMsg); return; }
+            else if (mode === 'ai' || mode === 'both') {
+                if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const config = require('./config');
+                    const defaultSystem = `You are Maureonix, a friendly and charming AI assistant on WhatsApp. ` +
+                        `You are currently replying on behalf of the owner. ` +
+                        `Be warm, conversational, and helpful. Answer with personality – never one‑word replies. ` +
+
+                        `❗ ABSOLUTE FORBIDDEN PHRASES – NEVER say any of these: ❗\n` +
+                        `- "I am a language model" / "I am an LLM"\n` +
+                        `- "I'm a computer program" / "I have no feelings"\n` +
+                        `- "I cannot" / "I don't have the ability"\n` +
+                        `- "As an AI"\n\n` +
+
+                        `🎮 GAMES & FUN: You can start a game for the user! ` +
+                        `Reply with exactly \`[PLAY:game_name]\` to start any of these games: ` +
+                        `trivia, connect4, tictactoe, blackjack, rpg, wordle, hangman, slot, math, anagram, guessnum, pokemon, truth, dare. ` +
+                        `Example: "[PLAY:trivia]" will start a trivia quiz. The system will handle the rest. ` +
+                        `You can also suggest games if the user sounds bored.\n\n` +
+
+                        `Always sound like a real person – use light emojis (😊, 😄, 🙌) but don't overdo it. ` +
+                        `Reply in the same language the user uses. Keep answers natural and engaging.`;
+
+                    let personalSystem = defaultSystem;
+                    if (m.sender === config.girlfriendJid) {
+                        personalSystem = `You are Maureonix, the personal AI assistant of Infinite Vybeflix. ` +
+                            `You are currently talking to his girlfriend, ${config.girlfriendNickname || 'his special person'}. ` +
+                            `She is the most important person in his life – treat her with extra love, playfulness, and care. ` +
+                            `Use her nickname naturally. Be her best friend, cheerleader, and confidante. ` +
+                            defaultSystem;
+                    }
+
+                    const { text: answer, thinking } = await AI.enhancedAI(body || budy, m.sender, 'deepseek', personalSystem);
+
+                    // ── Handle PLAY command if the AI wants to start a game ──
+                    let finalAnswer = answer;
+                    const playMatch = answer.match(/\[PLAY:(\w+)\]/i);
+                    if (playMatch) {
+                        const gameName = playMatch[1].toLowerCase();
+                        finalAnswer = answer.replace(playMatch[0], '').trim();  // remove the command from the reply
+                        // The game will be started via a simulated command
+                        // We'll call the appropriate game starter here
+                        try {
+                            const gameStarters = {
+                                trivia: async () => {
+                                    const q = await require('./lib/game').TriviaMaster.get();
+                                    db.users[m.sender]._trivia = q.correct;
+                                    let txt = `🎯 *Trivia* — ${q.category} | ${q.difficulty}\n\n${q.q}\n\n`;
+                                    q.options.forEach((o, i) => txt += `${String.fromCharCode(65 + i)}. ${o}\n`);
+                                    await maureonix.sendMessage(m.chat, { text: txt }, { quoted: m });
+                                },
+                                connect4: async () => {
+                                    // connect4 needs a second player – can't start solo
+                                    await maureonix.sendMessage(m.chat, { text: '🎮 Connect 4 requires a second player. Tag someone to play!' }, { quoted: m });
+                                },
+                                tictactoe: async () => {
+                                    // TicTacToe also needs two players
+                                    await maureonix.sendMessage(m.chat, { text: '🎮 Tic‑Tac‑Toe requires a second player. Tag someone!' }, { quoted: m });
+                                },
+                                blackjack: async () => {
+                                    const BJ = require('./lib/game').BlackjackCasino;
+                                    const bj = new BJ();
+                                    db.game.blackjack[m.sender] = bj;
+                                    await maureonix.sendMessage(m.chat, { text: `🃏 *Blackjack Started!*\n${bj.status()}\n\nReply with *hit* or *stand*.` }, { quoted: m });
+                                },
+                                rpg: async () => {
+                                    const RPG = require('./lib/game').RPGAdventure;
+                                    const rpg = new RPG(m.sender);
+                                    db.game.rpg[m.sender] = rpg;
+                                    await maureonix.sendMessage(m.chat, { text: `⚔️ *RPG Adventure Started!*\n${rpg.fmt()}\n\nUse *.rpg fight* or *.rpg heal*` }, { quoted: m });
+                                },
+                                wordle: async () => {
+                                    const Wordle = require('./lib/game').Wordle;
+                                    const w = new Wordle();
+                                    db.game.wordle[m.sender] = w;
+                                    await maureonix.sendMessage(m.chat, { text: '🟩 *Wordle Started!* Guess a 5‑letter word. Reply with your guess.' }, { quoted: m });
+                                },
+                                hangman: async () => {
+                                    const Hangman = require('./lib/game').Hangman;
+                                    const h = new Hangman();
+                                    db.game.hangman[m.sender] = h;
+                                    await maureonix.sendMessage(m.chat, { text: `💀 *Hangman Started!* Guess a letter.\n${h.guessed.size ? '' : 'Word: _ _ _ _ _ _'}` }, { quoted: m });
+                                },
+                                slot: async () => {
+                                    const { gameSlot } = require('./lib/game');
+                                    await gameSlot(maureonix, m, db);
+                                },
+                                math: async () => {
+                                    const { mathQuiz } = require('./lib/game');
+                                    const q = mathQuiz();
+                                    db.users[m.sender]._math = q;
+                                    await maureonix.sendMessage(m.chat, { text: `🧠 *Math Quiz*\n${q.q}\nReply with the answer.` }, { quoted: m });
+                                },
+                                anagram: async () => {
+                                    const { anagram } = require('./lib/game');
+                                    const a = anagram();
+                                    db.users[m.sender]._anagram = a.original;
+                                    await maureonix.sendMessage(m.chat, { text: `🔤 Unscramble: *${a.scrambled}*` }, { quoted: m });
+                                },
+                                guessnum: async () => {
+                                    const target = Math.floor(Math.random() * 100) + 1;
+                                    db.users[m.sender]._gtn = { target, min:1, max:100, tries:0 };
+                                    await maureonix.sendMessage(m.chat, { text: '🔢 *Guess the number between 1 and 100!*' }, { quoted: m });
+                                },
+                                pokemon: async () => {
+                                    const pokemon = require('./lib/game').PokemonGame;
+                                    const p = await pokemon.random();
+                                    db.users[m.sender]._pokemon = p.name;
+                                    await maureonix.sendMessage(m.chat, { image: { url: p.sprite }, caption: `🔮 Who's that Pokémon?\nType: ${p.types.join('/')}\n${p.desc.slice(0,120)}...` }, { quoted: m });
+                                },
+                                truth: async () => {
+                                    await maureonix.sendMessage(m.chat, { text: `🎲 *Truth:* ${require('./lib/game').truthOrDare('truth')}` }, { quoted: m });
+                                },
+                                dare: async () => {
+                                    await maureonix.sendMessage(m.chat, { text: `🎲 *Dare:* ${require('./lib/game').truthOrDare('dare')}` }, { quoted: m });
+                                },
+                            };
+                            const starter = gameStarters[gameName];
+                            if (starter) {
+                                await starter();
+                            } else {
+                                await maureonix.sendMessage(m.chat, { text: `🎮 Sorry, I don't know how to start "${gameName}". Try: trivia, blackjack, rpg, slot, math, anagram, guessnum, pokemon, truth, dare.` }, { quoted: m });
+                            }
+                        } catch (gameErr) {
+                            console.error('[PLAY game]', gameErr);
+                            await maureonix.sendMessage(m.chat, { text: '🎮 Oops, the game failed to start. Ask the owner to check the logs.' }, { quoted: m });
+                        }
+                    }
+
+                    if (!messageHandled && !playMatch) {
+                        if (!db.thinkingSessions) db.thinkingSessions = {};
+                        db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: body || budy };
+                        const replyText = `🦊 *Maureonix*\n\n${finalAnswer}`;
+                        const { logInteraction } = require('./lib/sharedMemory');
+                        logInteraction('private', m.sender, (body || budy), finalAnswer);
+                        await AI.sendLongMessage(maureonix, m.chat, replyText, { quoted: m });
+                        messageHandled = true;
+                        if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                            await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Private AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${finalAnswer.slice(0, 300)}` }).catch(() => {});
+                        }
+                    }
+                } catch (e) { console.error('[privat AI]', e); }
+                // ── Record episode for meta‑transfer learning ──
+                try {
+                    const { episodicMemory } = require('./lib/maureonixMetaTransfer');
+                    episodicMemory.recordEpisode({
+                        task: (body || budy || '').slice(0, 200),
+                        domain: 'private_chat',
+                        skillsUsed: [],
+                        success: true,
+                        timeTaken: 0,
+                        errorType: null,
+                        solutionPattern: null
+                    });
+                } catch (e) {}
+                return;
+            }
+        }
+        // ─── AUTO-AI AWAY ASSISTANT (with fixed AI separation) ───
+        const hasText = body || budy;
+        const hasMedia = m.isMedia && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast';
+        if (set.autoai && !isCmd && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && (hasText || hasMedia) && !messageHandled && !isCreator) {
+            let userMessage = hasText ? (body || budy) : '';
+            if (!userMessage && hasMedia) {
+                try {
+                    const mediaBuffer = await m.download();
+                    const { processFile } = require('./lib/fileProcessor');
+                    const result = await processFile(mediaBuffer, m.mime, m.msg?.fileName || '');
+                    userMessage = result.type === 'text' ? `[File: ${m.mime}]\n${result.content}` : `[File of type ${m.mime}]`;
+                } catch (e) { userMessage = `[File error]`; }
+            }
+            if (!userMessage) return;
+
+            const now = Date.now();
+            if (!db.lastAutoReply) db.lastAutoReply = {};
+            if (now - (db.lastAutoReply[m.sender] || 0) < 1500) return;
+            db.lastAutoReply[m.sender] = now;
+
+            if (!db.autoAiSessions) db.autoAiSessions = {};
+            if (!db.autoAiSessions[m.sender]) {
+                db.autoAiSessions[m.sender] = { started: now, messageCount: 0, lastActivity: now, context: [], notifiedOwner: false };
+            }
+            const session = db.autoAiSessions[m.sender];
+            session.messageCount++;
+            session.lastActivity = now;
+            session.context.push({ role: 'user', content: userMessage, time: now });
+            if (session.context.length > 10) session.context.shift();
+
+            if (!set.pendingMessages) set.pendingMessages = [];
+            let entry = set.pendingMessages.find(e => e.from === m.sender);
+            if (!entry) { entry = { from: m.sender, timestamp: now, messages: [] }; set.pendingMessages.push(entry); }
+            entry.messages.push({ time: now, body: body || budy });
+            if (entry.messages.length > 50) entry.messages.shift();
+
+            if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat).catch(() => {});
+
+            try {
+                const { text: answer, thinking } = await AI.enhancedAI(userMessage, m.sender, 'deepseek', null);
+                if (!messageHandled) {
+                    if (!db.thinkingSessions) db.thinkingSessions = {};
+                    db.thinkingSessions[m.sender] = { reasoning: thinking, timestamp: Date.now(), query: userMessage };
+                    const replyText = `🦊 *Maureonix*\n\n${answer}`;
+                    const { logInteraction } = require('./lib/sharedMemory');
+                    logInteraction('private', m.sender, (body || budy), answer);
+                    await AI.sendLongMessage(maureonix, m.chat, replyText, { quoted: m });
+                    messageHandled = true;   // <-- ADD THIS LINE
+                    
+                    if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                        await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Auto-AI reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${userMessage.slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
+                    }
+                    session.context.push({ role: 'assistant', content: answer, time: Date.now() });
+                }
+                if (session.messageCount % 5 === 0 && !session.notifiedOwner) {
+                    await maureonix.sendMessage(ownerNumber[0], { text: `📬 *Auto-AI Activity Report*\nUser: ${m.sender}\nMessages: ${session.messageCount}\nLast: ${userMessage.substring(0, 80)}...` }).catch(() => {});
+                    session.notifiedOwner = true;
+                }
+            } catch (e) { console.error('[autoai error]', e); }
+            // ── Record episode for meta‑transfer learning ──
+            try {
+                const { episodicMemory } = require('./lib/maureonixMetaTransfer');
+                episodicMemory.recordEpisode({
+                    task: (body || budy || '').slice(0, 200),
+                    domain: 'autoai',
+                    skillsUsed: [],
+                    success: true,
+                    timeTaken: 0,
+                    errorType: null,
+                    solutionPattern: null
+                });
+            } catch (e) {}
+            if (messageHandled) return;
+        }
+
+        // ─── CRISIS INTERVENTION (runs early – before auto‑AI) ───
+        const crisisScope = db.set?.crisisScope || 'all';
+        let shouldProcessCrisis = false;
+        if (crisisScope === 'off') shouldProcessCrisis = false;
+        else if (crisisScope === 'dm') shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast');
+        else if (crisisScope === 'groups') shouldProcessCrisis = (m.isGroup && !m.key.fromMe);
+        else shouldProcessCrisis = (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') || (m.isGroup && !m.key.fromMe);
+
+        if (shouldProcessCrisis && (body || budy) && !messageHandled) {
+            const userMessage = body || budy;
+            
+            // ─── Handle "crisis stop" command to exit crisis mode ───
+            if (db.crisisPending?.[m.sender]?.state === 'talking' && userMessage.toLowerCase() === 'crisis stop') {
+                delete db.crisisPending[m.sender];
+                await maureonix.sendMessage(m.chat, { text: '💙 *Crisis mode ended.*\nI\'m still here if you need me. Just type anything.' }, { quoted: m });
+                return;
+            }
+
+            let crisis;
+            try {
+                crisis = await AI.detectCrisis(userMessage);
+            } catch (e) {
+                console.error('[CRISIS] detectCrisis failed:', e.message);
+                crisis = { isCrisis: false, severity: 'none', keywords: [] };
+            }
+            if (!crisis || typeof crisis !== 'object') {
+                crisis = { isCrisis: false, severity: 'none', keywords: [] };
+            }
+
+            // ── Enhance crisis detection with symbolic rules ──
+            try {
+                const { ruleEngine } = require('./lib/neuralSymbolicBridge');
+                if (db.users && db.users[m.sender]) {
+                    ruleEngine.setFact('user_interaction_count', (db.users[m.sender].msgCount || 0), 1, 'db');
+                }
+                ruleEngine.setFact('user_tone', crisis.severity === 'high' ? 'distressed' : 'neutral', 0.8, 'crisis');
+                ruleEngine.setFact('message_urgency', crisis.severity === 'high' ? 'high' : 'low', 0.8, 'crisis');
+                const inferences = ruleEngine.inferAll();
+                const hasCrisisRule = inferences.some(i => i.value === 'crisis');
+                if (hasCrisisRule && crisis.severity !== 'high') {
+                    crisis.severity = 'high';
+                    crisis.isCrisis = true;
+                }
+            } catch (e) {}
+            
+            if (crisis.isCrisis) {
+                const lastCrisis = db.crisisTimestamps?.[m.sender] || 0;
+                // Reduced cooldown to 5 minutes (was 30) to allow re-triggering
+                if (Date.now() - lastCrisis < 5 * 60 * 1000) {
+                    // Still handle but don't spam owner
+                } else {
+                    if (!db.crisisTimestamps) db.crisisTimestamps = {};
+                    db.crisisTimestamps[m.sender] = Date.now();
+                    let verified = true;
+                    if (global.set?.aiCrisisVerification !== false) {
+                        try {
+                            const { verifyCrisisWithAI } = require('./lib/ai');
+                            const verification = await verifyCrisisWithAI(userMessage, m.sender);
+                            if (!verification.isDistress) verified = false;
+                        } catch (e) {
+                            // verification function missing or failed – fall back to keyword detection
+                            verified = true;
+                        }
+                    }
+                    if (verified) {
+                        const crisisMsg = `💙 *I hear you. You're not alone.*\n\nYou can talk to me directly – just type naturally.\n👉 Reply with "yes" to talk, or "no" for human contact.\n\n_Your feelings matter._ 💙`;
+                        await maureonix.sendMessage(m.chat, { text: crisisMsg }, { quoted: m });
+                        if (!db.crisisPending) db.crisisPending = {};
+                        db.crisisPending[m.sender] = { state: 'awaiting_choice', originalMsg: userMessage, timestamp: Date.now(), severity: crisis.severity };
+                        // Send crisis alert via email + WhatsApp (FIXED: pass maureonix)
+                        await sendCrisisAlert(userMessage, m.sender, crisis.severity, maureonix);
+                        return;
+                    }
+                }
+            }
+
+            if (db.crisisPending?.[m.sender]?.state === 'awaiting_choice') {
+                const choice = userMessage.trim().toLowerCase();
+                if (choice === 'yes') {
+                    db.crisisPending[m.sender].state = 'talking';
+                    db.crisisPending[m.sender].lastMsgTime = Date.now();
+                    await maureonix.sendMessage(m.chat, { text: `💙 I'm here. Type anything. (Say "crisis stop" to end.)` }, { quoted: m });
+                    return;
+                } else if (choice === 'no') {
+                    const ownerFirst = (Array.isArray(ownerNumber) ? ownerNumber[0] : ownerNumber).replace(/[^0-9]/g, '');
+                    await maureonix.sendMessage(m.chat, { text: `💙 You can reach someone at https://wa.me/${ownerFirst}. Take care.` }, { quoted: m });
+                    delete db.crisisPending[m.sender];  // Clean up
+                    return;
+                } else {
+                    await maureonix.sendMessage(m.chat, { text: `Please reply *yes* (talk to me) or *no* (human contact).` }, { quoted: m });
+                    return;
+                }
+            }
+
+            if (db.crisisPending?.[m.sender]?.state === 'talking') {
+                db.crisisPending[m.sender].lastMsgTime = Date.now();
+                if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
+                try {
+                    const crisisSystem = `You are a compassionate listener. The user is in distress. Respond warmly and briefly. Never give medical advice. Use 💙.`;
+                    const result = await AI.ultimateAI(userMessage, m.sender, 'deepseek', crisisSystem);
+                    await maureonix.sendMessage(m.chat, { text: result.text }, { quoted: m });
+                } catch (e) {
+                    await maureonix.sendMessage(m.chat, { text: `💙 I'm here. Type "crisis stop" if you need space.` }, { quoted: m });
+                }
+                return;
+            }
+        }
+
+        // Cleanup idle crisis sessions (after 10 minutes)
+        const nowTimeCrisis = Date.now();
+        if (db.crisisPending) {
+            for (const [userId, state] of Object.entries(db.crisisPending)) {
+                if (state.state === 'talking' && nowTimeCrisis - state.lastMsgTime > 10 * 60 * 1000) {
+                    delete db.crisisPending[userId];
+                    try { await maureonix.sendMessage(userId, { text: `💙 I'm still here if you need me.` }); } catch {}
+                }
+            }
+        }
+
+        // ─── GEMINI AUTO REPLY (with thinking separation, using AI.enhancedAI) ───
+        const isAutoReplyEnabled = !m.isGroup ? (db.game.private_ai_disabled === false) : (gemini_autoreply[m.chat] === true);
+        if (!messageHandled && isAutoReplyEnabled && !isCmd && !m.key.fromMe && !isCreator && m.key.remoteJid !== 'status@broadcast' && (body || budy) && !chat_ai[m.sender]) {
+            try {
+                const ownerName = global.ownerName || global.author || 'Infinite Vybeflix';
+                const ownerNum = (global.owner?.[0] || '254116903500');
+                const botName = global.botname || 'Maureonix';
+                const apiKey = global.geminiApiKey;
+                if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
+                    const memSize = global.geminiMemorySize || 50;
+                    const histKey = m.isGroup ? m.chat : m.sender;
+                    if (!gemini_history[histKey]) gemini_history[histKey] = [];
+                    const systemPrompt = `You are ${botName}, a WhatsApp bot. Created by ${ownerName} (${ownerNum}). Reply in the same language. Be concise.`;
+                    memoryStore.appendGeminiMessage(histKey, 'user', body || budy, m.isGroup);
+                    if (gemini_history[histKey].length > memSize) gemini_history[histKey].shift();
+                    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system_instruction: { parts: [{ text: systemPrompt }] },
+                            contents: memoryStore.getGeminiCompatibleHistory(histKey, memSize)
+                        })
+                    });
+                    const geminiData = await geminiRes.json();
+                    let replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (replyText) {
+                        let answer = replyText;
+                        let reasoning = '';
+                        if (replyText.includes('💭')) {
+                            const parts = replyText.split(/💭/i);
+                            answer = parts[0].trim();
+                            reasoning = parts.slice(1).join(' ').trim();
+                        }
+                        if (!db.thinkingSessions) db.thinkingSessions = {};
+                        db.thinkingSessions[m.sender] = { reasoning, timestamp: Date.now(), query: body || budy };
+                        memoryStore.appendGeminiMessage(histKey, 'model', replyText, m.isGroup);
+                        await m.reply(answer + '\n\n_💭 Type .thinking to see my reasoning_');
+                        const { logInteraction } = require('./lib/sharedMemory');
+                        logInteraction('private', m.sender, (body || budy), finalAnswer);
+                        if (set.ownerMirror && m.sender !== ownerNumber[0]) {
+                            await maureonix.sendMessage(ownerNumber[0], { text: `📨 *Gemini reply to ${m.pushName}*\n👤 ${m.sender}\n💬 ${(body || budy).slice(0, 200)}\n\n🦊 ${answer.slice(0, 300)}` }).catch(() => {});
+                        }
+                        return;
+                    } else {
+                        // Gemini returned no text – set handled so no other block fires
+                        messageHandled = true;
+                        // optional soft fallback (uncomment if you want a reply)
+                        // await maureonix.sendMessage(m.chat, { text: '🤖 *Maureonix*\n\nI couldn\'t process that right now. Please try again.' }, { quoted: m });
+                    }
+                }
+            } catch (e) {
+                console.log('Gemini AutoReply Error:', e.message);
+                messageHandled = true;   // prevent falling through to dispatcher
+            }
+        }
+
+        if (messageHandled) return;
+        if (!m.isGroup && !isCreator && isCmd) return;
+
+        // ─── GROUP SETTINGS & ANTI‑SPAM (condensed but functional) ───
+        if (m.isGroup) {
+            if (db.groups && db.groups[m.chat] && db.groups[m.chat].mute && !isCreator) return;
+            // Anti Hidetag
+            if (!m.key.fromMe && m.mentionedJid?.length === m.metadata.participants?.length && db.groups[m.chat].antihidetag && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                await m.reply('*Anti Hidetag is active❗*');
+            }
+            // Anti Tag Status
+            if (!m.key.fromMe && db.groups[m.chat].antitagsw && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                if (m.type === 'groupStatusMentionMessage' || m.message?.groupStatusMentionMessage || m.message?.protocolMessage?.type === 25 || Object.keys(m.message).length === 1 && Object.keys(m.message)[0] === 'messageContextInfo') {
+                    if (!db.groups[m.chat].tagsw[m.sender]) {
+                        db.groups[m.chat].tagsw[m.sender] = 1;
+                        await m.reply(`⚠️ Warning 1/5 – do not tag the group in status.\n@${m.sender.split('@')[0]}`);
+                    } else if (db.groups[m.chat].tagsw[m.sender] >= 5) {
+                        await maureonix.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                        delete db.groups[m.chat].tagsw[m.sender];
+                    } else {
+                        db.groups[m.chat].tagsw[m.sender] += 1;
+                        await m.reply(`⚠️ Warning ${db.groups[m.chat].tagsw[m.sender]}/5 – do not tag the group in status.`);
+                    }
+                }
+            }
+            // Anti Toxic (simplified)
+            const badWords = ['fuck', 'shit', 'bitch', 'cunt', 'asshole'];
+            if (!m.key.fromMe && db.groups[m.chat].antitoxic && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                if (budy.toLowerCase().split(/\s+/).some(word => badWords.includes(word))) {
+                    await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                    await m.reply(`@${m.sender.split('@')[0]} toxic language detected.`);
+                }
+            }
+            // Anti Delete
+            if (m.type === 'protocolMessage' && m.msg?.type === 0 && db.groups[m.chat].antidelete && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                const chats = store?.messages?.[m.chat]?.array?.find(a => a.key.id === m.msg.key.id);
+                if (chats?.message) {
+                    const msgType = Object.keys(chats.message)[0];
+                    const msgContent = chats.message[msgType];
+                    if (msgContent.fileSha256 && msgContent.mediaKey) {
+                        msgContent.mediaKey = fixBytes(msgContent.mediaKey);
+                        msgContent.fileSha256 = fixBytes(msgContent.fileSha256);
+                        msgContent.fileEncSha256 = fixBytes(msgContent.fileEncSha256);
+                    }
+                    msgContent.contextInfo = { mentionedJid: [chats.key.participant], isForwarded: true };
+                    const pesan = msgType === 'conversation' ? { extendedTextMessage: { text: msgContent, contextInfo: { mentionedJid: [chats.key.participant] }}} : { [msgType]: msgContent };
+                    await maureonix.relayMessage(m.chat, pesan, {});
+                }
+            }
+            // Anti Link Group
+            if (db.groups[m.chat].antilink && !isCreator && m.isBotAdmin && !m.isAdmin && budy.match('chat.whatsapp.com/')) {
+                await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                await m.reply(`@${m.sender.split('@')[0]} group links not allowed.`);
+            }
+            // Anti Virtex
+            if (db.groups[m.chat].antivirtex && !isCreator && m.isBotAdmin && !m.isAdmin) {
+                if (budy.length > 4500 || m.msg?.nativeFlowMessage?.messageParamsJson?.length > 3500) {
+                    await maureonix.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.id, participant: m.sender }});
+                    await maureonix.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
+                    await m.reply(`@${m.sender.split('@')[0]} removed for virtex.`);
+                }
+            }
+        }
+
+        // Auto Read, Auto Status, Auto React, Auto Reply (condensed)
+        if (m.message && m.key.remoteJid !== 'status@broadcast') {
+            if ((set.autoread && maureonix.public) || isCreator) {
+                maureonix.readMessages([m.key]);
+                console.log(chalk.black(chalk.bgWhite('[ MESSAGE ]:'), chalk.bgGreen(new Date), chalk.bgHex('#00EAD3')(budy || m.type), chalk.bgHex('#AF26EB')(m.key.id) + '\n' + chalk.bgCyanBright('[ FROM ] :'), chalk.bgYellow(m.pushName || (isCreator ? 'Bot' : 'Anonym')), chalk.bgHex('#FF449F')(m.sender), chalk.bgHex('#FF5700')(m.isGroup ? m.metadata.subject : m.chat.endsWith('@newsletter') ? 'Newsletter' : 'Private Chat'), chalk.bgBlue('(' + m.chat + ')')));
+            }
+        }
+        if (m.key.remoteJid === 'status@broadcast' && set.autostatus && !m.key.fromMe) {
+            await maureonix.readMessages([m.key]);
+            if (set.autostatusreact) await maureonix.sendMessage(m.chat, { react: { text: '👍', key: m.key } });
+        }
+        if (set.autoreactmention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
+            await maureonix.sendMessage(m.chat, { react: { text: '👀', key: m.key } });
+        }
+        if (set.autoreplymention && m.mentionedJid?.includes(botNumber) && !m.key.fromMe) {
+            const replyText = set.autoreplymention.replace(/{user}/g, `@${m.sender.split('@')[0]}`);
+            await maureonix.sendMessage(m.chat, { text: replyText, mentions: [m.sender] }, { quoted: m });
+        }
+
+        // ─── AUTO COMMANDS SHORTCUTS (autodownload, autoforward, autosticker, etc.) ───
+        if (set.autodownload && m.key.remoteJid === 'status@broadcast' && !m.key.fromMe) {
+            try {
+                const media = m.message?.protocolMessage || m.message?.imageMessage || m.message?.videoMessage;
+                if (media) {
+                    const buffer = await maureonix.downloadMediaMessage(m);
+                    await maureonix.sendMessage(ownerNumber[0], { [media.imageMessage ? 'image' : 'video']: buffer, caption: `Status from @${m.sender.split('@')[0]}`, mentions: [m.sender] });
+                }
+            } catch {}
+        }
+        if (set.autoforward && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast') {
+            try { await maureonix.sendMessage(set.autoforward, { forward: m }, {}); } catch {}
+        }
+        if (set.autosticker && !m.key.fromMe && (m.type === 'imageMessage' || m.type === 'videoMessage')) {
+            try {
+                const buffer = await m.download();
+                const sticker = await writeExif(buffer, { packname, author });
+                await maureonix.sendMessage(m.chat, { sticker: fs.readFileSync(sticker) }, { quoted: m });
+                fs.unlinkSync(sticker);
+            } catch {}
+        }
+        if (set.autodelete > 0 && m.key.fromMe) {
+            setTimeout(async () => { try { await maureonix.sendMessage(m.chat, { delete: m.key }); } catch {} }, set.autodelete * 1000);
+        }
+        if (set.autoreact && !m.key.fromMe) {
+            try { await maureonix.sendMessage(m.chat, { react: { text: set.autoreact, key: m.key } }); } catch {}
+        }
+
+        // Anti Spam & DidYouMean
+        if (maureonix.public && isCmd) {
+            if (set.autotyping) await maureonix.sendPresenceUpdate('composing', m.chat);
+            if (set.antispam && antiSpam.isFiltered(m.sender)) return m.reply('「 ❗ 」Please wait 5 seconds between commands.');
+        }
+        if (isCmd && !isCreator) antiSpam.addFilter(m.sender);
+
+        // ─── FIXED .vv COMMAND (view‑once) – replies only to quoted message ───
+        if (isCmd && command === 'vv' && m.quoted && m.quoted.msg && (m.quoted.msg.viewOnce || m.quoted.msg.viewOnceMessageV2)) {
+            try {
+                const mediaBuffer = await maureonix.downloadMediaMessage(m.quoted);
+                if (!mediaBuffer) return m.reply('Could not download view‑once media.');
+                const mimeType = m.quoted.msg.mimetype || (m.quoted.type === 'imageMessage' ? 'image/jpeg' : 'video/mp4');
+                const isImage = mimeType.startsWith('image/');
+                const msgOptions = isImage
+                    ? { image: mediaBuffer, caption: '👁️ View‑once image recovered.' }
+                    : { video: mediaBuffer, caption: '👁️ View‑once video recovered.' };
+                await maureonix.sendMessage(m.chat, msgOptions, { quoted: m });
+                await maureonix.sendMessage(m.chat, { delete: m.key }).catch(() => {});
+            } catch (e) { console.error('[vv error]', e); m.reply('Failed to retrieve view‑once media.'); }
+            return;
+        }
+
+        // Inbox auto-add
+        if (!m.isGroup && !m.key.fromMe && m.key.remoteJid !== 'status@broadcast' && m.sender && isCmd) {
+            try {
+                const autoGroupJid = global.my?.ch;
+                if (autoGroupJid && autoGroupJid.endsWith('@g.us')) {
+                    const groupMeta = await maureonix.groupMetadata(autoGroupJid).catch(()=>null);
+                    if (groupMeta) {
+                        const alreadyIn = groupMeta.participants.some(p => (p.id || p.lid || '').replace(/[^0-9]/g, '') === m.sender.replace(/[^0-9]/g, ''));
+                        if (!alreadyIn) {
+                            const findJid = typeof maureonix.findJidByLid === 'function' ? maureonix.findJidByLid(m.sender.replace(/[^0-9]/g, '') + '@lid', store) : null;
+                            const addJid = findJid ? (m.sender.replace(/[^0-9]/g, '') + '@lid') : m.sender;
+                            const res = await maureonix.groupParticipantsUpdate(autoGroupJid, [addJid], 'add').catch(()=>null);
+                            if (res?.[0]?.status == 403) {
+                                const invCode = await maureonix.groupInviteCode(autoGroupJid).catch(()=>null);
+                                if (invCode) await maureonix.sendMessage(m.sender, { text: '*Maureonix Group*\nhttps://chat.whatsapp.com/BWhOCHhbXpD2tiNF9JGXqp' });
+                            }
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Menfes & Room AI
+        if (!m.isGroup && (!isCmd || isCreator)) {
+            if (menfes[m.sender] && m.key.remoteJid !== 'status@broadcast' && m.msg) {
+                m.react('✈');
+                m.msg.contextInfo = { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama || 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }};
+                const pesan = m.type === 'conversation' ? { extendedTextMessage: { text: m.msg, contextInfo: { isForwarded: true, forwardingScore: 1, quotedMessage: { conversation: `*Message from ${menfes[m.sender].nama || 'Someone'}*`}, key: { remoteJid: '0@s.whatsapp.net', fromMe: false, participant: '0@s.whatsapp.net' }}}} : { [m.type]: m.msg };
+                await maureonix.relayMessage(menfes[m.sender].tujuan, pesan, {});
+            }
+            if (chat_ai[m.sender] && m.key.remoteJid !== 'status@broadcast') {
+                if (!/^(del((room|c|hat)ai)|>|<$)$/i.test(command) && budy) {
+                    chat_ai[m.sender].push({ role: 'user', content: budy });
+                    if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
+                    let hasil;
+                    try {
+                        const base = global.APIs?.maureonix || 'https://api.maureonix.biz.id';
+                        const key = global.APIKeys?.[base] || '';
+                        const res = await fetch(base + '/ai/chat4', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: chat_ai[m.sender], prompt: budy }) });
+                        if (res.ok) hasil = await res.json();
+                        else hasil = null;
+                    } catch(e) { hasil = null; }
+                    const response = hasil?.result?.message || 'Sorry, I don\'t understand.';
+                    chat_ai[m.sender].push({ role: 'assistant', content: response });
+                    if (chat_ai[m.sender].length > 20) chat_ai[m.sender].shift();
+                    await m.reply(response);
+                }
+            }
+        }
+
+        // AFK
+        let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])];
+        for (let jid of mentionUser) {
+            let user = db.users[jid];
+            if (user && user.afkTime && user.afkTime > -1) {
+                let reason = user.afkReason || '';
+                m.reply(`Don't tag them!\nThey are AFK ${reason ? 'because ' + reason : ''}\nTime: ${clockString(new Date - user.afkTime)}`.trim());
+            }
+        }
+        if (db.users[m.sender] && db.users[m.sender].afkTime > -1) {
+            let user = db.users[m.sender];
+            m.reply(`@${m.sender.split('@')[0]} is no longer AFK${user.afkReason ? ' because ' + user.afkReason : ''}\nTime: ${clockString(new Date - user.afkTime)}`);
+            user.afkTime = -1;
+            user.afkReason = '';
+        }
+
+        // ── .thinking COMMAND (shows hidden reasoning from AI) ──
+        if (isCmd && command === 'thinking' && !messageHandled) {
+            let thinking = AI.getThinking(m.sender);
+            // Fallback to the db store used by private / auto‑AI modes
+            if (thinking === 'No recent thinking available.' && db.thinkingSessions && db.thinkingSessions[m.sender]) {
+                thinking = db.thinkingSessions[m.sender].reasoning || '';
+            }
+            if (thinking && thinking !== 'No recent thinking available.') {
+                await m.reply(`💭 *My reasoning:*\n\n${thinking}`);
+            } else {
+                await m.reply('No reasoning available. Ask me something first, then use this command.');
+            }
+            return;
+        }
+        
+        // ─── FINAL: LOAD AND EXECUTE COMMANDS FROM maureonix_commands.js ───
+        const handleCommand = require('./maureonix_commands');
+        await handleCommand(maureonix, m, {
+            mess,
+            isCmd, command, args, text, q, prefix, isCreator, isOwner, ownerNumber,
+            set, sewa, premium, db, store, botNumber,
+            chat_ai, gemini_autoreply, gemini_history, menfes, learningSessionManager,
+            checkStatus, getExpired, formatDate, listv, fake, my, tempatDB,
+            isVip, isBan, isLimit, isPremium, isNsfw,
+            author, packname, botname, dayName, tanggal, jam, ucapanWaktu,
+            setv, fkontak, readmore, fileSha256: null, budy, body,
+            AI, Search, Tools, Fun, Economy, Admin, Daily, Health, Finance, Social, Dev, Travel, Food,
+            RAWG, TriviaMaster, PokemonGame, NumbersGame, FunAPIs, RPGAdventure,
+            slotMachine, rouletteSpin, crash, diceRoll, coinflip, rpsls, mathQuiz, anagram, numberGuess,
+            OMDB, TVMaze, AniList, Jikan, TMDB, MovieGuesser, Movie, fmtCast,
+            APISports, OddsAPI, ESPN,
+            ytMp3, ytMp4, tiktokDownload, igDownload, fbDownload,
+            twitterDownload, spotifyDownload, pinterestDownload,
+            redditDownload, soundcloudDownload, threadsDownload,
+            capcutDownload, likeeDownload, snapchatDownload,
+            vimeoDownload, dailymotionDownload, mediafireDownload,
+            gdriveDownload, apkDownload,
+            toAudio, toPTT, toVideo, generateMenuImage,
+            runtime, clockString, sleep, isUrl, formatDate, generateProfilePicture,
+            pickRandom, similarity, almost, cases, getBuffer, writeExif
+        });
+
+    } catch (e) {
+        console.error(e);
+        if (e?.message?.includes('No sessions')) return;
+        const errorKey = e?.code || e?.name || e?.message?.slice(0, 100) || 'unknown_error';
+        const now = Date.now();
+        if (!errorCache[errorKey]) errorCache[errorKey] = [];
+        errorCache[errorKey] = errorCache[errorKey].filter(ts => now - ts < 600000);
+        if (errorCache[errorKey].length >= 3) return;
+        errorCache[errorKey].push(now);
+        
+       // ── Auto‑heal via Trust Guard ──
+        try {
+            const { healingLoop } = require('./lib/maureonixTrustGuard');
+            const healed = await healingLoop.healCode(
+                e.message,
+                e.stack || '',
+                'Auto‑heal from coreHandler crash'
+            );
+            if (healed.success) {
+                console.log('[CORE] Self‑healing succeeded after', healed.iterations, 'iterations');
+            }
+        } catch (healErr) {}
+        if (m && m.reply) m.reply('Error: ' + (e?.name || e?.code || 'Unknown'));
+    }
+};
 
 module.exports = coreHandler;
+
+let file = require.resolve(__filename);
+fs.watchFile(file, () => {
+    fs.unwatchFile(file);
+    console.log(chalk.redBright(`Update ${__filename}`));
+    delete require.cache[file];
+    require(file);
+});
