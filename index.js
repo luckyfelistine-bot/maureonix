@@ -122,7 +122,7 @@ async function connectToWhatsApp() {
         const sock = makeWASocket({
             version,
             logger: pino({ level: 'silent' }),
-            printQRInTerminal: true,
+            printQRInTerminal: false,
             auth: state,
             browser: ['Maureonix', 'Chrome', '1.0.0'],
             generateHighQualityLinkPreview: true,
@@ -146,7 +146,26 @@ async function connectToWhatsApp() {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
-                console.log(chalk.yellow('QR Code received, scan to connect'));
+                // Generate pairing code instead of QR
+                try {
+                    const phoneNumber = global.pairingNumber || process.env.PAIRING_NUMBER || '';
+                    if (phoneNumber) {
+                        const code = await sock.requestPairingCode(phoneNumber);
+                        console.log(chalk.green('╔══════════════════════════════════════════════════════════════╗'));
+                        console.log(chalk.green('║  PAIRING CODE:'), chalk.white.bold(code), chalk.green('                 ║'));
+                        console.log(chalk.green('║  Phone:'), chalk.white(phoneNumber), chalk.green('                           ║'));
+                        console.log(chalk.green('╚══════════════════════════════════════════════════════════════╝'));
+                        console.log(chalk.yellow('Enter this code in WhatsApp → Linked Devices → Link a Device'));
+                    } else {
+                        console.log(chalk.red('❌ PAIRING_NUMBER not set! Set global.pairingNumber in settings.js or PAIRING_NUMBER env var.'));
+                        console.log(chalk.yellow('Falling back to QR code...'));
+                        console.log(chalk.yellow('QR Code received, scan to connect'));
+                    }
+                } catch (e) {
+                    console.error(chalk.red('[Pairing Code] Error:'), e.message);
+                    console.log(chalk.yellow('Falling back to QR code...'));
+                    console.log(chalk.yellow('QR Code received, scan to connect'));
+                }
             }
 
             if (connection === 'close') {
