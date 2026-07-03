@@ -1,443 +1,360 @@
-// Polyfill crypto.randomUUID for Node < 19
-const crypto = require('crypto');
-if (!crypto.randomUUID) {
-    crypto.randomUUID = () => 
-        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-            const r = Math.random() * 16 | 0;
-            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-        });
-}
+// index.js — Maureonix WhatsApp Bot Entry Point
+// NO circular dependencies. All modules loaded cleanly.
 
-const SecureConfig = require('./config');
-for (const [key, value] of Object.entries(SecureConfig)) {
-    if (typeof value === 'string' && !process.env[key]) process.env[key] = value;
-}
+require('./settings');
+const path = require('path');
+const fs = require('fs');
+const chalk = require('chalk');
+const { Boom } = require('@hapi/boom');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, makeInMemoryStore, getContentType } = require('@whiskeysockets/baileys');
+const pino = require('pino');
 
-const cron = require('node-cron');
-// ── Daily & Weekly reports from the new email engine ──
-let sendDailyReport, sendWeeklyReport;
-try {
-    const emailReports = require('./lib/emailReports');
-    sendDailyReport = emailReports.sendDailyReport;
-    sendWeeklyReport = emailReports.sendWeeklyReport;
-} catch (e) {
-    sendDailyReport = async () => console.log('[CRON] Daily report module not available');
-    sendWeeklyReport = async () => console.log('[CRON] Weekly report module not available');
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// STORE SETUP
+// ═══════════════════════════════════════════════════════════════════════════════
 
-if (sendDailyReport && sendWeeklyReport) {
-    cron.schedule(SecureConfig.reportDailyTime || '0 9 * * *', async () => {
-        console.log('[CRON] Daily report');
-        await sendDailyReport();
-    }, { timezone: 'Africa/Nairobi' });
+const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
 
-    cron.schedule(SecureConfig.reportWeeklyTime || '0 9 * * 1', async () => {
-        console.log('[CRON] Weekly report');
-        await sendWeeklyReport();
-    }, { timezone: 'Africa/Nairobi' });
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODULE LOADING (safe order, no circular deps)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════
-//  AUTO‑INSTALL & SYSTEM PREP
-// ═══════════════════════════════════════════════════════
-(async () => {
-    const { execSync } = require('child_process');
-    const fs = require('fs');
-    const path = require('path');
+// Load message handlers FIRST — they define LoadDataBase and SaveDataBase
+const { MessagesUpsert, GroupParticipantsUpdate, Solving, LoadDataBase, SaveDataBase } = require('./src/message');
 
-    function _detectPackageManager() {
-        try { execSync('yarn --version', { stdio: 'pipe', timeout: 5000 }); return 'yarn'; } catch {}
-        try { execSync('npm --version',  { stdio: 'pipe', timeout: 5000 }); return 'npm';  } catch {}
-        try { execSync('pnpm --version', { stdio: 'pipe', timeout: 5000 }); return 'pnpm'; } catch {}
-        return 'npm';
-    }
+// Load core processor — it receives LoadDataBase/SaveDataBase as params
+const { coreHandler, smsg, getBuffer, getGroupAdmins, getRandom, start, success, close } = require('./maureonix_core');
 
-    function _needsInstall() {
-        const pkgPath = path.join(__dirname, 'package.json');
-        if (!fs.existsSync(pkgPath)) return false;
-        const nmPath = path.join(__dirname, 'node_modules');
-        if (!fs.existsSync(nmPath)) return true;
-        try {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-            for (const dep of deps) if (!fs.existsSync(path.join(nmPath, dep))) return true;
-        } catch {}
-        return false;
-    }
+// Load nima (if available — optional)
+let nima;
+try { nima = require('./nima'); } catch (e) { nima = null; }
 
-    function _runInstall(pm) {
-        const commands = {
-            npm:  ['npm install --legacy-peer-deps --no-audit --prefer-offline', 'npm install --force --no-audit', 'npm install --legacy-peer-deps'],
-            yarn: ['yarn install --ignore-engines --network-timeout 100000', 'yarn install --ignore-engines', 'yarn install'],
-            pnpm: ['pnpm install --shamefully-hoist', 'pnpm install'],
-        };
-        for (const cmd of commands[pm] || commands['npm']) {
-            try { execSync(cmd, { stdio: 'inherit', cwd: __dirname, timeout: 180000, shell: true }); console.log('✅ Dependencies installed'); return true; } catch (e) {}
-        }
-        return false;
-    }
+// ═══════════════════════════════════════════════════════════════════════════════
+// DATABASE SETUP
+// ═══════════════════════════════════════════════════════════════════════════════
 
-    if (_needsInstall()) { const pm = _detectPackageManager(); _runInstall(pm); }
+const Database = require('./lib/database');
+const db = new Database(path.join(__dirname, 'database.json'));
 
-    // pip packages
-    (function _autoPip() {
-        const pipPackages = ['speedtest-cli', 'yt-dlp'];
-        function _getPipCmd() {
-            for (const cmd of ['pip3', 'pip']) { try { execSync(`${cmd} --version`, { stdio: 'pipe' }); return cmd; } catch {} }
-            return null;
-        }
-        const pip = _getPipCmd();
-        if (!pip) return;
-        for (const pkg of pipPackages) {
-            try { execSync(`${pip} install ${pkg} --upgrade --break-system-packages -q`, { stdio: 'pipe', timeout: 120000 }); } catch {}
-        }
-    })();
+global.db = db;
+global._databaseInstance = db;
 
-    // system tools (ffmpeg, yt-dlp binary)
-    (function _autoSystemTools() {
-        function _checkCmd(cmd) { try { execSync(`which ${cmd}`, { stdio: 'pipe' }); return true; } catch { return false; } }
-        if (!_checkCmd('ffmpeg')) {
-            try { execSync('apt-get install -y ffmpeg', { stdio: 'pipe', timeout: 120000, shell: true }); } catch {}
-        }
-        if (!_checkCmd('yt-dlp')) {
-            try { execSync('pip3 install yt-dlp --break-system-packages -q', { stdio: 'pipe', timeout: 120000, shell: true }); } catch {}
-        }
-    })();
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN CONNECTION FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
 
-})().then(async () => {
+async function connectToWhatsApp() {
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, 'session'));
+        const { version, isLatest } = await fetchLatestBaileysVersion();
+        console.log(chalk.green(`Using Baileys v${version.join('.')}, isLatest: ${isLatest}`));
 
-    require('./settings');
-    require('./protection');
-
-    if (!global.db) global.db = {};
-    if (!global.db.set) global.db.set = {};
-    if (!global.db.users) global.db.users = {};
-    if (!global.db.groups) global.db.groups = {};
-    if (!global.db.game) global.db.game = {};
-    if (!global.db.premium) global.db.premium = [];
-    if (!global.db.sewa) global.db.sewa = [];
-
-    global.learningMode = {};
-    global.learningEngines = {};
-
-    const os = require('os');
-    const pino = require('pino');
-    const axios = require('axios');
-    const chalk = require('chalk');
-    const readline = require('readline');
-    const { toBuffer } = require('qrcode');
-    const { Boom } = require('@hapi/boom');
-    const NodeCache = require('node-cache');
-    const qrcode = require('qrcode-terminal');
-    const { exec } = require('child_process');
-    const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestWaWebVersion, jidNormalizedUser } = await import('baileys');
-
-    const { dataBase } = require('./lib/database');
-    const { app, server, PORT } = require('./src/server');
-    const { assertInstalled, unsafeAgent } = require('./lib/function');
-    const { GroupParticipantsUpdate, MessagesUpsert, Solving } = require('./src/message');
-
-    // ── Validate that MessagesUpsert is actually a function ──
-    if (typeof MessagesUpsert !== 'function') {
-        console.error(chalk.red.bold('[CRITICAL] MessagesUpsert is not a function! Check src/message.js exports.'));
-        console.error('Type:', typeof MessagesUpsert);
-        process.exit(1);
-    }
-
-    const maureonix = require('./maureonix');
-    global.__maureonixHandler = maureonix;
-
-    const pairingCode = true;
-    let phoneNumber = process.env.BOT_NUMBER ? process.env.BOT_NUMBER.replace(/[^0-9]/g, '') : '254116903500';
-
-    const storeDB = dataBase(global.tempatStore);
-    const database = dataBase(global.tempatDB);
-    const msgRetryCounterCache = new NodeCache();
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    //   SYMPHONY ORCHESTRATOR INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    async function initializeSymphony(maureonixInstance) {
-        try {
-            // Set GitHub token from config so the orchestrator can pick it up
-            process.env.GITHUB_TOKEN = SecureConfig.githubToken;
-
-            const { startSymphony, symphonyOrchestrator } = require('./lib/symphonyOrchestrator');
-
-            // Validate exports
-            if (typeof startSymphony !== 'function') {
-                console.warn('[Symphony] startSymphony is not a function, skipping initialization');
-                return;
-            }
-
-            symphonyOrchestrator.notifications.setmaureonix(maureonixInstance);
-            const status = await startSymphony();
-            console.log('🎼 Symphony Orchestrator Status:', JSON.stringify(status, null, 2));
-
-            const ownerJid = Array.isArray(SecureConfig.ownerNumber)
-                ? SecureConfig.ownerNumber[0] + '@s.whatsapp.net'
-                : SecureConfig.ownerNumber + '@s.whatsapp.net';
-
-            await maureonixInstance.sendMessage(ownerJid, {
-                text: `🎼 *Symphony Orchestrator Activated*\n\n` +
-                      `📊 Status: ${status.is_running ? 'RUNNING' : 'STOPPED'}\n` +
-                      `🔥 Active: ${status.running_count}\n` +
-                      `⏳ Retrying: ${status.retrying_count}\n` +
-                      `✅ Completed: ${status.completed_count}\n\n` +
-                      `Monitoring GitHub issues every ${status.poll_interval_ms/1000}s...`
-            });
-        } catch (e) {
-            console.error('❌ Symphony initialization failed:', e.message);
-            // Don't crash the bot — log and continue
-        }
-    }
-
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    //   SUPER INTELLIGENCE INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    async function initializeSuperIntelligence() {
-        try {
-            const { superIntelligence } = require('./lib/superIntelligencePack');
-            const status = await superIntelligence.initialize();
-            console.log('🧠 Super Intelligence initialized:', JSON.stringify(status, null, 2));
-
-            // Run initial code audit after 30 seconds
-            setTimeout(async () => {
-                try {
-                    const audit = await superIntelligence.auditProject();
-                    console.log(`🔍 Initial audit: ${audit.analysis.averageScore}/100, ${audit.analysis.criticalIssues} critical issues`);
-                } catch {}
-            }, 30000);
-
-        } catch (e) {
-            console.error('❌ Super Intelligence init failed:', e.message);
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════
-    //  SIMPLE RECONNECTION (no aggressive watchdog)
-    // ═══════════════════════════════════════════════════════
-    let _reconnectCount = 0;
-    const _MAX_RECONNECT_DELAY = 60_000;
-
-    async function startmaureonixBot() {
-        if (global.maureonixInstance) {
-            try { global.maureonixInstance.ev.removeAllListeners(); global.maureonixInstance.ws?.close?.(); } catch(_) {}
-            global.maureonixInstance = null;
-        }
-        phoneNumber = global.number_bot || '254116903500';
-
-        const loadData = await database.read();
-        const storeLoadData = await storeDB.read();
-        if (!loadData || Object.keys(loadData).length === 0) {
-            global.db = { hit: {}, set: {}, cmd: {}, store: {}, users: {}, game: {}, groups: {}, database: {}, premium: [], sewa: [], ...(loadData || {}) };
-            await database.write(global.db);
-        } else global.db = loadData;
-
-        if (global.store && global.store.messages) {
-            for (const jid in global.store.messages) {
-                const entry = global.store.messages[jid];
-                if (entry.keyId && !(entry.keyId instanceof Set)) entry.keyId = new Set(Object.keys(entry.keyId));
-                else if (!entry.keyId) entry.keyId = new Set();
-                if (!entry.array) entry.array = [];
-            }
-        }
-
-        global.db.set = global.db.set || {};
-        global.db.users = global.db.users || {};
-        global.db.groups = global.db.groups || {};
-        global.db.premium = global.db.premium || [];
-        global.db.sewa = global.db.sewa || [];
-        global.db.hit = global.db.hit || {};
-        global.db.cmd = global.db.cmd || {};
-        global.db.game = global.db.game || {};
-        global.db.store = global.db.store || {};
-        global.db.jadibot = global.db.jadibot || { sessions: {}, requests: {} };
-
-        global.store = storeLoadData || { contacts: {}, presences: {}, messages: {}, groupMetadata: {} };
-
-        global.loadMessage = function (remoteJid, id) {
-            const messages = store.messages?.[remoteJid]?.array;
-            return messages?.find(msg => msg?.key?.id === id) || null;
-        };
-
-        if (!global._dbInterval) {
-            global._dbInterval = setInterval(async () => {
-                if (global.db) await database.write(global.db);
-                if (global.store) await storeDB.write(global.store);
-            }, 30_000);
-        }
-
-        const { LearningEngine } = require('./lib/learningEngine');
-        global.learningEngine = new LearningEngine();
-        const AI = require('./lib/ai');
-        global.learningEngine.setAIChat(AI.groqChat);
-        console.log('✅ Learning Engine initialized');
-
-        const { loadDocs } = require('./lib/docs'); 
-        try { loadDocs(); } catch (e) { console.log('[Docs] loadDocs skipped:', e.message); }
-
-        // ── Menu cards: safe initialization ──
-        try {
-            const menuModule = require('./lib/menuCards');
-            if (menuModule && typeof menuModule.generateMenuCards === 'function') {
-                await menuModule.generateMenuCards();
-                console.log('✅ Menu cards generated');
-            } else {
-                console.log('[STARTUP] generateMenuCards not available — using fallback');
-            }
-        } catch (e) {
-            console.log('[STARTUP] Menu card generation skipped:', e.message);
-        }
-
-        const level = pino({ level: 'silent' });
-        const { version } = await fetchLatestWaWebVersion();
-        const { state, saveCreds } = await useMultiFileAuthState('maureonixdev');
-
-        const maureonixBot = makeWASocket({
-            version, logger: level,
-            getMessage: async (key) => ((await global.loadMessage(key.remoteJid, key.id))?.message || ''),
+        const sock = makeWASocket({
+            version,
+            logger: pino({ level: 'silent' }),
+            printQRInTerminal: true,
+            auth: state,
+            browser: ['Maureonix', 'Chrome', '1.0.0'],
+            generateHighQualityLinkPreview: true,
             syncFullHistory: false,
-            maxMsgRetryCount: 15,
-            msgRetryCounterCache,
-            retryRequestDelayMs: 250,
-            defaultQueryTimeoutMs: 60_000,
-            connectTimeoutMs: 60_000,
-            keepAliveIntervalMs: 25_000,
-            maxRetries: 20,
-            printQRInTerminal: false,
-            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, level) },
+            markOnlineOnConnect: true,
+            keepAliveIntervalMs: 30000,
+            getMessage: async (key) => {
+                if (store) {
+                    const msg = await store.loadMessage(key.remoteJid, key.id);
+                    return msg?.message || undefined;
+                }
+                return undefined;
+            },
         });
 
-        global.maureonixInstance = maureonixBot;
+        // Bind store to socket
+        store.bind(sock.ev);
+        sock.ev.on('creds.update', saveCreds);
 
-        if (pairingCode && !maureonixBot.authState.creds.registered) {
-            const requestCode = async () => {
-                if (maureonixBot.authState.creds.registered) return;
-                try {
-                    let code = await maureonixBot.requestPairingCode(phoneNumber);
-                    console.log('🔑 Pairing Code:', code);
-                } catch (e) { console.log('⚠️ Pair error:', e.message); }
-            };
-            setTimeout(() => {
-                requestCode();
-                const interval = setInterval(() => {
-                    if (maureonixBot.authState.creds.registered) { clearInterval(interval); return; }
-                    requestCode();
-                }, 115000);
-            }, 3000);
+        // Initialize store (from src/message.js Solving)
+        await Solving(sock, store);
+
+        // ── Connection Update ──
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                console.log(chalk.yellow('QR Code received, scan to connect'));
+            }
+
+            if (connection === 'close') {
+                const shouldReconnect = (lastDisconnect?.error instanceof Boom)
+                    ? lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut
+                    : true;
+                console.log(chalk.red('Connection closed due to:'), lastDisconnect?.error?.message || 'Unknown');
+                console.log(chalk.yellow('Reconnecting...'));
+                if (shouldReconnect) {
+                    setTimeout(connectToWhatsApp, 5000);
+                } else {
+                    console.log(chalk.red('Logged out. Please delete session folder and restart.'));
+                    process.exit(0);
+                }
+            } else if (connection === 'open') {
+                console.log(chalk.green('✅ Connected to WhatsApp!'));
+                console.log(chalk.cyan('Bot Number:'), sock.decodeJid(sock.user.id));
+                console.log(chalk.cyan('Name:'), sock.user.name || 'Unknown');
+
+                // Send startup message to owner if configured
+                if (global.owner && global.owner[0]) {
+                    try {
+                        const ownerJid = global.owner[0][0] + '@s.whatsapp.net';
+                        await sock.sendMessage(ownerJid, {
+                            text: `🤖 *Maureonix is online!*\n\n⏰ Time: ${new Date().toLocaleString()}\n📱 Number: ${sock.decodeJid(sock.user.id)}\n👤 Name: ${sock.user.name || 'Unknown'}`,
+                        });
+                    } catch (e) {
+                        console.log(chalk.yellow('[Startup] Could not send owner notification'));
+                    }
+                }
+            }
+        });
+
+        // ── Messages Upsert ──
+        sock.ev.on('messages.upsert', async (message) => {
+            try {
+                // First: route through MessagesUpsert for dedup, store, DB init
+                await MessagesUpsert(sock, message, store);
+
+                // Second: process each message through coreHandler
+                if (message.messages && Array.isArray(message.messages)) {
+                    for (const msg of message.messages) {
+                        if (!msg || msg.key?.fromMe) continue;
+                        if (msg.key?.remoteJid === 'status@broadcast') continue;
+
+                        // Convert to smsg format
+                        const m = smsg(sock, msg, store);
+                        if (!m) continue;
+
+                        // Pass LoadDataBase and SaveDataBase as options to avoid circular deps
+                        await coreHandler(sock, m, store, { LoadDataBase, SaveDataBase });
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[messages.upsert] Error:'), e.message);
+                console.error(e.stack);
+            }
+        });
+
+        // ── Group Participants Update ──
+        sock.ev.on('group-participants.update', async (update) => {
+            try {
+                await GroupParticipantsUpdate(sock, update, store);
+            } catch (e) {
+                console.error(chalk.red('[group-participants.update] Error:'), e.message);
+            }
+        });
+
+        // ── Group Update ──
+        sock.ev.on('groups.update', async (updates) => {
+            try {
+                for (const update of updates) {
+                    console.log(chalk.cyan('[Group Update]'), update.id, update);
+                }
+            } catch (e) {
+                console.error(chalk.red('[groups.update] Error:'), e.message);
+            }
+        });
+
+        // ── Presence Update ──
+        sock.ev.on('presence.update', async (update) => {
+            try {
+                if (store && store.presences) {
+                    if (!store.presences[update.id]) store.presences[update.id] = {};
+                    Object.assign(store.presences[update.id], update.presences);
+                }
+            } catch (e) {
+                console.error(chalk.red('[presence.update] Error:'), e.message);
+            }
+        });
+
+        // ── Call (reject all calls) ──
+        sock.ev.on('call', async (callEv) => {
+            try {
+                for (const call of callEv) {
+                    if (call.status === 'offer') {
+                        console.log(chalk.yellow('[Call] Rejecting call from:'), call.from);
+                        await sock.rejectCall(call.id, call.from);
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[call] Error:'), e.message);
+            }
+        });
+
+        // ── Message Delete (anti-delete) ──
+        sock.ev.on('messages.delete', async (item) => {
+            try {
+                if (item.keys && Array.isArray(item.keys)) {
+                    for (const key of item.keys) {
+                        console.log(chalk.yellow('[Delete] Message deleted:'), key.id);
+                        // Anti-delete logic: if antidelete is enabled, notify group
+                        if (key.remoteJid && global.db?.groups?.[key.remoteJid]?.antidelete) {
+                            const deletedMsg = store?.messages?.[key.remoteJid]?.array?.find(m => m.key.id === key.id);
+                            if (deletedMsg) {
+                                await sock.sendMessage(key.remoteJid, {
+                                    text: `⚠️ *Anti-Delete Alert*\n\nSomeone deleted a message!\n\n👤 Sender: ${deletedMsg.key.participant || deletedMsg.key.remoteJid}\n📝 Content: ${deletedMsg.message?.conversation || deletedMsg.message?.extendedTextMessage?.text || '(media)'}`,
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[messages.delete] Error:'), e.message);
+            }
+        });
+
+        // ── Message Update (edit detection) ──
+        sock.ev.on('messages.update', async (updates) => {
+            try {
+                for (const update of updates) {
+                    console.log(chalk.cyan('[Message Update]'), update.key.id, update.update);
+                }
+            } catch (e) {
+                console.error(chalk.red('[messages.update] Error:'), e.message);
+            }
+        });
+
+        // ── Receipts ──
+        sock.ev.on('message-receipt.update', async (updates) => {
+            try {
+                for (const update of updates) {
+                    console.log(chalk.gray('[Receipt]'), update.key.id, update.receipt);
+                }
+            } catch (e) {
+                console.error(chalk.red('[message-receipt.update] Error:'), e.message);
+            }
+        });
+
+        // ── History sync ──
+        sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, isLatest }) => {
+            try {
+                console.log(chalk.cyan(`[History Sync] ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages. isLatest: ${isLatest}`));
+            } catch (e) {
+                console.error(chalk.red('[messaging-history.set] Error:'), e.message);
+            }
+        });
+
+        // ── Chats sync ──
+        sock.ev.on('chats.upsert', async (chats) => {
+            try {
+                for (const chat of chats) {
+                    if (store && store.chats) {
+                        store.chats[chat.id] = chat;
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[chats.upsert] Error:'), e.message);
+            }
+        });
+
+        sock.ev.on('chats.update', async (updates) => {
+            try {
+                for (const update of updates) {
+                    if (store && store.chats && store.chats[update.id]) {
+                        Object.assign(store.chats[update.id], update);
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[chats.update] Error:'), e.message);
+            }
+        });
+
+        sock.ev.on('chats.delete', async (deletions) => {
+            try {
+                for (const id of deletions) {
+                    if (store && store.chats) {
+                        delete store.chats[id];
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[chats.delete] Error:'), e.message);
+            }
+        });
+
+        // ── Contacts sync ──
+        sock.ev.on('contacts.upsert', async (contacts) => {
+            try {
+                for (const contact of contacts) {
+                    if (store && store.contacts) {
+                        store.contacts[contact.id] = contact;
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[contacts.upsert] Error:'), e.message);
+            }
+        });
+
+        sock.ev.on('contacts.update', async (updates) => {
+            try {
+                for (const update of updates) {
+                    if (store && store.contacts && store.contacts[update.id]) {
+                        Object.assign(store.contacts[update.id], update);
+                    }
+                }
+            } catch (e) {
+                console.error(chalk.red('[contacts.update] Error:'), e.message);
+            }
+        });
+
+        // ── Nima integration (if available) ──
+        if (nima && typeof nima === 'function') {
+            try {
+                await nima(sock, store, { LoadDataBase, SaveDataBase });
+            } catch (e) {
+                console.log(chalk.yellow('[Nima] Optional module not loaded:'), e.message);
+            }
         }
 
-        await Solving(maureonixBot, global.store);
+        return sock;
 
-        maureonixBot.ev.on('creds.update', saveCreds);
-
-        maureonixBot.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
-            if (connection === 'close') {
-                const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                _reconnectCount++;
-                const backoff = Math.min(5000 * Math.pow(2, Math.min(_reconnectCount - 1, 3)), _MAX_RECONNECT_DELAY);
-                console.log(`🔌 Disconnect: ${reason} | retry in ${backoff / 1000}s`);
-                setTimeout(() => startmaureonixBot(), backoff);
-            }
-            if (connection === 'open') {
-                _reconnectCount = 0;
-                console.log('✅ Connected');
-                // Initialize Symphony and Super Intelligence after successful connection
-                initializeSymphony(maureonixBot);
-                initializeSuperIntelligence();
-            }
-        });
-
-        // ── SINGLE messages.upsert handler (merged private + channel) ──
-        maureonixBot.ev.on('messages.upsert', async (message) => {
-            try {
-                await MessagesUpsert(maureonixBot, message, global.store);
-            } catch (err) {
-                console.error('[MessagesUpsert error]', err.message);
-            }
-        });
-
-        // ── Follow configured channel so bot receives channel messages ──
-        const config = require('./config');
-        const followChannel = async (attempt = 1) => {
-            if (!config.channelJid || !config.channelJid.endsWith('@newsletter')) return;
-
-            // Wait for connection to be fully open before attempting follow
-            if (maureonixBot.ws?.readyState !== 1) { // 1 = WebSocket.OPEN
-                if (attempt <= 5) {
-                    setTimeout(() => followChannel(attempt + 1), 3000 * attempt);
-                }
-                return;
-            }
-
-            try {
-                await maureonixBot.newsletterFollow(config.channelJid);
-                console.log('[CHANNEL] ✅ Following channel:', config.channelJid);
-            } catch (e) {
-                const msg = e.message || '';
-                // These are all "already following" or timing errors — suppress them
-                const expectedErrors = [
-                    'Connection Closed',
-                    'unexpected response structure',
-                    'already followed',
-                    'already a subscriber',
-                    'not-authorized',
-                    'item-not-found'
-                ];
-                const isExpected = expectedErrors.some(err => msg.includes(err));
-                if (!isExpected) {
-                    console.log('[CHANNEL] ⚠️ Follow error:', msg);
-                } else if (attempt === 1) {
-                    console.log('[CHANNEL] ℹ️ Already following channel:', config.channelJid);
-                }
-            }
-        };
-
-        // Delay follow until connection is stable
-        setTimeout(() => followChannel(), 5000);
-
-        maureonixBot.ev.on('group-participants.update', async (update) => {
-            try {
-                await GroupParticipantsUpdate(maureonixBot, update, global.store);
-            } catch (err) {
-                console.error('[GroupParticipantsUpdate error]', err.message);
-            }
-        });
-
-        maureonixBot.ev.on('groups.update', (update) => {
-            for (const n of update) {
-                if (global.store.groupMetadata[n.id]) Object.assign(global.store.groupMetadata[n.id], n);
-                else global.store.groupMetadata[n.id] = n;
-            }
-        });
-
-        maureonixBot.ev.on('presence.update', ({ id, presences: update }) => {
-            global.store.presences[id] = global.store.presences?.[id] || {};
-            Object.assign(global.store.presences[id], update);
-        });
-
-        return maureonixBot;
+    } catch (e) {
+        console.error(chalk.red('[connectToWhatsApp] Fatal error:'), e.message);
+        console.error(e.stack);
+        setTimeout(connectToWhatsApp, 10000);
     }
+}
 
-    startmaureonixBot();
+// ═══════════════════════════════════════════════════════════════════════════════
+// STARTUP
+// ═══════════════════════════════════════════════════════════════════════════════
 
-    // ── Verify yt-dlp installation ──
-    const { spawn } = require('child_process');
+console.log(chalk.cyan(`
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🤖  Maureonix WhatsApp Bot                                ║
+║   Developed by Infinite Vybeflix                            ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+`));
 
-    const test = spawn('yt-dlp', ['--version']);
+connectToWhatsApp();
 
-    test.stdout.on('data', d => console.log('✅ yt-dlp version:', d.toString().trim()));
-    test.stderr.on('data', d => console.error('❌ yt-dlp error:', d.toString()));
-    test.on('close', c => console.log('Exit code:', c));
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log(chalk.yellow('\n[Shutdown] Saving database...'));
+    try { await SaveDataBase(); } catch (e) {}
+    console.log(chalk.yellow('[Shutdown] Goodbye!'));
+    process.exit(0);
+});
 
-    process.on('SIGINT', async () => {
-        if (global.db) await database.write(global.db);
-        if (global.store) await storeDB.write(global.store);
-        process.exit(0);
-    });
+process.on('SIGTERM', async () => {
+    console.log(chalk.yellow('\n[Shutdown] Saving database...'));
+    try { await SaveDataBase(); } catch (e) {}
+    console.log(chalk.yellow('[Shutdown] Goodbye!'));
+    process.exit(0);
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (err) => {
+    console.error(chalk.red('[Uncaught Exception]'), err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error(chalk.red('[Unhandled Rejection]'), reason);
 });
