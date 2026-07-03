@@ -1,19 +1,89 @@
 // index.js — Maureonix WhatsApp Bot Entry Point
-// NO circular dependencies. All modules loaded cleanly.
+// Compatible with @whiskeysockets/baileys v6+ (no makeInMemoryStore)
 
 require('./settings');
 const path = require('path');
 const fs = require('fs');
 const chalk = require('chalk');
 const { Boom } = require('@hapi/boom');
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, makeInMemoryStore, getContentType } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STORE SETUP
+// SIMPLE IN-MEMORY STORE (replaces makeInMemoryStore for Baileys v6+)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
+class SimpleStore {
+    constructor() {
+        this.chats = {};
+        this.contacts = {};
+        this.messages = {};
+        this.groupMetadata = {};
+        this.presences = {};
+        this.state = { connection: 'close' };
+    }
+
+    bind(ev) {
+        if (!ev) return;
+
+        ev.on('chats.upsert', (chats) => {
+            for (const chat of chats) this.chats[chat.id] = chat;
+        });
+
+        ev.on('chats.update', (updates) => {
+            for (const update of updates) {
+                if (this.chats[update.id]) Object.assign(this.chats[update.id], update);
+            }
+        });
+
+        ev.on('chats.delete', (deletions) => {
+            for (const id of deletions) delete this.chats[id];
+        });
+
+        ev.on('contacts.upsert', (contacts) => {
+            for (const contact of contacts) this.contacts[contact.id] = contact;
+        });
+
+        ev.on('contacts.update', (updates) => {
+            for (const update of updates) {
+                if (this.contacts[update.id]) Object.assign(this.contacts[update.id], update);
+            }
+        });
+
+        ev.on('messages.upsert', ({ messages, type }) => {
+            if (type === 'notify' || type === 'append') {
+                for (const msg of messages) {
+                    const jid = msg.key.remoteJid;
+                    if (!jid) continue;
+                    if (!this.messages[jid]) this.messages[jid] = { array: [], keyId: new Set() };
+                    if (!this.messages[jid].keyId.has(msg.key.id)) {
+                        this.messages[jid].array.push(msg);
+                        this.messages[jid].keyId.add(msg.key.id);
+                    }
+                }
+            }
+        });
+
+        ev.on('groups.update', (updates) => {
+            for (const update of updates) {
+                if (this.groupMetadata[update.id]) Object.assign(this.groupMetadata[update.id], update);
+                else this.groupMetadata[update.id] = update;
+            }
+        });
+
+        ev.on('presence.update', ({ id, presences }) => {
+            if (!this.presences[id]) this.presences[id] = {};
+            Object.assign(this.presences[id], presences);
+        });
+    }
+
+    loadMessage(jid, id) {
+        if (!this.messages[jid]) return undefined;
+        return this.messages[jid].array.find(m => m.key.id === id);
+    }
+}
+
+const store = new SimpleStore();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE LOADING (safe order, no circular deps)
@@ -25,9 +95,8 @@ const { MessagesUpsert, GroupParticipantsUpdate, Solving, LoadDataBase, SaveData
 // Load core processor — it receives LoadDataBase/SaveDataBase as params
 const { coreHandler, smsg, getBuffer, getGroupAdmins, getRandom, start, success, close } = require('./maureonix_core');
 
-// Load nima (if available — optional)
-let nima;
-try { nima = require('./nima'); } catch (e) { nima = null; }
+// maureonix.js is the main command router (loaded dynamically by src/message.js)
+// No need to preload it here to avoid circular dependencies
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATABASE SETUP
@@ -60,15 +129,11 @@ async function connectToWhatsApp() {
             markOnlineOnConnect: true,
             keepAliveIntervalMs: 30000,
             getMessage: async (key) => {
-                if (store) {
-                    const msg = await store.loadMessage(key.remoteJid, key.id);
-                    return msg?.message || undefined;
-                }
-                return undefined;
+                return store.loadMessage(key.remoteJid, key.id)?.message || undefined;
             },
         });
 
-        // Bind store to socket
+        // Bind store to socket events
         store.bind(sock.ev);
         sock.ev.on('creds.update', saveCreds);
 
@@ -194,7 +259,7 @@ async function connectToWhatsApp() {
                         console.log(chalk.yellow('[Delete] Message deleted:'), key.id);
                         // Anti-delete logic: if antidelete is enabled, notify group
                         if (key.remoteJid && global.db?.groups?.[key.remoteJid]?.antidelete) {
-                            const deletedMsg = store?.messages?.[key.remoteJid]?.array?.find(m => m.key.id === key.id);
+                            const deletedMsg = store.loadMessage(key.remoteJid, key.id);
                             if (deletedMsg) {
                                 await sock.sendMessage(key.remoteJid, {
                                     text: `⚠️ *Anti-Delete Alert*\n\nSomeone deleted a message!\n\n👤 Sender: ${deletedMsg.key.participant || deletedMsg.key.remoteJid}\n📝 Content: ${deletedMsg.message?.conversation || deletedMsg.message?.extendedTextMessage?.text || '(media)'}`,
@@ -233,82 +298,14 @@ async function connectToWhatsApp() {
         // ── History sync ──
         sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, isLatest }) => {
             try {
-                console.log(chalk.cyan(`[History Sync] ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages. isLatest: ${isLatest}`));
+                console.log(chalk.cyan(`[History Sync] ${chats?.length || 0} chats, ${contacts?.length || 0} contacts, ${messages?.length || 0} messages. isLatest: ${isLatest}`));
             } catch (e) {
                 console.error(chalk.red('[messaging-history.set] Error:'), e.message);
             }
         });
 
-        // ── Chats sync ──
-        sock.ev.on('chats.upsert', async (chats) => {
-            try {
-                for (const chat of chats) {
-                    if (store && store.chats) {
-                        store.chats[chat.id] = chat;
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red('[chats.upsert] Error:'), e.message);
-            }
-        });
-
-        sock.ev.on('chats.update', async (updates) => {
-            try {
-                for (const update of updates) {
-                    if (store && store.chats && store.chats[update.id]) {
-                        Object.assign(store.chats[update.id], update);
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red('[chats.update] Error:'), e.message);
-            }
-        });
-
-        sock.ev.on('chats.delete', async (deletions) => {
-            try {
-                for (const id of deletions) {
-                    if (store && store.chats) {
-                        delete store.chats[id];
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red('[chats.delete] Error:'), e.message);
-            }
-        });
-
-        // ── Contacts sync ──
-        sock.ev.on('contacts.upsert', async (contacts) => {
-            try {
-                for (const contact of contacts) {
-                    if (store && store.contacts) {
-                        store.contacts[contact.id] = contact;
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red('[contacts.upsert] Error:'), e.message);
-            }
-        });
-
-        sock.ev.on('contacts.update', async (updates) => {
-            try {
-                for (const update of updates) {
-                    if (store && store.contacts && store.contacts[update.id]) {
-                        Object.assign(store.contacts[update.id], update);
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red('[contacts.update] Error:'), e.message);
-            }
-        });
-
-        // ── Nima integration (if available) ──
-        if (nima && typeof nima === 'function') {
-            try {
-                await nima(sock, store, { LoadDataBase, SaveDataBase });
-            } catch (e) {
-                console.log(chalk.yellow('[Nima] Optional module not loaded:'), e.message);
-            }
-        }
+        // ── maureonix.js is loaded dynamically by src/message.js on each message ──
+        // No preloading needed — prevents circular dependency issues
 
         return sock;
 
