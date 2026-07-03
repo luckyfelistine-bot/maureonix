@@ -102,11 +102,12 @@ const { coreHandler, smsg, getBuffer, getGroupAdmins, getRandom, start, success,
 // DATABASE SETUP
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const Database = require('./lib/database');
-const db = new Database(path.join(__dirname, 'database.json'));
+const { dataBase } = require('./lib/database');
+const db = dataBase(path.join(__dirname, 'database.json'));
 
 global.db = db;
 global._databaseInstance = db;
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN CONNECTION FUNCTION
